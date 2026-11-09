@@ -11,8 +11,15 @@ Write-Host "`n[1/3] Preparing clean app bundle..." -ForegroundColor Green
 if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
 New-Item -ItemType Directory -Path "dist" | Out-Null
 
-Copy-Item "index.html", "manager.html", "appinfo.json", "app-config.json", "icon.png", "largeIcon.png" -Destination "dist"
+Copy-Item "index.html", "manager.html", "remote.html", "ota-manifest.json", "appinfo.json", "app-config.json", "icon.png", "largeIcon.png" -Destination "dist"
 Copy-Item -Recurse "css", "js" -Destination "dist"
+
+# Sync OTA Manifest & Remote Portal to Public Cloud Gist if gh is available
+if (Get-Command gh -ErrorAction SilentlyContinue) {
+    Write-Host "`n[OTA] Syncing ota-manifest.json & remote.html to Cloud OTA Gist..." -ForegroundColor Cyan
+    gh gist edit b4408ca1c31143ed2f50164629f53f1c -a ota-manifest.json 2>$null
+    gh gist edit b4408ca1c31143ed2f50164629f53f1c -a remote.html 2>$null
+}
 
 # 2. Package IPK
 Write-Host "`n[2/3] Packaging webOS App with @webos-tools/cli..." -ForegroundColor Green
