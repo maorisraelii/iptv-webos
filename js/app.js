@@ -72,6 +72,7 @@ class IPTVApp {
   }
 
   init() {
+    window.app = this;
     this.loadFavorites();
     this.initPlayer();
     this.initRemote();
@@ -118,6 +119,9 @@ class IPTVApp {
     this.updateVideoSurfacePosition(true);
     setTimeout(() => this.updateVideoSurfacePosition(true), 150);
     window.addEventListener('resize', () => this.updateVideoSurfacePosition(true));
+    if (this.otaManager && typeof this.otaManager.applySavedOTABundle === 'function') {
+      this.otaManager.applySavedOTABundle();
+    }
   }
 
   /**
@@ -144,12 +148,20 @@ class IPTVApp {
       });
     }
 
+    // Always include the real-time Cloud Israeli XMLTV EPG feed so channels match live schedules even if M3U lacks url-tvg
+    const defaultLiveEpg =
+      (this.epg && this.epg.DEFAULT_LIVE_EPG_URL) ||
+      'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/epg-il.xml';
+    if (urls.indexOf(defaultLiveEpg) === -1) {
+      urls.push(defaultLiveEpg);
+    }
+
     const epgInput = document.getElementById('epg-url-input');
     if (epgInput) {
       if (savedEpgUrl && savedEpgUrl.trim()) {
         epgInput.value = savedEpgUrl.trim();
       } else if (urls.length > 0 && !epgInput.value) {
-        epgInput.placeholder = 'נשלף אוטומטית מה-M3U: ' + urls[0];
+        epgInput.placeholder = 'לוח שידורים חי פעיל אוטומטית (XMLTV)';
       }
     }
 
@@ -277,14 +289,13 @@ class IPTVApp {
   refreshAllSources(silentBackground) {
     const statusText = document.getElementById('settings-status-text');
     if (!silentBackground) {
-      this.showToast('טוען וממזג מקורות M3U...');
       if (statusText) statusText.textContent = 'מוריד וממזג רשימות ערוצים...';
     }
 
     this.store
       .fetchAllSources()
       .then((res) => {
-        // Load any M3U-discovered EPG URLs + user-configured EPG URL
+        // Load any M3U-discovered EPG URLs + user-configured EPG URL + real-time Cloud EPG
         this.loadActiveEPGSources(false);
 
         if (!res.compiledChannels || res.compiledChannels.length === 0) {
@@ -306,7 +317,6 @@ class IPTVApp {
         }
 
         if (!silentBackground) {
-          this.showToast('נטענו ' + this.allChannels.length + ' ערוצים');
           this.onlyFavorites = false;
           this.applyChannelFilter();
           this.restoreLastWatchedChannel();
@@ -1203,7 +1213,6 @@ class IPTVApp {
           this.highlightChannel(targetCh, true);
           this.updateOSD(targetCh, false);
           this.showOSD(4500);
-          this.showToast('עבר לערוץ ' + targetCh.number + ': ' + targetCh.name);
         }
       } else {
         const osd = document.getElementById('fullscreen-osd');
@@ -1254,9 +1263,8 @@ class IPTVApp {
       if (!targetCh) return;
 
       if (!this.selectedChannel || this.selectedChannel.id !== targetCh.id) {
-        // Channel is not currently playing -> Switch to it ONLY on OK press!
+        // Channel is not currently playing -> Switch to it ONLY on OK press! (No redundant bottom toast)
         this.highlightChannel(targetCh, true);
-        this.showToast('עבר לערוץ ' + targetCh.number + ': ' + targetCh.name);
       } else {
         // Channel is already playing -> Enter Fullscreen!
         this.enterFullscreen();
@@ -1373,15 +1381,94 @@ class IPTVApp {
 
   showNumberInputOverlay(digits) {
     const overlay = document.getElementById('channel-number-jump');
+    if (!overlay) return;
+
+    // Ensure rich preview structure exists inside #channel-number-jump (works even when hot-updated via OTA)
+    if (!document.getElementById('jump-channel-preview')) {
+      overlay.innerHTML =
+        '<div class="jump-num-box">' +
+          '<span class="jump-label">ערוץ</span>' +
+          '<span id="jump-number-digits" class="jump-digits">1</span>' +
+        '</div>' +
+        '<div id="jump-channel-preview" class="jump-channel-preview">' +
+          '<div class="jump-logo-box">' +
+            '<img id="jump-channel-logo" src="" alt="" class="hidden">' +
+            '<span id="jump-channel-monogram" class="jump-monogram">TV</span>' +
+          '</div>' +
+          '<div class="jump-preview-info">' +
+            '<div id="jump-channel-name" class="jump-channel-name">שם הערוץ</div>' +
+            '<div id="jump-channel-epg" class="jump-channel-epg">כעת: שידור ישיר</div>' +
+          '</div>' +
+        '</div>';
+    }
+
     const textEl = document.getElementById('jump-number-digits');
-    if (!overlay || !textEl) return;
-    textEl.textContent = digits;
+    const nameEl = document.getElementById('jump-channel-name');
+    const epgEl = document.getElementById('jump-channel-epg');
+    const logoImg = document.getElementById('jump-channel-logo');
+    const monogramEl = document.getElementById('jump-channel-monogram');
+
+    if (textEl) textEl.textContent = digits;
+
+    const targetNum = parseInt(digits, 10);
+    const matchedCh = !isNaN(targetNum) ? this.allChannels.find((c) => c.number === targetNum) : null;
+
+    if (matchedCh) {
+      if (nameEl) {
+        nameEl.textContent = matchedCh.name;
+        nameEl.classList.remove('not-found');
+      }
+      if (epgEl) {
+        const epgNow = this.epg ? this.epg.getNowNext(matchedCh) : null;
+        if (epgNow && epgNow.current) {
+          const timePart =
+            epgNow.current.startStr && epgNow.current.stopStr
+              ? ' (' + epgNow.current.startStr + ' - ' + epgNow.current.stopStr + ')'
+              : '';
+          epgEl.textContent = 'כעת: ' + epgNow.current.title + timePart;
+        } else {
+          epgEl.textContent = matchedCh.group || 'שידור חי';
+        }
+      }
+      if (logoImg && monogramEl) {
+        monogramEl.textContent = this.getChannelMonogram(matchedCh);
+        logoImg.classList.add('hidden');
+        monogramEl.classList.remove('hidden');
+        if (matchedCh.logo) {
+          logoImg.onload = () => {
+            if (logoImg.naturalWidth > 2) {
+              logoImg.classList.remove('hidden');
+              monogramEl.classList.add('hidden');
+            }
+          };
+          logoImg.onerror = () => {
+            logoImg.classList.add('hidden');
+            monogramEl.classList.remove('hidden');
+          };
+          logoImg.src = matchedCh.logo;
+        }
+      }
+    } else {
+      if (nameEl) {
+        nameEl.textContent = 'אין ערוץ במספר ' + digits;
+        nameEl.classList.add('not-found');
+      }
+      if (epgEl) {
+        epgEl.textContent = 'המשך להקליד ספרות...';
+      }
+      if (logoImg && monogramEl) {
+        logoImg.classList.add('hidden');
+        monogramEl.classList.remove('hidden');
+        monogramEl.textContent = '?';
+      }
+    }
+
     overlay.classList.remove('hidden');
 
     clearTimeout(this.jumpTimer);
     this.jumpTimer = setTimeout(() => {
       overlay.classList.add('hidden');
-    }, 1400);
+    }, 1500);
   }
 
   /* --------------------------------------------------------------------------

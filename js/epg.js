@@ -18,8 +18,10 @@ class EPGService {
     this.lastUpdatedMs = 0;
     this.MAX_PAST_DAYS = 7;
     this.DAY_MS = 86400000;
-    this.EPG_CACHE_KEY = 'zenplay_iptv_epg_cache_v3';
+    this.EPG_CACHE_KEY = 'zenplay_iptv_epg_cache_v48';
     this.TTL_STORAGE_KEY = 'zenplay_iptv_cache_ttl_hours';
+    this.DEFAULT_LIVE_EPG_URL =
+      'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/epg-il.xml';
   }
 
   getCacheTtlHours() {
@@ -217,6 +219,9 @@ class EPGService {
   clearCache() {
     try {
       localStorage.removeItem(this.EPG_CACHE_KEY);
+      this.programmesByChannel.clear();
+      this.channelAliasMap.clear();
+      this.dayBucketsCache.clear();
       this.lastUpdatedMs = 0;
     } catch (e) {}
   }
@@ -359,10 +364,14 @@ class EPGService {
       const maxAllowedTime = now + (2 * this.DAY_MS);
 
       if (!appendMode) {
-        // Keep only non-XMLTV generated keys cleared
         this.programmesByChannel.clear();
         this.channelAliasMap.clear();
+      } else {
+        Array.from(this.programmesByChannel.keys()).forEach((k) => {
+          if (k.indexOf('gen_') === 0) this.programmesByChannel.delete(k);
+        });
       }
+      this.dayBucketsCache.clear();
 
       // 1. Parse <channel id="..."> and its <display-name> tags
       const channelBlockRegex = /<channel\b[^>]*\bid\s*=\s*(?:"([^"]+)"|'([^']+)')[^>]*>([\s\S]*?)<\/channel>/gi;

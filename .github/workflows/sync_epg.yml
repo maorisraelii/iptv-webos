@@ -1,0 +1,31 @@
+name: Sync Real-Time Israeli EPG (XMLTV)
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-epg:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build Live Israeli EPG (epg-il.xml)
+        run: node ./scripts/build-live-epg.js
+
+      - name: Commit and Push updated epg-il.xml
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add epg-il.xml
+          git diff --staged --quiet || (git commit -m "chore(epg): auto-sync live Israeli XMLTV schedule" && git push)
