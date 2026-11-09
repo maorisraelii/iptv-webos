@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="largeIcon.png" alt="Live TV Logo" width="110" height="110" style="border-radius: 24px;" />
+  <img src="largeIcon.png" alt="Live TV Logo" width="130" height="130" style="border-radius: 28px; box-shadow: 0 12px 36px rgba(56, 189, 248, 0.3);" />
 </p>
 
 <h1 align="center">📺 Live TV for LG webOS</h1>
 
 <p align="center">
-  נגן <strong>IPTV Live TV</strong> קל-משקל, מהיר במיוחד ומותאם שלט עבור <strong>LG Smart TV</strong>.<br />
-  נבנה בהשראת העיצוב של <strong>ZenPlay</strong>, מותאם בלעדית ל-<strong>Live TV ו-M3U</strong>, ותומך ב-<strong>webOS 4.64 ו-webOS 5.0 ומעלה</strong> עם מנגנון <strong>עדכונים מהירים מהענן (OTA)</strong> ללא צורך בהתקנה מחדש של האפליקציה!
+  A lightweight, ultra-fast, remote-first <strong>IPTV Live TV Player</strong> designed specifically for <strong>LG Smart TVs (webOS)</strong>.<br />
+  Inspired by the premium UX of <strong>ZenPlay</strong>, built exclusively for <strong>Live TV &amp; M3U playlists</strong>, compatible with <strong>webOS 4.64 &amp; webOS 5.0+</strong>, and featuring <strong>instant Over-The-Air (OTA) cloud updates</strong> without ever needing to reinstall the app!
 </p>
 
 <p align="center">
@@ -20,109 +20,147 @@
 
 ---
 
-## ✨ תכונות מרכזיות
+## 📸 Screenshots
 
-- ⚡ **עדכונים חיים מהענן (Over-The-Air Auto Updates)**:
-  - לא צריך לחבר את המחשב ולהתקין קובץ IPK מחדש בכל פעם שיש עדכון!
-  - האפליקציה מכילה מנגנון **Smart Bootstrapper** הבודק את השרת המקוון בהפעלה, וטוען את הגרסה העדכנית ביותר ישירות מהאינטרנט.
-  - במידה ואין אינטרנט או שהשרת לא זמין, האפליקציה מפעילה מיידית את העותק המקומי השמור בטלוויזיה.
+<p align="center">
+  <img src="screenshots/1-browse-live.png" alt="Live TV Main Screen with Channel Sidebar and 16:9 Live Preview" width="100%" />
+  <br />
+  <em>Main Browsing View: Channel lineup with live preview and instant OK to fullscreen.</em>
+</p>
 
-- 🎯 **100% Live TV נקי ללא עומס**:
-  - מיועד נטו לשידורים חיים (ללא סרטים, סדרות או עומסי VOD מיותרים).
-  - טעינה וניתוח מהירים של קובצי וכתובות **M3U / M3U8**.
-  - חלוקה אוטומטית לקטגוריות לפי `group-title` ושמירת ערוצים מועדפים (★).
-
-- 🎮 **חוויית שלט מלאה (Remote-First UX)**:
-  - **D-Pad 5-Way**: תנועה חלקה באמצעות חיצי השלט בכל חלקי הממשק.
-  - **אישור (OK)**: לחיצה על ערוץ מעבירה אותו מיד למסך מלא (Full Screen) **ללא השהייה וללא טעינה מחדש של הזרם**!
-  - **חזרה (LG Back - קוד 461 / ESC)**: יציאה מיידית ממסך מלא חזרה למדריך הערוצים.
-  - **כפתורי צבעים בשלט LG**:
-    - 🔴 **אדום**: הגדרות פלייליסט M3U ומקלדת וירטואלית מובנית לשלט.
-    - 🟢 **ירוק**: חיפוש ערוצים בזמן אמת.
-    - 🟡 **צהוב**: הוספה / הסרה של ערוץ ממועדפים (★).
-    - 🔵 **כחול**: מעבר בין מסך מלא לתצוגת עיון (Preview).
-  - **ספרות 0-9**: הקלדת מספר ערוץ למעבר ישיר (Direct Channel Jump).
-  - **ערוץ למעלה / למטה (CH+ / CH-)**: זפינג מהיר בין ערוצים במסך מלא.
-  - תמיכה מלאה בסמן שלט האוויר (LG Magic Remote Cursor).
-
-- 📺 **תאימות מוחלטת ל-webOS 4.64, 5.0 ו-6.0+**:
-  - צריכת זיכרון מזערית (פחות מ-15MB RAM לעומת 150MB+ בנגנים מבוססי React כבדים).
-  - נגן היברידי (HTML5 Native + `Hls.js` מקומי) עם מנגנון שחזור וחיבור מחדש אוטומטי בעת נפילת שידור.
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="screenshots/2-category-rail.png" alt="Collapsible Category Rail" />
+      <p align="center"><strong>Collapsible Category Rail</strong><br />Quick access to Favorites (★), All Channels, and M3U group categories.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="screenshots/3-settings-modal.png" alt="Settings Modal with Virtual On-Screen Keyboard" />
+      <p align="center"><strong>Settings &amp; TV Keyboard</strong><br />Easily configure M3U URLs using the remote D-pad without an external keyboard.</p>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" valign="top">
+      <img src="screenshots/4-search-modal.png" alt="Live Channel Search with Virtual Keyboard" />
+      <p align="center"><strong>Instant Channel Search</strong><br />Real-time channel filtering and search across all groups.</p>
+    </td>
+  </tr>
+</table>
 
 ---
 
-## 📸 מבנה הממשק (ZenPlay Style)
+## ✨ Key Highlights
 
-```
-┌──────────────┬────────────────────────────┬────────────────────────────────────────────┐
-│   קטגוריות   │       רשימת ערוצים         │             תצוגה מקדימה חיה               │
-│ (מתקפל ימינה)│                            │                                            │
-│              │ 1. כאן 11 HD            ★  │  ┌──────────────────────────────────────┐  │
-│  ★ מועדפים   │ 2. קשת 12 HD            ★  │  │                                      │  │
-│  כל הערוצים  │ 3. רשת 13 HD               │  │             [ שידור חי ]             │  │
-│  ספורט       │ 4. עכשיו 14 HD             │  │                                      │  │
-│  חדשות       │ 5. ספורט 5 HD              │  └──────────────────────────────────────┘  │
-│  ילדים       │ 6. ספורט 5 פלוס            │   1 | כאן 11 HD    [★ במועדפים]        │
-│  סרטים       │ 7. ערוץ הסרטים             │   לחץ אישור (OK) למסך מלא                   │
-└──────────────┴────────────────────────────┴────────────────────────────────────────────┘
- 🔴 הגדרות M3U     🟢 חיפוש ערוץ     🟡 הוסף/הסר מועדף     🔵 מסך מלא
-```
+- ⚡ **Over-The-Air (OTA) Cloud Updates**:
+  - No need to reconnect your PC or reinstall `.ipk` packages whenever code changes.
+  - Features an intelligent **Smart Bootstrapper** (`js/loader.js`): on startup, it checks GitHub Pages / cloud host for updates and loads the newest version immediately.
+  - If offline or if the network is disconnected, it immediately falls back to the local bundled version with zero delay.
+
+- 🎯 **100% Focused on Live TV**:
+  - No VOD, movies, or series clutter — dedicated strictly to streaming live channels.
+  - Ultra-fast streaming parser for **M3U / M3U8** files.
+  - Automatic category grouping based on `group-title`, with channel numbers (`tvg-chno`), logos (`tvg-logo`), and favorites (★).
+
+- 🎮 **100% Remote-First UX (Built for Couch Viewing)**:
+  - Designed around 5-way D-Pad remote navigation.
+  - **Single-Press OK**: Instant fullscreen playback with seamless video handoff (no decoder restart or stream re-buffering).
+  - **Back Key (webOS 461 / ESC)**: Smoothly transitions from fullscreen back to the channel guide.
+  - **Dedicated Color Buttons**:
+    - 🔴 **Red**: M3U Playlist &amp; Cloud Settings.
+    - 🟢 **Green**: Instant Channel Search.
+    - 🟡 **Yellow**: Toggle Channel Favorite (★).
+    - 🔵 **Blue**: Toggle Fullscreen.
+  - **0-9 Keypad**: Numeric direct channel jump with on-screen confirmation badge.
+  - **Channel Up / Down (CH+ / CH-)**: Quick channel surfing during fullscreen playback.
+  - Full support for the **LG Magic Remote air-mouse cursor**.
+
+- 📺 **Full Compatibility with webOS 4.64 &amp; 5.0+**:
+  - Extremely lightweight vanilla architecture (memory footprint < 15MB vs 150MB+ in heavy frameworks).
+  - Uses the official `@webos-tools/cli` packager with compliant `requiredACG: []` metadata — eliminates the `-5: ipk verified failed` error.
+  - Hybrid player: Native HTML5 video engine + local bundled `Hls.js` with auto-reconnect &amp; recovery.
 
 ---
 
-## 📦 הורדה והתקנה על טלוויזיית LG
+## 🎮 Remote Control Mapping
 
-### אפשרות 1: הורדת ה-IPK ישירות מ-GitHub Releases (הכי פשוט!)
-1. היכנס לדף ה-Releases:
-   👉 **[IPTV Live WebOS GitHub Releases](https://github.com/maorisraelii/iptv-webos/releases)**
-2. הורד את הקובץ: **`IPTV-Live-webOS.ipk`**.
-3. פתח את תוכנת [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop) במחשב כשהטלוויזיה מחוברת.
-4. לחץ על **Install App** ובחר בקובץ ה-`IPTV-Live-webOS.ipk`.
-5. האפליקציה תותקן מיד במסך הבית של הטלוויזיה!
+| Remote Button | Action in Browse Mode | Action in Fullscreen Mode |
+| :--- | :--- | :--- |
+| **D-Pad Up / Down** | Scroll through channels / categories | Next / Previous Channel (Zap) |
+| **D-Pad Left** | Open collapsible Category Rail | Toggle Channel Info (OSD) |
+| **D-Pad Right** | Jump to Live Preview &amp; Actions | Toggle Channel Info (OSD) |
+| **OK / Enter** | **Enter Fullscreen Playback** | Show Channel Info Banner (OSD) |
+| **Back (461 / ESC)** | Return to Category Rail / Exit prompt | **Exit Fullscreen to Channel Guide** |
+| **Red Button 🔴** | Open M3U &amp; Cloud Settings | Open M3U &amp; Cloud Settings |
+| **Green Button 🟢** | Open Instant Search Modal | Open Instant Search Modal |
+| **Yellow Button 🟡** | Add / Remove highlighted channel from Favorites (★) | Add / Remove channel from Favorites |
+| **Blue Button 🔵** | Toggle Fullscreen | Toggle Fullscreen |
+| **CH+ / CH−** | Page Up / Down channel list | Switch to Previous / Next Channel |
+| **0 – 9 (Digits)** | Type channel number &amp; jump | Type channel number &amp; jump |
 
 ---
 
-### אפשרות 2: אריזה והתקנה מהירה מקומית עם PowerShell
+## 📦 Download &amp; Installation
 
-בתיקיית הפרויקט הרץ:
+### Method 1: Direct Download via GitHub Releases (Recommended)
+1. Download the latest pre-built package:
+   👉 **[Download IPTV-Live-webOS.ipk (Latest Release)](https://github.com/maorisraelii/iptv-webos/releases/latest)**
+2. Open [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop) on your PC with your TV connected.
+3. Click **Install App** and select `IPTV-Live-webOS.ipk`.
+4. The app will install immediately on your LG TV home launcher!
+
+---
+
+### Method 2: 1-Click Local Build &amp; Direct TV Install (PowerShell)
+Run the automated packaging script from your terminal:
 ```powershell
 .\package_ipk.ps1
 ```
-הסקריפט יוצר את קובץ ה-IPK העדכני. במידה והטלוויזיה שלך מוגדרת ב-`ares-cli`, תוכל להתקין ישירות:
+To install directly to a configured TV device:
 ```powershell
-.\package_ipk.ps1 -Device <TV_NAME>
+.\package_ipk.ps1 -Device tv
 ```
 
 ---
 
-## 🔄 איך עובדים העדכונים האוטומטיים (OTA)?
+### Method 3: Official webOS CLI
+```bash
+# Package from clean directory
+npm run package
 
-בכל פעם שאתה מעדכן את הקוד ודוחף אותו ל-GitHub (`git push origin main`):
-1. **GitHub Actions רץ אוטומטית:**
-   - מעדכן את האתר החי ב-**GitHub Pages** (`https://maorisraelii.github.io/iptv-webos/`).
-   - יוצר קובץ `.ipk` מעודכן ומפרסם אותו ב-Releases.
-2. **בטלוויזיה:**
-   - ברגע שתפתח את האפליקציה בטלוויזיה, היא תטען מיד את הגרסה החדשה מהענן – **ללא צורך בהתקנה מחדש לעולם!**
+# Install directly to your TV
+npx ares-install com.iptv.livetv_1.0.0_all.ipk -d <tv-device-name>
+```
 
 ---
 
-## 💻 הרצה ובדיקה במחשב
+## 🛠️ Troubleshooting: Resolving `-5: ipk verified failed`
 
-לפני התקנה בטלוויזיה, תוכל לבדוק את האפליקציה ישירות בדפדפן המחשב:
+If webOS Dev Manager or `ares-install` returns `-5: ipk verified failed`, verify the following:
+1. **TV Date &amp; Time Out of Sync (Most Common Cause)**:
+   - On your LG TV, go to: **Settings ➔ General ➔ Time &amp; Date**.
+   - Make sure your TV's clock, date, and timezone are set accurately. If set to "Automatic", toggle it off and on or set it manually. The webOS security verification system will reject any package if the TV's internal clock is incorrect.
+2. **Use the Latest Package**:
+   - Install `IPTV-Live-webOS.ipk` built with `@webos-tools/cli` and `requiredACG: []` (already updated in this repository).
+3. **Developer Mode Session**:
+   - Ensure the LG **Developer Mode** app on your TV is active and the timer has not expired.
 
+---
+
+## 💻 Local Testing &amp; Development
+
+You can run and test the TV application directly in your web browser:
 ```bash
 npm start
 ```
-ופתח בדפדפן את הכתובת:
+Then open your browser at:
 ```
 http://localhost:3000/
 ```
-
-*(מקשי החצים, Enter, Esc, ומקשי המספרים במקלדת מדמים במדויק את שלט ה-LG).*
+*(Keyboard arrows, Enter, Esc, and number keys replicate TV remote controls).*
 
 ---
 
-## 📜 רישיון
+## 📄 License
 
-פרויקט זה מופץ תחת רישיון **MIT**.
-האפליקציה היא נגן מדיה בלבד ואינה כוללת או מאחסנת שידורים או זכויות יוצרים.
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.  
+*Disclaimer: This software is purely a media player client and does not bundle, host, or distribute any IPTV streams or copyrighted content.*
