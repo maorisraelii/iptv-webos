@@ -52,6 +52,10 @@
     var remoteUrl = '';
     try {
       remoteUrl = localStorage.getItem('zenplay_iptv_remote_url') || '';
+      if (remoteUrl.indexOf('maorisraelii.github.io') !== -1) {
+        localStorage.removeItem('zenplay_iptv_remote_url');
+        remoteUrl = '';
+      }
     } catch (e) {}
 
     if (remoteUrl && remoteUrl.trim() && window.location.href.indexOf(remoteUrl) !== 0) {

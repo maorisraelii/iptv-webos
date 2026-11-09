@@ -26,6 +26,9 @@ if ($ipkFiles.Count -eq 0) {
 
 $latestIpk = $ipkFiles[0].Name
 Copy-Item $latestIpk -Destination "IPTV-Live-webOS.ipk" -Force
+if ($latestIpk -ne "com.iptv.livetv_1.0.0_all.ipk") {
+    Copy-Item $latestIpk -Destination "com.iptv.livetv_1.0.0_all.ipk" -Force
+}
 Write-Host "[OK] Package created: $latestIpk -> IPTV-Live-webOS.ipk" -ForegroundColor Green
 
 # 3. Optional Direct Install
