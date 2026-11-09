@@ -159,6 +159,10 @@ class IPTVApp {
       },
       onError: (msg) => {
         this.showToast(msg);
+      },
+      onAdaptiveBoost: (channel, level) => {
+        const chName = channel && channel.name ? channel.name : 'זה';
+        this.showToast('באפר חכם: זוהתה האטה בערוץ ' + chName + ' — מגדיל באפר אוטומטית (דרגה ' + level + ')');
       }
     });
   }
@@ -1579,7 +1583,7 @@ class IPTVApp {
   }
 
   renderPerformanceTab() {
-    const curBuffer = this.player ? this.player.bufferMode : 'deep';
+    const curBuffer = this.player ? this.player.bufferMode : 'smart';
     const curTtl = this.epg ? this.epg.getCacheTtlHours() : 24;
 
     const bufBtns = document.querySelectorAll('#buffer-mode-options .perf-option-btn');
@@ -1604,10 +1608,16 @@ class IPTVApp {
 
     const statusEl = document.getElementById('perf-cache-status');
     if (statusEl) {
-      const prof = this.player ? this.player.getBufferProfile() : { label: 'באפר גבוה (65 שניות)' };
+      const prof = this.player ? this.player.getBufferProfile() : { label: 'אוטומטי חכם' };
+      const boostedCount = this.player && typeof this.player.getProblematicChannelsCount === 'function'
+        ? this.player.getProblematicChannelsCount()
+        : 0;
       const ttlLabel =
         curTtl === 0 ? 'ידני בלבד' : curTtl === 24 ? 'כל 24 שעות' : curTtl === 72 ? 'כל 3 ימים' : 'כל 7 ימים';
-      statusEl.textContent = 'פעיל כעת: ' + prof.label + ' | רענון לוח שידורים: ' + ttlLabel;
+      const boostText = curBuffer === 'smart' && boostedCount > 0
+        ? ' (' + boostedCount + ' ערוצים במצב מוגבר)'
+        : '';
+      statusEl.textContent = 'פעיל כעת: ' + prof.label + boostText + ' | רענון לוח שידורים: ' + ttlLabel;
     }
   }
 
@@ -2094,7 +2104,11 @@ class IPTVApp {
       btnClearCache.addEventListener('click', () => {
         this.store.clearLineupCache();
         this.epg.clearCache();
-        this.showToast('זיכרון הקאש נוקה בהצלחה!');
+        if (this.player && typeof this.player.resetChannelHealthMap === 'function') {
+          this.player.resetChannelHealthMap();
+        }
+        this.renderPerformanceTab();
+        this.showToast('זיכרון הקאש ונתוני הערוצים נוקו בהצלחה!');
       });
     }
 
