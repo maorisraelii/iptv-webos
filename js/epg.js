@@ -229,54 +229,70 @@ class EPGService {
   }
 
   /**
-   * Returns Current & Next programme for fast rendering
+   * Returns Previous, Current & Next programme for fast rendering (including both startStr and stopStr for all three).
+   * O(1) fast path: only checks XMLTV map or computes 3 lightweight objects (never generates 7 days per channel).
    */
   getNowNext(channel) {
     if (!channel) return null;
     const nowMs = Date.now();
-    const list = this.getChannelProgrammes(channel);
+    const idKey = channel.epgId || channel.name;
+    const list = this.programmesByChannel.get(idKey) || this.programmesByChannel.get(channel.id);
 
-    let currentIdx = -1;
-    for (let i = 0; i < list.length; i++) {
-      if (list[i].startMs <= nowMs && list[i].stopMs > nowMs) {
-        currentIdx = i;
-        break;
+    if (list && list.length > 0) {
+      let currentIdx = -1;
+      for (let i = 0; i < list.length; i++) {
+        if (list[i].startMs <= nowMs && list[i].stopMs > nowMs) {
+          currentIdx = i;
+          break;
+        }
       }
-    }
 
-    if (currentIdx !== -1) {
-      const current = list[currentIdx];
-      const next = list[currentIdx + 1] || null;
-      const totalDuration = Math.max(1, current.stopMs - current.startMs);
-      const elapsed = Math.max(0, nowMs - current.startMs);
-      const progress = Math.min(100, Math.round((elapsed / totalDuration) * 100));
+      if (currentIdx !== -1) {
+        const prev = currentIdx > 0 ? list[currentIdx - 1] : null;
+        const current = list[currentIdx];
+        const next = list[currentIdx + 1] || null;
+        const totalDuration = Math.max(1, current.stopMs - current.startMs);
+        const elapsed = Math.max(0, nowMs - current.startMs);
+        const progress = Math.min(100, Math.round((elapsed / totalDuration) * 100));
 
-      return {
-        current: {
-          id: current.id,
-          title: current.title,
-          desc: current.desc || 'שידור חי בערוץ.',
-          start: current.start,
-          stop: current.stop,
-          startMs: current.startMs,
-          stopMs: current.stopMs,
-          startStr: this.formatTime(current.start),
-          stopStr: this.formatTime(current.stop),
-          progressPercent: progress,
-          status: 'live'
-        },
-        next: next
-          ? {
-              id: next.id,
-              title: next.title,
-              desc: next.desc,
-              startStr: this.formatTime(next.start),
-              stopStr: this.formatTime(next.stop),
-              startMs: next.startMs,
-              stopMs: next.stopMs
-            }
-          : null
-      };
+        return {
+          previous: prev
+            ? {
+                id: prev.id,
+                title: prev.title,
+                desc: prev.desc,
+                startStr: this.formatTime(prev.start),
+                stopStr: this.formatTime(prev.stop),
+                startMs: prev.startMs,
+                stopMs: prev.stopMs
+              }
+            : null,
+          current: {
+            id: current.id,
+            title: current.title,
+            desc: current.desc || 'שידור חי בערוץ.',
+            start: current.start,
+            stop: current.stop,
+            startMs: current.startMs,
+            stopMs: current.stopMs,
+            startStr: this.formatTime(current.start),
+            stopStr: this.formatTime(current.stop),
+            progressPercent: progress,
+            status: 'live'
+          },
+          next: next
+            ? {
+                id: next.id,
+                title: next.title,
+                desc: next.desc,
+                startStr: this.formatTime(next.start),
+                stopStr: this.formatTime(next.stop),
+                startMs: next.startMs,
+                stopMs: next.stopMs
+              }
+            : null
+        };
+      }
     }
 
     return this.generateSmartFallbackNowNext(channel, new Date(nowMs));
@@ -493,27 +509,45 @@ class EPGService {
   generateSmartFallbackNowNext(channel, now) {
     const startTime = new Date(now);
     startTime.setMinutes(0, 0, 0);
+    const prevStartTime = new Date(startTime.getTime() - 3600000);
     const stopTime = new Date(startTime.getTime() + 3600000);
+    const nextStopTime = new Date(stopTime.getTime() + 3600000);
     const progress = Math.min(100, Math.round((now.getMinutes() / 60) * 100));
     const templates = this.getChannelTemplates(channel);
-    const cur = this.pickTemplateForHour(templates, now.getHours(), 0);
-    const nxt = this.pickTemplateForHour(templates, (now.getHours() + 1) % 24, 0);
+    const curHour = now.getHours();
+    const prv = this.pickTemplateForHour(templates, (curHour + 23) % 24, 0);
+    const cur = this.pickTemplateForHour(templates, curHour, 0);
+    const nxt = this.pickTemplateForHour(templates, (curHour + 1) % 24, 0);
 
     return {
+      previous: {
+        id: channel.id + '_' + prevStartTime.getTime(),
+        title: prv.title,
+        desc: prv.desc,
+        startStr: this.formatTime(prevStartTime),
+        stopStr: this.formatTime(startTime),
+        startMs: prevStartTime.getTime(),
+        stopMs: startTime.getTime()
+      },
       current: {
         id: channel.id + '_' + startTime.getTime(),
         title: cur.title,
         desc: cur.desc,
         startStr: this.formatTime(startTime),
         stopStr: this.formatTime(stopTime),
+        startMs: startTime.getTime(),
+        stopMs: stopTime.getTime(),
         progressPercent: progress,
         status: 'live'
       },
       next: {
         id: channel.id + '_' + stopTime.getTime(),
         title: nxt.title,
+        desc: nxt.desc,
         startStr: this.formatTime(stopTime),
-        stopStr: this.formatTime(new Date(stopTime.getTime() + 3600000))
+        stopStr: this.formatTime(nextStopTime),
+        startMs: stopTime.getTime(),
+        stopMs: nextStopTime.getTime()
       }
     };
   }

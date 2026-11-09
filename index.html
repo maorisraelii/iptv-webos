@@ -23,12 +23,12 @@
 
     <!-- Preview Mode Corner Hint -->
     <div id="preview-fullscreen-badge" class="preview-fullscreen-badge">
-      <span>▶ לחץ OK למסך מלא</span>
+      <span>▶ לחץ OK על הערוץ הפעיל למסך מלא</span>
     </div>
 
     <!-- Catch-up / Start-Over Active Badge -->
     <div id="video-catchup-badge" class="video-catchup-badge hidden">
-      <span>↺ סטארט אובר פעיל</span>
+      <span>סטארט אובר פעיל</span>
     </div>
 
     <!-- Center Pause / Play State Badge -->
@@ -45,14 +45,14 @@
 
     <!-- Playback Error Overlay -->
     <div id="video-error-badge" class="video-error-badge hidden">
-      <span>⚠ השידור אינו זמין כעת בערוץ זה</span>
+      <span>השידור אינו זמין כעת בערוץ זה</span>
     </div>
   </div>
 
   <!-- Main Application Shell (Browse Mode: 2-Column Split Channel List + Live Preview + Program Timeline) -->
   <div id="app-shell" class="app-shell">
 
-    <!-- Top Header Bar -->
+    <!-- Top Header Bar (Pure Vector SVG Icons — 100% Compatible with all LG webOS Fonts) -->
     <header id="top-header" class="top-header">
       <div class="header-right">
         <div class="brand-badge">
@@ -65,27 +65,27 @@
 
       <div class="header-left">
         <button id="btn-filter-favs" class="top-nav-btn focusable" data-action="filter-favs">
-          <span class="btn-icon">⭐</span>
+          <svg class="svg-icon icon-gold" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
           <span id="filter-favs-label">מועדפים בלבד</span>
         </button>
 
         <button id="btn-toggle-favorite" class="top-nav-btn focusable" data-action="toggle-favorite">
-          <span id="fav-icon" class="btn-icon">☆</span>
+          <span id="fav-icon" class="btn-icon-star">★</span>
           <span id="fav-btn-label">הוסף למועדפים</span>
         </button>
 
         <button id="btn-open-guide" class="top-nav-btn top-nav-btn-guide focusable" data-action="open-guide">
-          <span class="color-badge badge-yellow" style="margin-left:8px;"></span>
+          <span class="color-badge badge-yellow" style="margin-left:10px;"></span>
           <span>מדריך תוכניות (7 ימים)</span>
         </button>
 
         <button id="btn-search-trigger" class="top-nav-btn focusable" data-action="open-search">
-          <span class="btn-icon">🔍</span>
+          <svg class="svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
           <span>חיפוש</span>
         </button>
 
         <button id="btn-open-settings" class="top-nav-btn focusable" data-action="open-settings">
-          <span class="btn-icon">⚙</span>
+          <svg class="svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
           <span>הגדרות ו-M3U</span>
         </button>
 
@@ -99,11 +99,11 @@
       <!-- Right Column: Fast O(1) Channel List -->
       <section class="channel-list-panel">
         <div class="list-instruction-bar">
-          <span>▲▼ ערוצים</span>
+          <span>▲▼ סימון ערוץ</span>
           <span class="instruction-sep">•</span>
-          <span><strong>OK</strong> מסך מלא</span>
+          <span><strong>OK</strong> מעבר לערוץ / מסך מלא</span>
           <span class="instruction-sep">•</span>
-          <span><strong>◀</strong> לתוכניות הערוץ</span>
+          <span><strong>◀</strong> לתוכניות</span>
           <span class="instruction-sep">•</span>
           <span><strong>צהוב</strong> מדריך 7 ימים</span>
         </div>
@@ -133,7 +133,7 @@
             <div class="details-title-block">
               <div class="details-badges-line">
                 <span id="preview-channel-num" class="details-ch-num">ערוץ 1</span>
-                <span class="details-live-pill">שידור חי 🔴</span>
+                <span id="preview-playing-status" class="details-live-pill">שידור חי</span>
                 <span id="preview-channel-category" class="details-group-pill">טלוויזיה חיה</span>
                 <span id="preview-channel-source" class="details-source-pill">פלייליסט ראשי</span>
               </div>
@@ -146,12 +146,12 @@
             </button>
           </div>
 
-          <!-- Current Show Synopsis & Progress -->
+          <!-- Current Show Synopsis, Progress + Previous & Next Show Times -->
           <div id="preview-epg-box" class="preview-epg-box">
             <div class="epg-now-line">
               <span id="preview-epg-badge" class="epg-badge-now">משודר כעת</span>
               <span id="preview-epg-title" class="epg-show-title">שידור ישיר</span>
-              <span id="preview-epg-time" class="epg-time-range">--:--</span>
+              <span id="preview-epg-time" class="epg-time-range">--:-- - --:--</span>
             </div>
 
             <div class="epg-progress-track">
@@ -159,12 +159,27 @@
             </div>
 
             <p id="preview-epg-desc" class="epg-synopsis">טוען תקציר ולוח שידורים...</p>
+
+            <!-- Previous & Next Show Summary Bar with Start & End Times -->
+            <div class="epg-prev-next-bar">
+              <div class="epg-adj-item">
+                <span class="epg-adj-label">הקודמת:</span>
+                <span id="preview-epg-prev-title" class="epg-adj-title">--</span>
+                <span id="preview-epg-prev-time" class="epg-adj-time">--:-- - --:--</span>
+              </div>
+              <span class="epg-adj-divider">|</span>
+              <div class="epg-adj-item">
+                <span class="epg-adj-label">הבאה בתור:</span>
+                <span id="preview-epg-next-title" class="epg-adj-title">--</span>
+                <span id="preview-epg-next-time" class="epg-adj-time">--:-- - --:--</span>
+              </div>
+            </div>
           </div>
 
           <!-- Interactive Program Strip: Previous Shows (Start-Over) + Current + Next Shows -->
           <div class="program-strip-section">
             <div class="program-strip-header">
-              <span class="strip-title">📋 לוח תוכניות בערוץ (בחר תוכנית קודמת ולחץ <strong>OK</strong> לסטארט אובר ↺):</span>
+              <span class="strip-title">רצף תוכניות בערוץ (בחר תוכנית קודמת בחץ ◀ ולחץ <strong>OK</strong> לסטארט אובר):</span>
             </div>
             <div id="channel-program-strip" class="channel-program-strip">
               <!-- Populated dynamically with 2 previous + current + 2 upcoming shows -->
@@ -181,8 +196,8 @@
     <div class="osd-card">
       <!-- Surfing Notification Banner -->
       <div id="osd-surf-prompt" class="osd-surf-prompt hidden">
-        <span class="surf-icon">⚡</span>
-        <span class="surf-text">דפדוף בערוצים: לחץ <strong>OK</strong> למעבר לערוץ זה | לחץ <strong>חזור (BACK)</strong> לביטול</span>
+        <span class="surf-dot"></span>
+        <span class="surf-text">דפדוף בפס המידע: לחץ <strong>OK</strong> למעבר לערוץ זה | לחץ <strong>BACK</strong> לביטול</span>
       </div>
 
       <div class="osd-content">
@@ -199,11 +214,11 @@
             <span id="osd-channel-category" class="osd-quality-tag">HD</span>
           </div>
 
-          <!-- OSD EPG Current Programme -->
+          <!-- OSD EPG Current Programme with Start & End Time -->
           <div class="osd-epg-line">
             <span class="epg-badge-now">משודר כעת</span>
             <span id="osd-epg-title" class="osd-epg-title">שידור ישיר</span>
-            <span id="osd-epg-time" class="osd-epg-time">--:--</span>
+            <span id="osd-epg-time" class="osd-epg-time">--:-- - --:--</span>
           </div>
 
           <!-- OSD EPG Progress Bar -->
@@ -214,15 +229,24 @@
           <!-- OSD EPG Synopsis (תקציר) -->
           <p id="osd-epg-desc" class="osd-epg-desc">טוען תקציר שידור...</p>
 
-          <!-- OSD Next Programme & Navigation Hint -->
-          <div class="osd-sub-line">
-            <div class="osd-epg-next-box">
-              <span class="epg-label-next">הבא בתור:</span>
-              <span id="osd-epg-next-title" class="osd-epg-next-title">תוכנית הבאה</span>
-              <span id="osd-epg-next-time" class="osd-epg-next-time">--:--</span>
+          <!-- OSD Previous & Next Programmes (Both with Start and End Times!) -->
+          <div class="osd-schedule-grid">
+            <div class="osd-sched-item">
+              <span class="osd-sched-badge prev-badge">הקודמת</span>
+              <span id="osd-epg-prev-title" class="osd-sched-title">תוכנית קודמת</span>
+              <span id="osd-epg-prev-time" class="osd-sched-time">--:-- - --:--</span>
             </div>
-            <span class="osd-divider">|</span>
-            <span class="osd-hint"><strong>OK</strong> פאוז/נגן • <strong>צהוב</strong> מדריך תוכניות • <strong>אדום</strong> סטארט אובר • <strong>BACK</strong> לרשימה</span>
+
+            <div class="osd-sched-item">
+              <span class="osd-sched-badge next-badge">הבאה בתור</span>
+              <span id="osd-epg-next-title" class="osd-sched-title">תוכנית הבאה</span>
+              <span id="osd-epg-next-time" class="osd-sched-time">--:-- - --:--</span>
+            </div>
+          </div>
+
+          <!-- OSD Remote Legend Line -->
+          <div class="osd-sub-line">
+            <span class="osd-hint">▲▼ זפזופ בפס המידע • <strong>OK (כשפס המידע פתוח)</strong> פאוז / נגן (▶/❚❚) • <strong>צהוב</strong> מדריך 7 ימים • <strong>אדום</strong> סטארט אובר • <strong>BACK</strong> לרשימת הערוצים</span>
           </div>
         </div>
 
@@ -247,7 +271,7 @@
   <footer id="color-bar" class="color-bar">
     <div class="color-hint">
       <span class="key-pill">OK</span>
-      <span>מסך מלא / פאוז ונגן (▶/❚❚)</span>
+      <span>מעבר לערוץ / מסך מלא / פאוז</span>
     </div>
     <div class="color-hint">
       <span class="key-pill">BACK</span>
@@ -276,8 +300,8 @@
     <div class="modal-card modal-guide-card">
       <div class="modal-header">
         <div class="guide-header-info">
-          <span class="color-badge badge-yellow" style="width:24px;height:24px;margin-left:14px;"></span>
-          <h2 id="guide-modal-title">📅 מדריך תוכניות (עד שבוע אחורה)</h2>
+          <span class="color-badge badge-yellow" style="width:22px;height:22px;margin-left:14px;"></span>
+          <h2 id="guide-modal-title">מדריך תוכניות (עד שבוע אחורה)</h2>
           <span id="guide-modal-subtitle" class="guide-subtitle-pill">בחר יום בחצים ◀ ▶ ובחר תוכנית לסטארט אובר</span>
         </div>
         <button class="modal-close-btn focusable" data-action="close-modal">✕ סגור (BACK)</button>
@@ -296,12 +320,12 @@
 
         <div class="guide-details-col">
           <div class="guide-selected-card">
-            <span id="guide-detail-status" class="guide-status-badge">זמין לסטארט אובר ↺</span>
+            <span id="guide-detail-status" class="guide-status-badge">זמין לסטארט אובר</span>
             <h3 id="guide-detail-title" class="guide-detail-title">בחר תוכנית מהרשימה</h3>
             <div id="guide-detail-time" class="guide-detail-time">--:-- - --:--</div>
             <p id="guide-detail-desc" class="guide-detail-desc">לחץ על החצים למעלה/למטה לבחירת תוכנית, או ימינה/שמאלה למעבר מהיר בין ימים (עד 7 ימים אחורה). לחיצה על OK תפעיל את התוכנית מההתחלה (סטארט אובר).</p>
             <div class="guide-action-hint">
-              <div><strong>OK בשלט:</strong> הפעל תוכנית זו מההתחלה (סטארט אובר ↺)</div>
+              <div><strong>OK בשלט:</strong> הפעל תוכנית זו מההתחלה (סטארט אובר)</div>
               <div><strong>◀ / ▶ בשלט:</strong> דפדוף מהיר בין ימים (היום עד 7 ימים אחורה)</div>
             </div>
           </div>
@@ -310,22 +334,22 @@
     </div>
   </div>
 
-  <!-- Multi-M3U, Channel Numbering & PC Sync Settings Modal -->
+  <!-- Multi-M3U, Channel Numbering, Buffer/Cache & About Settings Modal -->
   <div id="settings-modal" class="modal-backdrop hidden">
     <div class="modal-card modal-settings-card">
       <div class="modal-header">
         <div class="settings-tabs-bar">
           <button id="tab-btn-sources" class="settings-tab-btn active focusable" data-settings-tab="sources">
-            💻 מקורות M3U ומחשב
+            מקורות M3U ומחשב
           </button>
           <button id="tab-btn-channels" class="settings-tab-btn focusable" data-settings-tab="channels">
-            🔢 בחירת ערוצים ומספור
+            בחירת ערוצים ומספור
           </button>
           <button id="tab-btn-performance" class="settings-tab-btn focusable" data-settings-tab="performance">
-            ⚡ באפר וקאש (נגד תקיעות)
+            באפר וקאש (נגד תקיעות)
           </button>
           <button id="tab-btn-about" class="settings-tab-btn focusable" data-settings-tab="about">
-            ℹ️ אודות
+            אודות
           </button>
         </div>
         <button class="modal-close-btn focusable" data-action="close-modal">✕ סגור</button>
@@ -333,22 +357,20 @@
 
       <!-- TAB 1: PC Sync & Multiple M3U Sources -->
       <div id="settings-tab-sources" class="modal-body settings-tab-content">
-        <!-- PC Web Manager Sync Banner -->
         <div class="pc-sync-box">
           <div class="pc-sync-info">
-            <h3>💻 ניהול נוח מהמחשב או מהטלפון (מומלץ!)</h3>
+            <h3>ניהול נוח מהמחשב או מהטלפון (מומלץ)</h3>
             <p>כדי להוסיף מספר קישורי M3U, לבחור אילו ערוצים יוצגו מכל רשימה ולקבוע את מספרי הערוצים בקלות עם עכבר ומקלדת — הפעל במחשב את <code>npm run studio</code> (או פתח את <code>manager.html</code>) והזן כאן את כתובת ה-IP של המחשב או קישור הסנכרון:</p>
           </div>
           <div class="pc-sync-controls">
             <input type="text" id="pc-sync-input" class="tv-input focusable" placeholder="לדוגמה: 192.168.1.15 או קישור JSON" dir="ltr">
-            <button id="btn-sync-pc" class="btn-tv-primary focusable">🔄 סנכרן מהמחשב כעת</button>
+            <button id="btn-sync-pc" class="btn-tv-primary focusable">סנכרן מהמחשב כעת</button>
           </div>
         </div>
 
-        <!-- Multiple M3U Sources Manager -->
         <div class="sources-manager-section">
           <div class="section-title-row">
-            <h3>📋 מקורות פלייליסט (ריבוי רשימות M3U מתמזגות לרשימה אחת):</h3>
+            <h3>מקורות פלייליסט (ריבוי רשימות M3U מתמזגות לרשימה אחת):</h3>
             <span id="sources-count-badge" class="header-count-pill">1 מקורות</span>
           </div>
 
@@ -356,7 +378,6 @@
             <!-- Populated dynamically by app.js -->
           </div>
 
-          <!-- Add / Edit M3U Source Form -->
           <div class="add-source-row">
             <input type="text" id="m3u-source-name-input" class="tv-input source-name-input focusable" placeholder="שם המקור (למשל: ספורט / ראשי)" dir="rtl">
             <input type="text" id="m3u-url-input" class="tv-input source-url-input focusable" placeholder="https://example.com/playlist.m3u" dir="ltr">
@@ -392,7 +413,7 @@
             <button class="kb-key focusable" data-char="8">8</button>
             <button class="kb-key focusable" data-char="9">9</button>
             <button class="kb-key focusable" data-char="0">0</button>
-            <button class="kb-key kb-key-wide focusable" data-kb="backspace">מחק ⌫</button>
+            <button class="kb-key kb-key-wide focusable" data-kb="backspace">מחק</button>
           </div>
           <div class="kb-row">
             <button class="kb-key focusable" data-char="q">q</button>
@@ -463,46 +484,46 @@
       <!-- TAB 3: Stream Anti-Freeze Buffer & EPG/Playlist Cache Settings -->
       <div id="settings-tab-performance" class="modal-body settings-tab-content hidden">
         <div class="perf-section-card">
-          <h3>🛡️ גודל באפר לשידור חי (מניעת תקיעות ופריזים בשידור)</h3>
+          <h3>גודל באפר לשידור חי (מניעת תקיעות ופריזים בשידור)</h3>
           <p class="perf-desc">אם השידור נתקע לעיתים כל כמה שניות או דקות בגלל עומס אצל ספק ה-IPTV או ברשת, הגדלת הבאפר אוגרת מראש שניות שידור נוספות בזיכרון ומונעת עצירות:</p>
           <div class="perf-options-grid" id="buffer-mode-options">
             <button class="perf-option-btn focusable" data-buffer="fast">
-              <span class="perf-opt-title">⚡ מהיר (15 שניות)</span>
+              <span class="perf-opt-title">מהיר (15 שניות)</span>
               <span class="perf-opt-sub">מעבר ערוצים מהיר במיוחד (לסיבים אופטיים יציבים)</span>
             </button>
             <button class="perf-option-btn focusable" data-buffer="balanced">
-              <span class="perf-opt-title">⚖️ מאוזן (35 שניות)</span>
+              <span class="perf-opt-title">מאוזן (35 שניות)</span>
               <span class="perf-opt-sub">איזון בין מהירות זפזופ ליציבות שידור</span>
             </button>
             <button class="perf-option-btn focusable" data-buffer="deep">
-              <span class="perf-opt-title">🛡️ באפר גבוה נגד תקיעות (65 שניות - מומלץ)</span>
+              <span class="perf-opt-title">באפר גבוה נגד תקיעות (65 שניות - מומלץ)</span>
               <span class="perf-opt-sub">מונע תקיעות קטנות, קפיצות ופריזים במהלך הצפייה</span>
             </button>
             <button class="perf-option-btn focusable" data-buffer="extreme">
-              <span class="perf-opt-title">🚀 אקסטרים (120 שניות)</span>
+              <span class="perf-opt-title">אקסטרים (120 שניות)</span>
               <span class="perf-opt-sub">יציבות מקסימלית לשרתי IPTV עמוסים או חיבור אלחוטי</span>
             </button>
           </div>
         </div>
 
         <div class="perf-section-card">
-          <h3>📅 תדירות עדכון לוח שידורים (EPG) ורשימות ערוצים (קאש חכם)</h3>
+          <h3>תדירות עדכון לוח שידורים (EPG) ורשימות ערוצים (קאש חכם)</h3>
           <p class="perf-desc">כדי לא להכביד על המעבד והזיכרון של הטלוויזיה בכל פתיחה של האפליקציה, לוח השידורים והערוצים נשמרים בזיכרון המטמון (Cache) ומתעדכנים רק אחת לתקופה שתבחר:</p>
           <div class="perf-options-grid" id="cache-ttl-options">
             <button class="perf-option-btn focusable" data-ttl="24">
-              <span class="perf-opt-title">🕒 כל 24 שעות (פעם ביום - מומלץ)</span>
+              <span class="perf-opt-title">כל 24 שעות (פעם ביום - מומלץ)</span>
               <span class="perf-opt-sub">טעינה מיידית מהקאש, מתעדכן פעם ביממה בלבד</span>
             </button>
             <button class="perf-option-btn focusable" data-ttl="72">
-              <span class="perf-opt-title">📆 כל 3 ימים (72 שעות)</span>
+              <span class="perf-opt-title">כל 3 ימים (72 שעות)</span>
               <span class="perf-opt-sub">חיסכון גבוה במשאבי מעבד ורשת</span>
             </button>
             <button class="perf-option-btn focusable" data-ttl="168">
-              <span class="perf-opt-title">🗓️ פעם בשבוע (7 ימים)</span>
+              <span class="perf-opt-title">פעם בשבוע (7 ימים)</span>
               <span class="perf-opt-sub">שמירת קאש ארוכת טווח ללא הורדות ברקע</span>
             </button>
             <button class="perf-option-btn focusable" data-ttl="0">
-              <span class="perf-opt-title">🔒 ידני בלבד (ללא עדכון אוטומטי)</span>
+              <span class="perf-opt-title">ידני בלבד (ללא עדכון אוטומטי)</span>
               <span class="perf-opt-sub">מתעדכן אך ורק בלחיצה על כפתור הרענון למטה</span>
             </button>
           </div>
@@ -511,8 +532,8 @@
         <div class="perf-actions-bar">
           <div id="perf-cache-status" class="perf-cache-status">מצב קאש ובאפר פעיל</div>
           <div class="perf-action-btns">
-            <button id="btn-force-refresh-cache" class="btn-tv-primary focusable">🔄 רענן ערוצים ולוח שידורים כעת</button>
-            <button id="btn-clear-all-cache" class="btn-tv-secondary focusable">🧹 נקה זיכרון קאש</button>
+            <button id="btn-force-refresh-cache" class="btn-tv-primary focusable">רענן ערוצים ולוח שידורים כעת</button>
+            <button id="btn-clear-all-cache" class="btn-tv-secondary focusable">נקה זיכרון קאש</button>
           </div>
         </div>
       </div>
@@ -521,15 +542,15 @@
       <div id="settings-tab-about" class="modal-body settings-tab-content hidden">
         <div class="about-card">
           <div class="about-header-row">
-            <div class="about-app-icon">📺</div>
+            <div class="about-app-icon">TV</div>
             <div class="about-title-col">
               <div class="about-app-name">Live TV — LG webOS Broadcast Player</div>
-              <div class="about-app-version">גרסה 4.1.0 • Production Anti-Freeze Edition (webOS 4.64 &amp; 5.0+)</div>
+              <div class="about-app-version">גרסה 4.2.0 • Production Anti-Freeze Edition (webOS 4.64 &amp; 5.0+)</div>
             </div>
           </div>
 
           <div class="about-developer-box">
-            <h3>👨‍💻 פיתוח, ארכיטקטורה ועיצוב מערכת</h3>
+            <h3>פיתוח, ארכיטקטורה ועיצוב מערכת</h3>
             <div class="about-info-grid">
               <div class="about-info-item">
                 <span class="about-label">מפתח ראשי (Lead Developer):</span>
@@ -551,7 +572,7 @@
           </div>
 
           <div class="about-features-box">
-            <h3>✨ יכולות מרכזיות במערכת</h3>
+            <h3>יכולות מרכזיות במערכת</h3>
             <ul>
               <li><strong>מנוע וידאו Anti-Freeze כפול:</strong> באפר עמוק להתגברות על תקיעות רשת, מעבר אוטומטי על פערי שידור (Watchdog) ותמיכה בנגן החומרה המובנה של LG.</li>
               <li><strong>קאש חכם ומהירות שיא (O(1) Navigation):</strong> פתיחה מיידית ב-0 השהיה ועדכון לוח שידורים חסכוני (כל 24 שעות / 3 ימים / 7 ימים).</li>
@@ -568,7 +589,7 @@
   <div id="search-modal" class="modal-backdrop hidden">
     <div class="modal-card modal-search-card">
       <div class="modal-header">
-        <h2>🔍 חיפוש ערוץ מהיר</h2>
+        <h2>חיפוש ערוץ מהיר</h2>
         <button class="modal-close-btn focusable" data-action="close-modal">✕ סגור</button>
       </div>
       <div class="modal-body search-layout">
