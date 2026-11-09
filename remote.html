@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>העלאת M3U לטלוויזיה - Live TV Remote Sync</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+    body { background: #070b14; color: #f8fafc; padding: 18px; line-height: 1.45; }
+    .card { max-width: 580px; margin: 0 auto; background: #0f172a; border: 2px solid rgba(56, 189, 248, 0.4); border-radius: 20px; padding: 22px; box-shadow: 0 12px 32px rgba(0,0,0,0.5); }
+    .brand { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 14px; margin-bottom: 16px; }
+    .brand h1 { font-size: 22px; font-weight: 900; color: #38bdf8; }
+    .badge { background: #0284c7; color: #fff; font-size: 13px; font-weight: 800; padding: 4px 10px; border-radius: 8px; }
+    label { display: block; font-size: 15px; font-weight: 800; color: #cbd5e1; margin-bottom: 6px; margin-top: 14px; }
+    input[type="text"], input[type="url"], textarea {
+      width: 100%; padding: 12px 14px; font-size: 16px; background: #070b14; color: #fff;
+      border: 2px solid rgba(255,255,255,0.2); border-radius: 12px; outline: none;
+    }
+    input:focus, textarea:focus { border-color: #38bdf8; }
+    .code-input { font-size: 26px !important; font-weight: 900; text-align: center; letter-spacing: 6px; color: #38bdf8 !important; direction: ltr; }
+    .ltr-input { direction: ltr; text-align: left; }
+    .file-box { margin-top: 12px; padding: 12px; border: 2px dashed rgba(56, 189, 248, 0.45); border-radius: 12px; background: rgba(2, 132, 199, 0.08); text-align: center; }
+    .file-box input { margin-top: 8px; font-size: 14px; color: #bae6fd; max-width: 100%; }
+    .btn { width: 100%; margin-top: 18px; padding: 14px; font-size: 18px; font-weight: 900; border: none; border-radius: 14px; cursor: pointer; background: #0284c7; color: #fff; }
+    .btn:active { transform: scale(0.99); background: #0369a1; }
+    .btn-add { margin-top: 10px; padding: 10px; font-size: 15px; background: #1e293b; border: 1px solid rgba(255,255,255,0.2); color: #e2e8f0; }
+    .status { margin-top: 16px; padding: 12px 14px; border-radius: 12px; font-size: 15px; font-weight: 700; display: none; text-align: center; }
+    .status.ok { display: block; background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; color: #6ee7b7; }
+    .status.err { display: block; background: rgba(225, 29, 72, 0.2); border: 1px solid #f43f5e; color: #fda4af; }
+    .sources-list { margin-top: 12px; }
+    .src-row { display: flex; align-items: center; justify-content: space-between; background: #16213a; padding: 8px 12px; border-radius: 10px; margin-bottom: 6px; font-size: 14px; }
+    .src-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 75%; direction: ltr; }
+    .src-del { background: #e11d48; color: #fff; border: none; border-radius: 6px; padding: 3px 8px; cursor: pointer; font-weight: 800; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <h1>העלאת M3U לטלוויזיה</h1>
+      <span class="badge">LG webOS Sync</span>
+    </div>
+    <p style="font-size: 14px; color: #94a3b8;">
+      הדבק כאן קישור M3U (או העלה קובץ M3U מהטלפון/מחשב) ולחץ <strong>"שלח לטלוויזיה"</strong>. הערוצים יופיעו בטלוויזיה תוך 2 שניות ללא הקלדה בשלט!
+    </p>
+
+    <label>1. קוד טלוויזיה (מופיע במסך ההגדרות בטלוויזיה):</label>
+    <input type="text" id="tv-code" class="code-input" maxlength="8" placeholder="1234" />
+
+    <label>2. הוסף קישור M3U / M3U8 (ניתן להוסיף מספר מקורות):</label>
+    <input type="text" id="src-name" placeholder="שם המקור (למשל: ערוצי ישראל)" style="margin-bottom: 8px;" />
+    <input type="url" id="src-url" class="ltr-input" placeholder="https://example.com/playlist.m3u8" />
+    <button type="button" class="btn btn-add" id="btn-add-list">+ הוסף לרשימת המשלוח</button>
+
+    <div class="sources-list" id="sources-list"></div>
+
+    <div class="file-box">
+      <div style="font-size: 14px; font-weight: 800; color: #7dd3fc;">או בחר קובץ .m3u / .m3u8 ישירות מהמכשיר:</div>
+      <input type="file" id="m3u-file" accept=".m3u,.m3u8,text/plain,audio/x-mpegurl" />
+    </div>
+
+    <label>3. קישור לוח שידורים EPG XMLTV (אופציונלי):</label>
+    <input type="url" id="epg-url" class="ltr-input" placeholder="https://example.com/epg.xml" />
+
+    <button type="button" class="btn" id="btn-send">שלח לטלוויזיה כעת ▶</button>
+    <div id="status-box" class="status"></div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const codeInput = document.getElementById('tv-code');
+    if (params.get('code')) {
+      codeInput.value = params.get('code').trim();
+    }
+
+    const stagedSources = [];
+    const listEl = document.getElementById('sources-list');
+
+    function renderStaged() {
+      listEl.innerHTML = '';
+      stagedSources.forEach((s, idx) => {
+        const d = document.createElement('div');
+        d.className = 'src-row';
+        d.innerHTML = '<strong>' + s.name + ':</strong> <span>' + (s.url || ('קובץ (' + s.rawContent.length + ' תווים)')) + '</span> <button class="src-del" data-idx="' + idx + '">✕</button>';
+        d.querySelector('.src-del').onclick = () => {
+          stagedSources.splice(idx, 1);
+          renderStaged();
+        };
+        listEl.appendChild(d);
+      });
+    }
+
+    document.getElementById('btn-add-list').onclick = () => {
+      const nameIn = document.getElementById('src-name');
+      const urlIn = document.getElementById('src-url');
+      const u = urlIn.value.trim();
+      if (!u) return;
+      stagedSources.push({
+        id: 'src_' + Date.now() + '_' + stagedSources.length,
+        name: nameIn.value.trim() || ('פלייליסט #' + (stagedSources.length + 1)),
+        url: u,
+        enabled: true
+      });
+      nameIn.value = '';
+      urlIn.value = '';
+      renderStaged();
+    };
+
+    document.getElementById('m3u-file').onchange = (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const text = String(reader.result || '');
+        if (text.indexOf('#EXTM3U') !== -1 || text.indexOf('#EXTINF') !== -1) {
+          const dataUrl = 'data:audio/x-mpegurl;charset=utf-8,' + encodeURIComponent(text);
+          stagedSources.push({
+            id: 'src_file_' + Date.now(),
+            name: file.name.replace(/\.(m3u8?|txt)$/i, ''),
+            url: dataUrl,
+            enabled: true
+          });
+          renderStaged();
+        } else {
+          alert('הקובץ שנבחר אינו קובץ M3U תקין.');
+        }
+      };
+      reader.readAsText(file);
+    };
+
+    document.getElementById('btn-send').onclick = async () => {
+      const statusBox = document.getElementById('status-box');
+      const code = codeInput.value.trim();
+      if (!code || code.length < 3) {
+        statusBox.className = 'status err';
+        statusBox.textContent = 'נא להזין את קוד הטלוויזיה (4 ספרות) המופיע בהגדרות האפליקציה בטלוויזיה.';
+        return;
+      }
+
+      const pendingUrl = document.getElementById('src-url').value.trim();
+      const pendingName = document.getElementById('src-name').value.trim();
+      if (pendingUrl) {
+        stagedSources.push({
+          id: 'src_' + Date.now(),
+          name: pendingName || ('פלייליסט #' + (stagedSources.length + 1)),
+          url: pendingUrl,
+          enabled: true
+        });
+        document.getElementById('src-url').value = '';
+        document.getElementById('src-name').value = '';
+        renderStaged();
+      }
+
+      if (stagedSources.length === 0) {
+        statusBox.className = 'status err';
+        statusBox.textContent = 'נא להדביק לפחות קישור M3U אחד או לבחור קובץ M3U.';
+        return;
+      }
+
+      statusBox.className = 'status ok';
+      statusBox.textContent = 'שולח רשימות M3U לטלוויזיה (קוד ' + code + ')...';
+
+      const payload = {
+        type: 'ZENPLAY_M3U_PUSH',
+        timestamp: Date.now(),
+        code: code,
+        sources: stagedSources,
+        epgUrl: document.getElementById('epg-url').value.trim()
+      };
+
+      try {
+        const topic = 'zenplay_iptv_tv_' + code.toLowerCase();
+        const res = await fetch('https://ntfy.sh/' + topic, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        statusBox.className = 'status ok';
+        statusBox.textContent = 'נשלח בהצלחה לטלוויזיה! הערוצים נטענים כעת על המסך.';
+      } catch (err) {
+        statusBox.className = 'status err';
+        statusBox.textContent = 'שגיאה בשליחה: ' + err.message;
+      }
+    };
+  </script>
+</body>
+</html>

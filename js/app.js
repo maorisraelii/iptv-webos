@@ -25,6 +25,7 @@ class IPTVApp {
     this.epg = new EPGService();
     this.player = null;
     this.remote = null;
+    this.otaManager = null;
 
     this.allChannels = [];
     this.favorites = new Set();
@@ -76,6 +77,11 @@ class IPTVApp {
     this.initRemote();
     this.initClock();
     this.bindDOMEvents();
+
+    if (typeof OTACloudManager !== 'undefined') {
+      this.otaManager = new OTACloudManager(this);
+      this.otaManager.initStartupChecks();
+    }
 
     try {
       window.focus();
@@ -768,6 +774,10 @@ class IPTVApp {
         surfPrompt.classList.add('hidden');
       }
     }
+
+    if (this.otaManager) {
+      this.otaManager.updateVersionBadgesUI();
+    }
   }
 
   showOSD(duration) {
@@ -958,8 +968,8 @@ class IPTVApp {
       return;
     }
 
-    // 3. SETTINGS / SEARCH MODAL MODE
-    if (this.mode === 'SETTINGS' || this.mode === 'SEARCH') {
+    // 3. SETTINGS / SEARCH / OTA MODAL MODE
+    if (this.mode === 'SETTINGS' || this.mode === 'SEARCH' || this.mode === 'OTA') {
       this.navigateModal(direction);
       return;
     }
@@ -1112,8 +1122,8 @@ class IPTVApp {
       return;
     }
 
-    // 3. SETTINGS / SEARCH MODAL MODE
-    if (this.mode === 'SETTINGS' || this.mode === 'SEARCH') {
+    // 3. SETTINGS / SEARCH / OTA MODAL MODE
+    if (this.mode === 'SETTINGS' || this.mode === 'SEARCH' || this.mode === 'OTA') {
       if (this.currentFocusedEl) {
         if (this.currentFocusedEl.tagName === 'INPUT') {
           this.activeSettingsInputId = this.currentFocusedEl.id;
@@ -1509,7 +1519,7 @@ class IPTVApp {
      -------------------------------------------------------------------------- */
 
   isModalOpen() {
-    return this.mode === 'SETTINGS' || this.mode === 'SEARCH' || this.mode === 'GUIDE';
+    return this.mode === 'SETTINGS' || this.mode === 'SEARCH' || this.mode === 'GUIDE' || this.mode === 'OTA';
   }
 
   openSettingsModal() {
@@ -1525,6 +1535,10 @@ class IPTVApp {
     }
 
     this.renderSourcesManagerList();
+    if (this.otaManager) {
+      this.otaManager.startCloudSyncPolling();
+      this.otaManager.updateVersionBadgesUI();
+    }
     const osd = document.getElementById('fullscreen-osd');
     if (osd) osd.classList.add('hidden');
     const pauseBadge = document.getElementById('video-pause-indicator');
@@ -1765,6 +1779,9 @@ class IPTVApp {
   }
 
   closeModals() {
+    if (this.otaManager) {
+      this.otaManager.stopCloudSyncPolling();
+    }
     const modals = document.querySelectorAll('.modal-backdrop');
     for (let i = 0; i < modals.length; i++) {
       modals[i].classList.add('hidden');
@@ -2078,6 +2095,26 @@ class IPTVApp {
         this.store.clearLineupCache();
         this.epg.clearCache();
         this.showToast('זיכרון הקאש נוקה בהצלחה!');
+      });
+    }
+
+    // Check Cloud M3U Push from Phone QR / PC 4-Digit Code
+    const btnCheckCloudPush = document.getElementById('btn-check-cloud-push');
+    if (btnCheckCloudPush) {
+      btnCheckCloudPush.addEventListener('click', () => {
+        if (this.otaManager) {
+          this.otaManager.pollCloudM3UPush(false);
+        }
+      });
+    }
+
+    // Check OTA Update Now Button (in About Tab)
+    const btnCheckOtaNow = document.getElementById('btn-check-ota-now');
+    if (btnCheckOtaNow) {
+      btnCheckOtaNow.addEventListener('click', () => {
+        if (this.otaManager) {
+          this.otaManager.checkForOTAUpdate(true);
+        }
       });
     }
 

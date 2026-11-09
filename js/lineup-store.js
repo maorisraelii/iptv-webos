@@ -127,10 +127,34 @@ class LineupStore {
   }
 
   /**
+   * Smart URL & Short-Code Normalizer:
+   * - Expands 8-char Pastebin codes (e.g. "xYz123Ab" -> "https://pastebin.com/raw/xYz123Ab")
+   * - Converts "pastebin.com/xYz123Ab" -> "https://pastebin.com/raw/xYz123Ab"
+   * - Prepends "https://" to short links (bit.ly/..., is.gd/..., etc.)
+   * - Preserves data: URLs from direct .m3u file uploads
+   */
+  normalizeM3uInput(rawInput) {
+    const val = (rawInput || '').trim();
+    if (!val) return '';
+    if (val.indexOf('data:') === 0) return val;
+    if (/^[a-zA-Z0-9]{8}$/.test(val)) {
+      return 'https://pastebin.com/raw/' + val;
+    }
+    const pbMatch = val.match(/^(?:https?:\/\/)?pastebin\.com\/(?:raw\/)?([a-zA-Z0-9]+)$/i);
+    if (pbMatch && pbMatch[1]) {
+      return 'https://pastebin.com/raw/' + pbMatch[1];
+    }
+    if (val.indexOf('http://') !== 0 && val.indexOf('https://') !== 0) {
+      return 'https://' + val;
+    }
+    return val;
+  }
+
+  /**
    * Add or update an M3U source
    */
   addSource(name, url) {
-    const cleanUrl = (url || '').trim();
+    const cleanUrl = this.normalizeM3uInput(url);
     if (!cleanUrl) return null;
     const id = 'src_' + Date.now().toString(36) + '_' + (this.sources.length + 1);
     const src = {
@@ -148,7 +172,7 @@ class LineupStore {
     for (let i = 0; i < this.sources.length; i++) {
       if (this.sources[i].id === id) {
         if (typeof updates.name === 'string') this.sources[i].name = updates.name;
-        if (typeof updates.url === 'string') this.sources[i].url = updates.url.trim();
+        if (typeof updates.url === 'string') this.sources[i].url = this.normalizeM3uInput(updates.url);
         if (typeof updates.enabled === 'boolean') this.sources[i].enabled = updates.enabled;
         this.saveSources();
         return this.sources[i];
@@ -212,11 +236,20 @@ class LineupStore {
 
     let discoveredEpgUrl = '';
     const fetchPromises = activeSources.map((src) => {
-      return fetch(src.url)
-        .then((res) => {
+      const normalizedUrl = this.normalizeM3uInput(src.url);
+      let textPromise;
+      if (normalizedUrl.indexOf('data:') === 0) {
+        const commaIdx = normalizedUrl.indexOf(',');
+        const encoded = commaIdx !== -1 ? normalizedUrl.substring(commaIdx + 1) : '';
+        textPromise = Promise.resolve(decodeURIComponent(encoded));
+      } else {
+        textPromise = fetch(normalizedUrl).then((res) => {
           if (!res.ok) throw new Error('HTTP ' + res.status + ' (' + src.name + ')');
           return res.text();
-        })
+        });
+      }
+
+      return textPromise
         .then((text) => {
           const parsed = this.parser.parse(text, { id: src.id, name: src.name });
           if (parsed.epgUrl && !discoveredEpgUrl) {
