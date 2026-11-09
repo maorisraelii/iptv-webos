@@ -1,33 +1,62 @@
 /**
- * Over-The-Air (OTA) Bootstrapper & Auto-Updater for LG webOS TV
- * Ensures local high-performance runtime with remote control integrity.
+ * Polyfills & Bootstrapper for LG webOS TV (webOS 4.64 Chromium 53 & webOS 5.0 Chromium 68+)
  */
+
+(function initWebOSPolyfills() {
+  // String.prototype.padStart polyfill for Chromium 53 (webOS 4.x)
+  if (!String.prototype.padStart) {
+    String.prototype.padStart = function padStart(targetLength, padString) {
+      targetLength = targetLength >> 0;
+      padString = String(typeof padString !== 'undefined' ? padString : ' ');
+      if (this.length > targetLength) {
+        return String(this);
+      } else {
+        targetLength = targetLength - this.length;
+        if (targetLength > padString.length) {
+          padString += padString.repeat(targetLength / padString.length);
+        }
+        return padString.slice(0, targetLength) + String(this);
+      }
+    };
+  }
+
+  // NodeList.prototype.forEach polyfill
+  if (window.NodeList && !NodeList.prototype.forEach) {
+    NodeList.prototype.forEach = Array.prototype.forEach;
+  }
+})();
 
 (function initOtaLoader() {
   function dismissSplash() {
     var splash = document.getElementById('boot-splash');
     if (splash) {
       splash.style.opacity = '0';
-      splash.style.transition = 'opacity 300ms ease-out';
+      splash.style.transition = 'opacity 280ms ease-out';
       setTimeout(function() {
         splash.classList.add('hidden');
-      }, 320);
+        if (window.app && typeof window.app.updateVideoSurfacePosition === 'function') {
+          window.app.updateVideoSurfacePosition();
+        }
+      }, 300);
     }
 
-    // Force focus to document body for immediate webOS remote responsiveness
-    window.focus();
-    if (document.body) {
-      document.body.focus();
-    }
+    try {
+      window.focus();
+      if (document.body) {
+        document.body.focus();
+      }
+    } catch (e) {}
   }
 
   function checkAndBoot() {
-    var remoteUrl = localStorage.getItem('zenplay_iptv_remote_url');
+    var remoteUrl = '';
+    try {
+      remoteUrl = localStorage.getItem('zenplay_iptv_remote_url') || '';
+    } catch (e) {}
 
-    // Only redirect if the user explicitly saved a custom remote URL in settings
-    if (remoteUrl && remoteUrl.trim() && !window.location.href.startsWith(remoteUrl)) {
+    if (remoteUrl && remoteUrl.trim() && window.location.href.indexOf(remoteUrl) !== 0) {
       var splashText = document.getElementById('boot-splash-text');
-      if (splashText) splashText.textContent = 'טוען גרסה מותאמת אישית...';
+      if (splashText) splashText.textContent = 'טוען גרסה מעודכנת...';
 
       fetch(remoteUrl, { method: 'HEAD', cache: 'no-cache' })
         .then(function(res) {
@@ -43,7 +72,6 @@
       return;
     }
 
-    // Native local execution (best for webOS TV remote and decoder performance)
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
       setTimeout(dismissSplash, 150);
     } else {

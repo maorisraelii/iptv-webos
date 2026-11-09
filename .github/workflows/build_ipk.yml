@@ -64,22 +64,19 @@ jobs:
           RELEASE_TITLE="Live TV webOS v1.0.${{ github.run_number }}"
           
           NOTES=$(cat << 'EOF'
-          ## 📺 Live TV for LG webOS TV
+          ## 📺 Live TV for LG webOS TV (Production Redesign)
 
           ### 🚀 מה חדש בעדכון זה:
-          - **כפתורי צבעים בשלט (Remote Color Buttons):**
-            - 🔴 אדום: **סטארט אובר (Start Over)** - חזרה לתחילת השידור.
-            - 🟢 ירוק: **הרצה אחורה 30 שניות (Rewind 30s)**.
-            - 🟡 צהוב: **פאוז / נגן (Pause / Play)**.
-            - 🔵 כחול: **הרצה קדימה 30 שניות (Fast-Forward 30s)**.
-          - **לוח שידורים (EPG) ותקציר מלא (Synopsis):**
-            - תמיכה בטעינת קובצי XMLTV ישירות מכותרות ה-M3U (`url-tvg`) או דרך מסך ההגדרות.
-            - מנוע שידורים חכם המבטיח הצגת תוכנית נוכחית, זמנים מדויקים, פס התקדמות בזמן אמת, תקציר עלילה מפורט ותוכנית הבאה בתור.
-          - **זפינג מהיר בפס מידע במסך מלא (Fullscreen Info-Bar Surfing):**
-            - במסך מלא, לחיצה על חצים למעלה/למטה (▲▼) מדפדפת בין הערוצים ומציגה את המידע והתקציר בפס המידע מבלי להפריע או להחליף את שידור הווידאו!
-            - מעבר ערוץ מתבצע רק בלחיצה על OK (או ביטול בלחיצה על ⮌ Back).
-          - **עדכונים חיים מהענן (OTA):** מתעדכן אוטומטית בעת פתיחה ללא צורך בהתקנת IPK מחדש.
-          - **תאימות מלאה ל-LG webOS 4.64 ו-webOS 5.0 ומעלה.**
+          - **עיצוב מחדש מלא של המסך הראשי (Senior-Friendly Production UI):**
+            - הסרת מגירת הקטגוריות המיותרת וכפתורי המסך המלא הכפולים לממשק נקי ואינטואיטיבי ב-2 עמודות (רשימת ערוצים מימין + מסך תצוגה מקדימה חיה ולוח שידורים משמאל).
+            - **הגדלת גופנים משמעותית בכל האפליקציה** לקריאה נוחה ממרחק ספה (3-4 מטרים).
+          - **תיקון תצוגה מקדימה חיה (Live Preview Window):**
+            - תיקון שכבות הווידאו (`z-index`) ומנגנון מעבר חכם לנגן החומרה המובנה של LG webOS במקרה של חסימות CORS.
+          - **תיקון זפזופ בשלט רחוק של LG:**
+            - תיקון באג קפיצה כפולה (דילוג של 2 ערוצים בכל לחיצה) ע"י הסרת מאזין כפול והוספת סינון כפילויות חומרה.
+            - תיקון כיוון זפזופ הערוצים (לחיצה למעלה / CH+ מעלה מספר ערוץ באחד, ולמטה מורידה באחד) וגלילה חלקה ללא קפיצות של כל הרשימה.
+          - **תיקון סמל האפליקציה (App Icon) בפס האפליקציות של LG webOS:**
+            - ייצור מחדש של `icon.png` (80x80) ו-`largeIcon.png` (130x130) מיושרים וממורכזים ב-100%.
 
           ---
           📦 **הורדת קובץ התקנה:** הורד את `IPTV-Live-webOS.ipk` והתקן בטלוויזיה עם webOS Dev Manager.
@@ -93,6 +90,7 @@ jobs:
 
       - name: Prepare Pages Deployment Directory
         if: github.ref == 'refs/heads/main'
+        continue-on-error: true
         run: |
           mkdir -p _site
           cp -r dist/* _site/
@@ -100,6 +98,7 @@ jobs:
 
       - name: Upload Pages Artifact
         if: github.ref == 'refs/heads/main'
+        continue-on-error: true
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
@@ -107,6 +106,7 @@ jobs:
   deploy-pages:
     if: github.ref == 'refs/heads/main'
     needs: build-and-release
+    continue-on-error: true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -114,4 +114,5 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
+        continue-on-error: true
         uses: actions/deploy-pages@v4

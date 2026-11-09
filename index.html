@@ -3,229 +3,209 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Live TV</title>
+  <title>Live TV - IPTV</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body class="theme-zenplay">
-  <!-- Boot Splash & OTA Update Check -->
-  <div id="boot-splash" class="boot-splash hidden">
-    <div class="boot-splash-content">
-      <div class="boot-logo-box">
-        <div class="boot-dot"></div>
-        <div class="boot-logo-text">Live TV</div>
-      </div>
-      <div class="boot-spinner"></div>
-      <div id="boot-splash-text" class="boot-splash-text">בודק עדכונים...</div>
+<body tabindex="0">
+
+  <!-- Boot Splash Screen -->
+  <div id="boot-splash" class="boot-splash">
+    <div class="splash-logo">
+      <span class="splash-dot"></span>
+      <span>Live TV</span>
     </div>
+    <div class="splash-spinner"></div>
+    <div id="boot-splash-text" class="splash-status">טוען שידורים חיים...</div>
   </div>
 
-  <!-- Dynamic Mesh Background -->
-  <div id="mesh-bg" class="mesh-bg">
-    <div class="mesh-blob blob-1"></div>
-    <div class="mesh-blob blob-2"></div>
-  </div>
-
-  <!-- Shared High Performance Video Player Surface -->
+  <!-- Shared Video Player Surface (Floats inside #preview-frame in Browse Mode, expands 100% in Fullscreen) -->
   <div id="video-surface" class="video-surface preview-mode">
-    <video id="tv-video" playsinline webkit-playsinline></video>
+    <video id="tv-video" playsinline autoplay></video>
+
+    <!-- Preview Mode Corner Hint -->
+    <div id="preview-fullscreen-badge" class="preview-fullscreen-badge">
+      <span>▶ לחץ OK בשלט למסך מלא</span>
+    </div>
+
+    <!-- Loading Indicator inside video -->
     <div id="video-loader" class="video-loader hidden">
       <div class="spinner"></div>
-      <span id="video-loader-text">טוען שידור...</span>
+      <span class="loader-text">טוען שידור חי...</span>
     </div>
+
+    <!-- Playback Error Overlay -->
     <div id="video-error-badge" class="video-error-badge hidden">
-      <span>שידור לא זמין כרגע</span>
+      <span>⚠ השידור אינו זמין כעת בערוץ זה</span>
     </div>
   </div>
 
-  <!-- Main Browsing View -->
-  <div id="browse-view" class="browse-view">
-    <!-- Thin Collapsed Category Rail on Far Left -->
-    <div id="collapsed-rail" class="collapsed-rail" title="פתח קטגוריות">
-      <div class="rail-icon-box">
-        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="8" y1="6" x2="21" y2="6"></line>
-          <line x1="8" y1="12" x2="21" y2="12"></line>
-          <line x1="8" y1="18" x2="21" y2="18"></line>
-          <line x1="3" y1="6" x2="3.01" y2="6"></line>
-          <line x1="3" y1="12" x2="3.01" y2="12"></line>
-          <line x1="3" y1="18" x2="3.01" y2="18"></line>
-        </svg>
-      </div>
-      <div class="rail-hint">‹</div>
-    </div>
+  <!-- Main Application Shell (Browse Mode: Split Channel List & Live Preview + EPG) -->
+  <div id="app-shell" class="app-shell">
 
-    <!-- Expanded Flyout Category Rail -->
-    <div id="category-rail-backdrop" class="category-rail-backdrop hidden"></div>
-    <nav id="category-rail" class="category-rail hidden">
-      <div class="category-rail-header">
-        <div class="app-logo">
-          <div class="logo-dot"></div>
-          <h2>Live TV</h2>
+    <!-- Top Header Bar -->
+    <header id="top-header" class="top-header">
+      <div class="header-right">
+        <div class="brand-badge">
+          <span class="live-pulse"></span>
+          <span class="brand-title">טלוויזיה חיה</span>
         </div>
-        <div id="clock" class="tv-clock">00:00</div>
-      </div>
-      <div class="category-rail-scroll" id="category-list">
-        <!-- Rendered dynamically -->
-      </div>
-    </nav>
-
-    <!-- Channels Column -->
-    <section id="channel-column" class="channel-column">
-      <div class="channel-column-header">
-        <div class="channel-header-info">
-          <h1 id="active-category-title">כל הערוצים</h1>
-          <span id="channel-count-badge" class="count-badge">0 ערוצים</span>
-        </div>
-        <div class="channel-header-actions">
-          <button id="btn-search-trigger" class="btn-icon-circle focusable" data-action="open-search" title="חיפוש ערוץ (ירוק)">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-          </button>
-        </div>
+        <span id="active-category-title" class="header-view-label">כל הערוצים</span>
+        <span id="channel-list-count" class="header-count-pill">0 ערוצים</span>
       </div>
 
-      <div class="channel-list-container" id="channel-list-container">
-        <div id="channel-list" class="channel-list">
-          <!-- Rendered dynamically -->
-        </div>
-      </div>
-    </section>
+      <div class="header-left">
+        <button id="btn-filter-favs" class="top-nav-btn focusable" data-action="filter-favs">
+          <span class="btn-icon">⭐</span>
+          <span id="filter-favs-label">מועדפים בלבד</span>
+        </button>
 
-    <!-- Preview Column -->
-    <section id="preview-column" class="preview-column">
-      <!-- Live Indicator Badge -->
-      <div class="preview-top-bar">
-        <div class="live-pulse-badge">
-          <span class="live-dot"></span>
-          <span>LIVE שידור חי</span>
-        </div>
-        <div class="fullscreen-prompt">
-          <span>לחץ <strong>אישור (OK)</strong> למסך מלא</span>
-        </div>
-      </div>
+        <button id="btn-toggle-favorite" class="top-nav-btn focusable" data-action="toggle-favorite">
+          <span id="fav-icon" class="btn-icon">☆</span>
+          <span id="fav-btn-label">הוסף למועדפים</span>
+        </button>
 
-      <!-- Preview Frame (Anchor for the video surface in preview mode) -->
-      <div id="preview-frame" class="preview-frame focusable" data-action="toggle-fullscreen">
-        <div class="preview-click-overlay">
-          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="15 3 21 3 21 9"></polyline>
-            <polyline points="9 21 3 21 3 15"></polyline>
-            <line x1="21" y1="3" x2="14" y2="10"></line>
-            <line x1="3" y1="21" x2="10" y2="14"></line>
-          </svg>
-        </div>
-      </div>
+        <button id="btn-search-trigger" class="top-nav-btn focusable" data-action="open-search">
+          <span class="btn-icon">🔍</span>
+          <span>חיפוש ערוץ</span>
+        </button>
 
-      <!-- Channel Details Card -->
-      <div id="channel-details-card" class="channel-details-card">
-        <div class="preview-channel-line">
-          <div class="preview-logo-box">
-            <img id="preview-channel-logo" src="" alt="" class="hidden">
-            <div id="preview-channel-placeholder" class="preview-logo-placeholder">TV</div>
+        <button id="btn-open-settings" class="top-nav-btn focusable" data-action="open-settings">
+          <span class="btn-icon">⚙</span>
+          <span>הגדרות</span>
+        </button>
+
+        <div id="clock" class="header-clock">00:00</div>
+      </div>
+    </header>
+
+    <!-- Main Split Content Area -->
+    <div class="main-workspace">
+
+      <!-- Right Column: Big, Easy-to-Read Channel List -->
+      <section class="channel-list-panel">
+        <div class="list-instruction-bar">
+          <span>▲▼ דפדוף בערוצים</span>
+          <span class="instruction-sep">•</span>
+          <span><strong>OK</strong> מעבר למסך מלא</span>
+          <span class="instruction-sep">•</span>
+          <span><strong>◀</strong> לתפריט עליון</span>
+        </div>
+
+        <div class="channel-list" id="channel-list">
+          <!-- Populated dynamically by app.js -->
+        </div>
+      </section>
+
+      <!-- Left Column: Live Video Preview & Large EPG Synopsis Card -->
+      <section class="preview-stage">
+        <!-- Live Video Preview Target Box -->
+        <div class="preview-frame-wrapper">
+          <div id="preview-frame" class="preview-frame">
+            <!-- #video-surface is positioned directly over this box -->
           </div>
-          <div class="preview-text-box">
-            <div class="preview-number-row">
-              <span id="preview-channel-num" class="preview-ch-num">1</span>
-              <span id="preview-channel-category" class="preview-ch-group">כללי</span>
+        </div>
+
+        <!-- Large Channel & Program Synopsis Card (Designed for 10-foot Senior Readability) -->
+        <div id="channel-details-card" class="channel-details-card">
+          <div class="details-top-row">
+            <div class="details-logo-box">
+              <img id="preview-channel-logo" src="" alt="" class="hidden">
+              <div id="preview-channel-placeholder" class="logo-placeholder">TV</div>
             </div>
-            <h2 id="preview-channel-name" class="preview-ch-title">בחר ערוץ לצפייה</h2>
+
+            <div class="details-title-block">
+              <div class="details-badges-line">
+                <span id="preview-channel-num" class="details-ch-num">#1</span>
+                <span class="details-live-pill">שידור חי 🔴</span>
+                <span id="preview-channel-category" class="details-group-pill">טלוויזיה</span>
+              </div>
+              <h1 id="preview-channel-name" class="details-ch-title">בחר ערוץ מהרשימה</h1>
+            </div>
+          </div>
+
+          <!-- EPG Now Playing, Progress & Large Synopsis -->
+          <div id="preview-epg-box" class="preview-epg-box">
+            <div class="epg-now-line">
+              <span class="epg-badge-now">משודר כעת</span>
+              <span id="preview-epg-title" class="epg-show-title">שידור ישיר</span>
+              <span id="preview-epg-time" class="epg-time-range">--:--</span>
+            </div>
+
+            <div class="epg-progress-track">
+              <div id="preview-epg-progress" class="epg-progress-fill" style="width: 50%;"></div>
+            </div>
+
+            <p id="preview-epg-desc" class="epg-synopsis">טוען תקציר ולוח שידורים...</p>
+
+            <div class="epg-next-line">
+              <span class="epg-label-next">הבא בתור:</span>
+              <span id="preview-epg-next-title" class="epg-next-title">תוכנית המשך</span>
+              <span id="preview-epg-next-time" class="epg-next-time">--:--</span>
+            </div>
           </div>
         </div>
+      </section>
 
-        <!-- EPG & Now/Next Section -->
-        <div id="preview-epg-box" class="preview-epg-box">
-          <div class="epg-now-line">
-            <span class="epg-badge-now">משודר כעת</span>
-            <span id="preview-epg-title" class="epg-show-title">שידור ישיר</span>
-            <span id="preview-epg-time" class="epg-time-range">--:--</span>
-          </div>
-          <div class="epg-progress-track">
-            <div id="preview-epg-progress" class="epg-progress-fill" style="width: 50%;"></div>
-          </div>
-          <p id="preview-epg-desc" class="epg-synopsis">טוען תקציר ולוח שידורים...</p>
-          <div class="epg-next-line">
-            <span class="epg-label-next">הבא בתור:</span>
-            <span id="preview-epg-next-title" class="epg-next-title">תוכנית הבאה</span>
-            <span id="preview-epg-next-time" class="epg-next-time">--:--</span>
-          </div>
-        </div>
-
-        <div class="preview-actions-row">
-          <button id="btn-toggle-favorite" class="btn-tv-action focusable" data-action="toggle-favorite">
-            <svg id="fav-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-            </svg>
-            <span id="fav-btn-label">מועדף (★)</span>
-          </button>
-
-          <button id="btn-play-full" class="btn-tv-action btn-primary focusable" data-action="toggle-fullscreen">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-              <polygon points="5 3 19 12 5 21 5 3"></polygon>
-            </svg>
-            <span>מסך מלא</span>
-          </button>
-
-          <button id="btn-open-settings" class="btn-tv-action focusable" data-action="open-settings">
-            <span>⚙ הגדרות</span>
-          </button>
-        </div>
-      </div>
-    </section>
+    </div>
   </div>
 
-  <!-- Fullscreen OSD Overlay (shown on channel change or remote OK/Info) -->
+  <!-- Fullscreen Info-Bar & Channel Surfing Overlay (OSD) -->
   <div id="fullscreen-osd" class="fullscreen-osd hidden">
-    <!-- Surfing Notification Banner -->
-    <div id="osd-surf-prompt" class="osd-surf-prompt hidden">
-      <span class="surf-icon">⚡</span>
-      <span class="surf-text">זפינג מהיר: לחץ <strong>OK</strong> למעבר לערוץ זה | <strong>⮌</strong> לביטול</span>
-    </div>
-
-    <div class="osd-content">
-      <div class="osd-logo-box">
-        <img id="osd-channel-logo" src="" alt="" class="hidden">
-        <div id="osd-logo-placeholder" class="osd-placeholder">TV</div>
+    <div class="osd-card">
+      <!-- Surfing Notification Banner -->
+      <div id="osd-surf-prompt" class="osd-surf-prompt hidden">
+        <span class="surf-icon">⚡</span>
+        <span class="surf-text">דפדוף בערוצים: לחץ <strong>OK</strong> למעבר לערוץ זה | לחץ <strong>חזור (BACK)</strong> לביטול</span>
       </div>
-      <div class="osd-info-box">
-        <div class="osd-header-line">
-          <span id="osd-channel-number" class="osd-channel-num">1</span>
-          <h2 id="osd-channel-name" class="osd-channel-title">שם הערוץ</h2>
-          <span class="osd-live-tag">LIVE</span>
-          <span id="osd-quality-tag" class="osd-quality-tag">HD</span>
+
+      <div class="osd-content">
+        <div class="osd-logo-box">
+          <img id="osd-channel-logo" src="" alt="" class="hidden">
+          <div id="osd-logo-placeholder" class="osd-placeholder">TV</div>
         </div>
 
-        <!-- OSD EPG Current Programme -->
-        <div class="osd-epg-line">
-          <span class="epg-badge-now">משודר כעת:</span>
-          <span id="osd-epg-title" class="osd-epg-title">שידור ישיר</span>
-          <span id="osd-epg-time" class="osd-epg-time">--:--</span>
-        </div>
-
-        <!-- OSD EPG Progress Bar -->
-        <div class="epg-progress-track osd-progress-track">
-          <div id="osd-epg-progress" class="epg-progress-fill" style="width: 50%;"></div>
-        </div>
-
-        <!-- OSD EPG Synopsis (תקציר) -->
-        <p id="osd-epg-desc" class="osd-epg-desc">טוען תקציר שידור...</p>
-
-        <!-- OSD Next Programme & Navigation Hint -->
-        <div class="osd-sub-line">
-          <div class="osd-epg-next-box">
-            <span class="epg-label-next">הבא:</span>
-            <span id="osd-epg-next-title" class="osd-epg-next-title">תוכנית הבאה</span>
-            <span id="osd-epg-next-time" class="osd-epg-next-time">--:--</span>
+        <div class="osd-info-box">
+          <div class="osd-header-line">
+            <span id="osd-channel-number" class="osd-channel-num">1</span>
+            <h2 id="osd-channel-name" class="osd-channel-title">שם הערוץ</h2>
+            <span class="osd-live-tag">שידור חי</span>
+            <span id="osd-channel-category" class="osd-quality-tag">HD</span>
           </div>
-          <span class="osd-divider">•</span>
-          <span id="osd-channel-category" class="osd-category">ספורט</span>
-          <span class="osd-divider">•</span>
-          <span class="osd-hint">▲▼ זפינג בפס מידע (OK לאישור) | ⮌ חזרה</span>
+
+          <!-- OSD EPG Current Programme -->
+          <div class="osd-epg-line">
+            <span class="epg-badge-now">משודר כעת</span>
+            <span id="osd-epg-title" class="osd-epg-title">שידור ישיר</span>
+            <span id="osd-epg-time" class="osd-epg-time">--:--</span>
+          </div>
+
+          <!-- OSD EPG Progress Bar -->
+          <div class="epg-progress-track osd-progress-track">
+            <div id="osd-epg-progress" class="epg-progress-fill" style="width: 50%;"></div>
+          </div>
+
+          <!-- OSD EPG Synopsis (תקציר) -->
+          <p id="osd-epg-desc" class="osd-epg-desc">טוען תקציר שידור...</p>
+
+          <!-- OSD Next Programme & Navigation Hint -->
+          <div class="osd-sub-line">
+            <div class="osd-epg-next-box">
+              <span class="epg-label-next">הבא בתור:</span>
+              <span id="osd-epg-next-title" class="osd-epg-next-title">תוכנית הבאה</span>
+              <span id="osd-epg-next-time" class="osd-epg-next-time">--:--</span>
+            </div>
+            <span class="osd-divider">|</span>
+            <span class="osd-hint">▲ ערוץ הבא • ▼ ערוץ קודם • <strong>OK</strong> אישור • <strong>חזור (BACK)</strong> לרשימת הערוצים</span>
+          </div>
         </div>
-      </div>
-      <div class="osd-clock-box">
-        <div id="osd-clock" class="osd-clock">00:00</div>
+
+        <div class="osd-clock-box">
+          <div id="osd-clock" class="osd-clock">00:00</div>
+          <div class="osd-arrows-indicator">
+            <span>▲ ערוץ +</span>
+            <span>▼ ערוץ -</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -236,23 +216,31 @@
     <span id="jump-number-digits" class="jump-digits">1</span>
   </div>
 
-  <!-- Remote Color Buttons Legend Bar (Bottom) -->
+  <!-- Remote Control Legend Bar (Bottom) -->
   <footer id="color-bar" class="color-bar">
+    <div class="color-hint">
+      <span class="key-pill">OK</span>
+      <span>מסך מלא / בחירה</span>
+    </div>
+    <div class="color-hint">
+      <span class="key-pill">BACK</span>
+      <span>חזור לרשימת ערוצים</span>
+    </div>
     <div class="color-hint" id="hint-red" data-action="start-over">
       <span class="color-badge badge-red"></span>
-      <span>סטארט אובר ↺</span>
+      <span>סטארט אובר (מההתחלה)</span>
     </div>
     <div class="color-hint" id="hint-green" data-action="rewind">
       <span class="color-badge badge-green"></span>
-      <span>הרצה אחורה 30s ⏪</span>
+      <span>30 שניות אחורה ◀◀</span>
     </div>
     <div class="color-hint" id="hint-yellow" data-action="play-pause">
       <span class="color-badge badge-yellow"></span>
-      <span>פאוז / נגן ⏯</span>
+      <span>פאוז / נגן (▶/❚❚)</span>
     </div>
     <div class="color-hint" id="hint-blue" data-action="fast-forward">
       <span class="color-badge badge-blue"></span>
-      <span>הרצה קדימה 30s ⏩</span>
+      <span>30 שניות קדימה ▶▶</span>
     </div>
   </footer>
 
@@ -260,31 +248,31 @@
   <div id="settings-modal" class="modal-backdrop hidden">
     <div class="modal-card">
       <div class="modal-header">
-        <h2>הגדרות פלייליסט M3U</h2>
-        <button class="modal-close-btn focusable" data-action="close-modal">✕</button>
+        <h2>⚙ הגדרות פלייליסט ולוח שידורים</h2>
+        <button class="modal-close-btn focusable" data-action="close-modal">✕ סגור</button>
       </div>
       <div class="modal-body">
-        <label for="m3u-url-input" class="input-label">כתובת פלייליסט M3U / M3U8 (URL):</label>
+        <label for="m3u-url-input" class="input-label">כתובת פלייליסט ערוצים (M3U / M3U8 URL):</label>
         <div class="input-group">
           <input type="text" id="m3u-url-input" class="tv-input focusable" placeholder="https://example.com/playlist.m3u" dir="ltr">
         </div>
 
-        <label for="remote-url-input" class="input-label">כתובת שרת לעדכונים אוטומטיים (OTA Hosted URL - אופציונלי):</label>
-        <div class="input-group">
-          <input type="text" id="remote-url-input" class="tv-input focusable" placeholder="https://username.github.io/iptv/" dir="ltr">
-        </div>
-
-        <label for="epg-url-input" class="input-label">כתובת לוח שידורים ותקצירים (XMLTV / EPG URL - אופציונלי):</label>
+        <label for="epg-url-input" class="input-label">כתובת לוח שידורים ותקצירים (XMLTV EPG URL - אופציונלי):</label>
         <div class="input-group">
           <input type="text" id="epg-url-input" class="tv-input focusable" placeholder="https://example.com/epg.xml" dir="ltr">
         </div>
 
+        <label for="remote-url-input" class="input-label">כתובת שרת לעדכון אוטומטי (אופציונלי):</label>
+        <div class="input-group">
+          <input type="text" id="remote-url-input" class="tv-input focusable" placeholder="https://..." dir="ltr">
+        </div>
+
         <div class="modal-actions-row">
           <button id="btn-load-sample" class="btn-tv-secondary focusable" data-action="load-sample">
-            טען פלייליסט לדוגמה (ערוצים ציבוריים)
+            טען ערוצי ברירת מחדל
           </button>
           <button id="btn-save-playlist" class="btn-tv-primary focusable" data-action="save-playlist">
-            שמור וטען ערוצים
+            שמור וטען ערוצים כעת
           </button>
         </div>
 
@@ -351,7 +339,7 @@
         </div>
 
         <div id="settings-status" class="settings-status-box">
-          <span id="settings-status-text">הזן כתובת M3U או טען פלייליסט לדוגמה כדי להתחיל.</span>
+          <span id="settings-status-text">הזן כתובת M3U ושמור כדי לטעון את הערוצים.</span>
         </div>
       </div>
     </div>
@@ -361,12 +349,12 @@
   <div id="search-modal" class="modal-backdrop hidden">
     <div class="modal-card modal-search-card">
       <div class="modal-header">
-        <h2>חיפוש ערוצים</h2>
-        <button class="modal-close-btn focusable" data-action="close-modal">✕</button>
+        <h2>🔍 חיפוש ערוץ מהיר</h2>
+        <button class="modal-close-btn focusable" data-action="close-modal">✕ סגור</button>
       </div>
       <div class="modal-body search-layout">
         <div class="search-left-panel">
-          <input type="text" id="search-query-input" class="tv-input focusable" placeholder="הקלד שם ערוץ..." dir="auto">
+          <input type="text" id="search-query-input" class="tv-input focusable" placeholder="הקלד שם או מספר ערוץ..." dir="auto">
           <div class="virtual-keyboard" id="search-keyboard">
             <!-- Rendered by JS -->
           </div>

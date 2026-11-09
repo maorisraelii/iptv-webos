@@ -1,18 +1,17 @@
 /**
- * Video Player controller optimized for LG webOS TV
- * Integrates native HTML5 video with Hls.js fallback and auto-recovery
+ * Video Player controller optimized for LG webOS TV (webOS 4.64 & 5.0+)
+ * Dual-engine: Hls.js (with worker disabled for file:// compatibility) + automatic Native Starfish Hardware fallback
  */
 class VideoPlayer {
-  constructor(videoElement, callbacks = {}) {
+  constructor(videoElement, callbacks) {
     this.video = videoElement;
-    this.callbacks = callbacks; // onStateChange, onError, onChannelLoaded
+    this.callbacks = callbacks || {};
     this.hls = null;
     this.currentChannel = null;
     this.retryCount = 0;
-    this.maxRetries = 3;
+    this.maxRetries = 2;
     this.retryTimer = null;
-    this.aspectRatios = ['contain', 'cover', 'fill'];
-    this.aspectRatioIndex = 0;
+    this.usedNativeFallback = false;
 
     this.initListeners();
   }
@@ -26,6 +25,10 @@ class VideoPlayer {
       this.triggerState('buffering');
     });
 
+    this.video.addEventListener('canplay', () => {
+      this.triggerState('playing');
+    });
+
     this.video.addEventListener('playing', () => {
       this.retryCount = 0;
       this.triggerState('playing');
@@ -37,7 +40,7 @@ class VideoPlayer {
 
     this.video.addEventListener('error', (e) => {
       console.warn('Native video error:', e);
-      this.handlePlaybackError('שגיאת ניגון וידאו מקומית');
+      this.handlePlaybackError('השידור אינו זמין כעת בערוץ זה');
     });
   }
 
@@ -50,19 +53,14 @@ class VideoPlayer {
   play(channel) {
     if (!channel || !channel.url) return;
     this.currentChannel = channel;
+    this.usedNativeFallback = false;
     this.cleanUp();
     this.triggerState('loading');
 
     const url = channel.url.trim();
-    const isHls = url.includes('.m3u8') || url.includes('/live/') || url.includes('m3u8');
+    const isHls = url.indexOf('.m3u8') !== -1 || url.indexOf('m3u8') !== -1;
 
-    // Use Hls.js if supported and url looks like HLS
     if (window.Hls && window.Hls.isSupported() && isHls) {
-      this.playHls(url);
-    } else if (this.video.canPlayType('application/vnd.apple.mpegurl') || !isHls) {
-      this.playNative(url);
-    } else if (window.Hls && window.Hls.isSupported()) {
-      // Try Hls.js anyway as fallback
       this.playHls(url);
     } else {
       this.playNative(url);
@@ -75,12 +73,16 @@ class VideoPlayer {
 
   playHls(url) {
     try {
+      // IMPORTANT: enableWorker: false is required on webOS file:// protocol!
       this.hls = new window.Hls({
-        maxBufferLength: 30,
-        maxMaxBufferLength: 60,
-        enableWorker: true,
+        enableWorker: false,
+        maxBufferLength: 25,
+        maxMaxBufferLength: 50,
         lowLatencyMode: false,
-        backBufferLength: 30
+        backBufferLength: 30,
+        manifestLoadingTimeOut: 8000,
+        manifestLoadingMaxRetry: 1,
+        levelLoadingTimeOut: 8000
       });
 
       this.hls.attachMedia(this.video);
@@ -89,93 +91,103 @@ class VideoPlayer {
       });
 
       this.hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
-        this.video.play().catch(e => console.warn('Auto-play blocked or delayed:', e));
+        const playPromise = this.video.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+          playPromise.catch((e) => {
+            console.warn('Autoplay warning, retrying muted then unmuting:', e);
+            this.video.muted = true;
+            this.video.play().then(() => {
+              this.video.muted = false;
+            }).catch(() => {});
+          });
+        }
       });
 
       this.hls.on(window.Hls.Events.ERROR, (event, data) => {
-        console.warn('HLS.js error:', data.type, data.details, data.fatal);
-        if (data.fatal) {
-          switch (data.type) {
-            case window.Hls.ErrorTypes.NETWORK_ERROR:
-              console.log('Fatal network error encountered, trying to recover...');
-              this.hls.startLoad();
-              break;
-            case window.Hls.ErrorTypes.MEDIA_ERROR:
-              console.log('Fatal media error encountered, trying to recover...');
-              this.hls.recoverMediaError();
-              break;
-            default:
-              this.handlePlaybackError('שגיאה בטעינת השידור');
-              break;
+        if (data && data.fatal) {
+          console.warn('Fatal HLS.js error:', data.type, data.details);
+          if (!this.usedNativeFallback) {
+            console.log('Falling back to LG webOS Native Hardware Player for:', url);
+            this.usedNativeFallback = true;
+            this.cleanUp();
+            this.playNative(url);
+          } else {
+            this.handlePlaybackError('שגיאה בטעינת השידור');
           }
         }
       });
     } catch (err) {
-      console.error('HLS initialization error, fallback to native:', err);
+      console.error('HLS init error, using native player:', err);
       this.playNative(url);
     }
   }
 
   playNative(url) {
-    this.video.src = url;
-    this.video.load();
-    const playPromise = this.video.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(err => {
-        console.warn('Native play promise error:', err);
-      });
+    try {
+      this.video.src = url;
+      this.video.load();
+      const playPromise = this.video.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch((err) => {
+          console.warn('Native play promise warning:', err);
+          this.video.muted = true;
+          this.video.play().then(() => {
+            this.video.muted = false;
+          }).catch(() => {});
+        });
+      }
+    } catch (e) {
+      this.handlePlaybackError('שגיאה בהפעלת הנגן');
     }
   }
 
   handlePlaybackError(msg) {
     if (this.retryCount < this.maxRetries) {
       this.retryCount++;
-      console.log(`Retrying stream (${this.retryCount}/${this.maxRetries})...`);
       this.triggerState('retrying');
       clearTimeout(this.retryTimer);
       this.retryTimer = setTimeout(() => {
         if (this.currentChannel) {
-          this.play(this.currentChannel);
+          this.playNative(this.currentChannel.url.trim());
         }
-      }, 2000);
+      }, 1800);
     } else {
       this.triggerState('error');
-      if (this.callbacks.onError) {
-        this.callbacks.onError(msg || 'לא ניתן לנגן שידור זה', this.currentChannel);
-      }
     }
   }
 
   togglePlayPause() {
+    if (!this.video) return false;
     if (this.video.paused) {
-      this.video.play().catch(e => console.warn(e));
-      return false; // not paused
+      const p = this.video.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+      return false;
     } else {
       this.video.pause();
-      return true; // is paused
+      return true;
     }
   }
 
-  rewind(seconds = 30) {
+  rewind(seconds) {
+    const sec = seconds || 30;
     if (!this.video) return 0;
     try {
-      const target = Math.max(0, this.video.currentTime - seconds);
+      const target = Math.max(0, (this.video.currentTime || 0) - sec);
       this.video.currentTime = target;
       return target;
     } catch (e) {
-      console.warn('Rewind error:', e);
       return 0;
     }
   }
 
-  fastForward(seconds = 30) {
+  fastForward(seconds) {
+    const sec = seconds || 30;
     if (!this.video) return 0;
     try {
-      const target = this.video.currentTime + seconds;
+      const target = (this.video.currentTime || 0) + sec;
       this.video.currentTime = target;
       return target;
     } catch (e) {
-      console.warn('Fast forward error:', e);
       return 0;
     }
   }
@@ -189,18 +201,17 @@ class VideoPlayer {
         this.play(this.currentChannel);
       }
     } catch (e) {
-      console.warn('Start over error:', e);
       if (this.currentChannel) this.play(this.currentChannel);
     }
   }
 
   stop() {
     this.cleanUp();
-    this.video.pause();
-    this.video.removeAttribute('src');
-    this.video.load();
-    this.currentChannel = null;
-    this.triggerState('stopped');
+    if (this.video) {
+      this.video.pause();
+      this.video.removeAttribute('src');
+      this.video.load();
+    }
   }
 
   cleanUp() {
@@ -208,18 +219,9 @@ class VideoPlayer {
     if (this.hls) {
       try {
         this.hls.destroy();
-      } catch (e) {
-        console.warn('HLS destroy error:', e);
-      }
+      } catch (e) {}
       this.hls = null;
     }
-  }
-
-  cycleAspectRatio() {
-    this.aspectRatioIndex = (this.aspectRatioIndex + 1) % this.aspectRatios.length;
-    const mode = this.aspectRatios[this.aspectRatioIndex];
-    this.video.style.objectFit = mode;
-    return mode;
   }
 }
 

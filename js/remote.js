@@ -1,13 +1,16 @@
 /**
  * Remote Control and Spatial Navigation Manager for LG webOS TV
- * Supports D-Pad, OK, Back (461), Color Buttons, Numbers, Channel Up/Down, Media Keys
- * Compatible with webOS 4.64, 5.0+, 6.0+, webOS OSE, and Magic Remote pointer.
+ * Single-listener architecture with hardware deduplication so every press moves by exactly 1 step.
  */
 class RemoteController {
   constructor(app) {
     this.app = app;
     this.numberBuffer = '';
     this.numberTimer = null;
+
+    this.lastKeyCode = 0;
+    this.lastKeyTime = 0;
+    this.lastBackTime = 0;
 
     this.bindEvents();
     this.ensureFocus();
@@ -16,26 +19,19 @@ class RemoteController {
   ensureFocus() {
     try {
       window.focus();
-      if (document.body) {
+      if (document.body && document.activeElement !== document.body && (!document.activeElement || document.activeElement.tagName !== 'INPUT')) {
         document.body.focus();
       }
-    } catch (e) {
-      console.warn('Focus error:', e);
-    }
+    } catch (e) {}
   }
 
   bindEvents() {
-    const onKey = (e) => this.handleKeyEvent(e);
+    // IMPORTANT: Attach ONLY ONCE on window (capture phase) so events never fire twice!
+    window.addEventListener('keydown', (e) => this.handleKeyEvent(e), true);
 
-    // Register on both window and document with capturing to ensure events are never lost
-    window.addEventListener('keydown', onKey, true);
-    document.addEventListener('keydown', onKey, true);
-
-    // Some webOS firmware fires Back key (461) on keyup
+    // Fallback for LG webOS firmware versions that emit Back (461) only on keyup
     window.addEventListener('keyup', (e) => this.handleKeyUp(e), true);
-    document.addEventListener('keyup', (e) => this.handleKeyUp(e), true);
 
-    // Keep window focused on webOS
     window.addEventListener('blur', () => {
       setTimeout(() => this.ensureFocus(), 100);
     });
@@ -49,21 +45,34 @@ class RemoteController {
     const code = e.keyCode || e.which || 0;
     const key = e.key || '';
 
-    // Handle Back on keyup if not handled on keydown
-    if (code === 461 || key === 'Back' || key === 'GoBack') {
+    if (code === 461 || key === 'Back' || key === 'GoBack' || key === 'XF86Back') {
       e.preventDefault();
-      // Back is handled on keydown; prevent default bubble
+      e.stopImmediatePropagation();
+      const now = Date.now();
+      // Only trigger Back on keyup if it was not already handled on keydown within 400ms
+      if (now - this.lastBackTime > 400) {
+        this.lastBackTime = now;
+        this.app.handleBack();
+      }
     }
   }
 
   handleKeyEvent(e) {
     const code = e.keyCode || e.which || 0;
     const key = e.key || '';
+    const now = Date.now();
 
-    // Prevent default browser behavior for TV remote keys
     if (this.isTvControlKey(code, key)) {
       e.preventDefault();
+      e.stopImmediatePropagation();
     }
+
+    // Deduplicate rapid duplicate hardware/synthetic events (< 110ms for same key)
+    if (code !== 0 && code === this.lastKeyCode && (now - this.lastKeyTime) < 110) {
+      return;
+    }
+    this.lastKeyCode = code;
+    this.lastKeyTime = now;
 
     // Number keys (0-9): 48-57 (top row) or 96-105 (numpad)
     if ((code >= 48 && code <= 57) || (code >= 96 && code <= 105)) {
@@ -98,24 +107,26 @@ class RemoteController {
 
     // Back key (webOS 461, Escape 27, Backspace 8)
     if (code === 461 || code === 27 || key === 'Back' || key === 'GoBack' || key === 'Escape' || key === 'XF86Back') {
+      this.lastBackTime = now;
       this.app.handleBack();
       return;
     }
     if (code === 8 || key === 'Backspace') {
       if (document.activeElement && document.activeElement.tagName === 'INPUT') {
-        return; // Allow typing in input fields
+        return;
       }
+      this.lastBackTime = now;
       this.app.handleBack();
       return;
     }
 
-    // Channel Up / Down (33/34 and LG 427/428)
+    // Channel Up / Down Rocker (CH+ = +1 Next Channel, CH- = -1 Previous Channel)
     if (code === 33 || code === 427 || key === 'ChannelUp' || key === 'PageUp') {
-      this.app.changeChannelByOffset(-1);
+      this.app.changeChannelByOffset(1);
       return;
     }
     if (code === 34 || code === 428 || key === 'ChannelDown' || key === 'PageDown') {
-      this.app.changeChannelByOffset(1);
+      this.app.changeChannelByOffset(-1);
       return;
     }
 
@@ -145,15 +156,15 @@ class RemoteController {
 
     // Media keys
     if (code === 415 || code === 19 || code === 179 || key === 'Play' || key === 'Pause' || key === 'MediaPlayPause') {
-      this.app.onYellowButton(); // Play / Pause toggle
+      this.app.onYellowButton();
       return;
     }
     if (code === 412 || key === 'Rewind' || key === 'MediaRewind' || key === 'MediaTrackPrevious') {
-      this.app.onGreenButton(); // Rewind 30s
+      this.app.onGreenButton();
       return;
     }
     if (code === 417 || key === 'FastForward' || key === 'MediaFastForward' || key === 'MediaTrackNext') {
-      this.app.onBlueButton(); // Fast forward 30s
+      this.app.onBlueButton();
       return;
     }
     if (code === 413 || key === 'Stop' || key === 'MediaStop') {

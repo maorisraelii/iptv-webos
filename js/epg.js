@@ -215,9 +215,9 @@ class EPGService {
 
   formatTime(date) {
     if (!date) return '';
-    const h = String(date.getHours()).padStart(2, '0');
-    const m = String(date.getMinutes()).padStart(2, '0');
-    return `${h}:${m}`;
+    const h = ('0' + date.getHours()).slice(-2);
+    const m = ('0' + date.getMinutes()).slice(-2);
+    return h + ':' + m;
   }
 }
 
