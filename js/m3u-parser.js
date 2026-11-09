@@ -7,22 +7,34 @@ class M3UParser {
     this.channels = [];
     this.categories = [];
     this.categoryMap = new Map();
+    this.epgUrl = '';
   }
 
   /**
    * Parse M3U content string
    * @param {string} content 
-   * @returns {{channels: Array, categories: Array}}
+   * @returns {{channels: Array, categories: Array, epgUrl: string}}
    */
   parse(content) {
     if (!content || typeof content !== 'string') {
-      return { channels: [], categories: [] };
+      return { channels: [], categories: [], epgUrl: '' };
     }
 
     const lines = content.split(/\r?\n/);
     const channels = [];
     const categorySet = new Set();
     const categoryMap = new Map();
+
+    // Check for EPG URL in header
+    let epgUrl = '';
+    for (let i = 0; i < Math.min(15, lines.length); i++) {
+      const epgMatch = lines[i].match(/(?:url-tvg|x-tvg-url)="([^"]+)"/i);
+      if (epgMatch && epgMatch[1].trim()) {
+        epgUrl = epgMatch[1].trim();
+        break;
+      }
+    }
+    this.epgUrl = epgUrl;
 
     let currentItem = null;
     let channelNumber = 1;
@@ -65,7 +77,8 @@ class M3UParser {
     return {
       channels: this.channels,
       categories: this.categories,
-      categoryMap: this.categoryMap
+      categoryMap: this.categoryMap,
+      epgUrl: this.epgUrl
     };
   }
 

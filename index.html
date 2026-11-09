@@ -134,12 +134,30 @@
           </div>
         </div>
 
+        <!-- EPG & Now/Next Section -->
+        <div id="preview-epg-box" class="preview-epg-box">
+          <div class="epg-now-line">
+            <span class="epg-badge-now">משודר כעת</span>
+            <span id="preview-epg-title" class="epg-show-title">שידור ישיר</span>
+            <span id="preview-epg-time" class="epg-time-range">--:--</span>
+          </div>
+          <div class="epg-progress-track">
+            <div id="preview-epg-progress" class="epg-progress-fill" style="width: 50%;"></div>
+          </div>
+          <p id="preview-epg-desc" class="epg-synopsis">טוען תקציר ולוח שידורים...</p>
+          <div class="epg-next-line">
+            <span class="epg-label-next">הבא בתור:</span>
+            <span id="preview-epg-next-title" class="epg-next-title">תוכנית הבאה</span>
+            <span id="preview-epg-next-time" class="epg-next-time">--:--</span>
+          </div>
+        </div>
+
         <div class="preview-actions-row">
           <button id="btn-toggle-favorite" class="btn-tv-action focusable" data-action="toggle-favorite">
             <svg id="fav-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
             </svg>
-            <span id="fav-btn-label">הוסף למועדפים (צהוב)</span>
+            <span id="fav-btn-label">מועדף (★)</span>
           </button>
 
           <button id="btn-play-full" class="btn-tv-action btn-primary focusable" data-action="toggle-fullscreen">
@@ -148,6 +166,10 @@
             </svg>
             <span>מסך מלא</span>
           </button>
+
+          <button id="btn-open-settings" class="btn-tv-action focusable" data-action="open-settings">
+            <span>⚙ הגדרות</span>
+          </button>
         </div>
       </div>
     </section>
@@ -155,6 +177,12 @@
 
   <!-- Fullscreen OSD Overlay (shown on channel change or remote OK/Info) -->
   <div id="fullscreen-osd" class="fullscreen-osd hidden">
+    <!-- Surfing Notification Banner -->
+    <div id="osd-surf-prompt" class="osd-surf-prompt hidden">
+      <span class="surf-icon">⚡</span>
+      <span class="surf-text">זפינג מהיר: לחץ <strong>OK</strong> למעבר לערוץ זה | <strong>⮌</strong> לביטול</span>
+    </div>
+
     <div class="osd-content">
       <div class="osd-logo-box">
         <img id="osd-channel-logo" src="" alt="" class="hidden">
@@ -167,10 +195,33 @@
           <span class="osd-live-tag">LIVE</span>
           <span id="osd-quality-tag" class="osd-quality-tag">HD</span>
         </div>
+
+        <!-- OSD EPG Current Programme -->
+        <div class="osd-epg-line">
+          <span class="epg-badge-now">משודר כעת:</span>
+          <span id="osd-epg-title" class="osd-epg-title">שידור ישיר</span>
+          <span id="osd-epg-time" class="osd-epg-time">--:--</span>
+        </div>
+
+        <!-- OSD EPG Progress Bar -->
+        <div class="epg-progress-track osd-progress-track">
+          <div id="osd-epg-progress" class="epg-progress-fill" style="width: 50%;"></div>
+        </div>
+
+        <!-- OSD EPG Synopsis (תקציר) -->
+        <p id="osd-epg-desc" class="osd-epg-desc">טוען תקציר שידור...</p>
+
+        <!-- OSD Next Programme & Navigation Hint -->
         <div class="osd-sub-line">
+          <div class="osd-epg-next-box">
+            <span class="epg-label-next">הבא:</span>
+            <span id="osd-epg-next-title" class="osd-epg-next-title">תוכנית הבאה</span>
+            <span id="osd-epg-next-time" class="osd-epg-next-time">--:--</span>
+          </div>
+          <span class="osd-divider">•</span>
           <span id="osd-channel-category" class="osd-category">ספורט</span>
           <span class="osd-divider">•</span>
-          <span class="osd-hint">לחץ חזרה ⮌ לרשימת הערוצים | ▲▼ להחלפת ערוץ</span>
+          <span class="osd-hint">▲▼ זפינג בפס מידע (OK לאישור) | ⮌ חזרה</span>
         </div>
       </div>
       <div class="osd-clock-box">
@@ -187,21 +238,21 @@
 
   <!-- Remote Color Buttons Legend Bar (Bottom) -->
   <footer id="color-bar" class="color-bar">
-    <div class="color-hint" id="hint-red" data-action="open-settings">
+    <div class="color-hint" id="hint-red" data-action="start-over">
       <span class="color-badge badge-red"></span>
-      <span>הגדרות M3U</span>
+      <span>סטארט אובר ↺</span>
     </div>
-    <div class="color-hint" id="hint-green" data-action="open-search">
+    <div class="color-hint" id="hint-green" data-action="rewind">
       <span class="color-badge badge-green"></span>
-      <span>חיפוש</span>
+      <span>הרצה אחורה 30s ⏪</span>
     </div>
-    <div class="color-hint" id="hint-yellow" data-action="toggle-favorite">
+    <div class="color-hint" id="hint-yellow" data-action="play-pause">
       <span class="color-badge badge-yellow"></span>
-      <span>מועדף</span>
+      <span>פאוז / נגן ⏯</span>
     </div>
-    <div class="color-hint" id="hint-blue" data-action="toggle-fullscreen">
+    <div class="color-hint" id="hint-blue" data-action="fast-forward">
       <span class="color-badge badge-blue"></span>
-      <span>מסך מלא</span>
+      <span>הרצה קדימה 30s ⏩</span>
     </div>
   </footer>
 
@@ -221,6 +272,11 @@
         <label for="remote-url-input" class="input-label">כתובת שרת לעדכונים אוטומטיים (OTA Hosted URL - אופציונלי):</label>
         <div class="input-group">
           <input type="text" id="remote-url-input" class="tv-input focusable" placeholder="https://username.github.io/iptv/" dir="ltr">
+        </div>
+
+        <label for="epg-url-input" class="input-label">כתובת לוח שידורים ותקצירים (XMLTV / EPG URL - אופציונלי):</label>
+        <div class="input-group">
+          <input type="text" id="epg-url-input" class="tv-input focusable" placeholder="https://example.com/epg.xml" dir="ltr">
         </div>
 
         <div class="modal-actions-row">
@@ -337,6 +393,7 @@
   <script src="js/loader.js"></script>
   <script src="js/hls.min.js"></script>
   <script src="js/m3u-parser.js"></script>
+  <script src="js/epg.js"></script>
   <script src="js/player.js"></script>
   <script src="js/remote.js"></script>
   <script src="js/app.js"></script>

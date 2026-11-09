@@ -102,7 +102,13 @@ class RemoteController {
       // Media keys
       case 415: // Play
       case 19:  // Pause
-        this.app.togglePlayPause();
+        this.app.onYellowButton();
+        break;
+      case 412: // Rewind
+        this.app.onGreenButton();
+        break;
+      case 417: // Fast Forward
+        this.app.onBlueButton();
         break;
       case 413: // Stop
         this.app.stopPlayback();

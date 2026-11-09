@@ -64,15 +64,20 @@
 - 🎮 **100% Remote-First UX (Built for Couch Viewing)**:
   - Designed around 5-way D-Pad remote navigation.
   - **Single-Press OK**: Instant fullscreen playback with seamless video handoff (no decoder restart or stream re-buffering).
-  - **Back Key (webOS 461 / ESC)**: Smoothly transitions from fullscreen back to the channel guide.
+  - **Fullscreen Info-Bar Channel Surfing**: D-Pad Up / Down zaps through the info bar with live show synopsis and progress **without interrupting the current video**, switching stream only when pressing **OK** (or cancelling with **Back**).
+  - **Back Key (webOS 461 / ESC)**: Smoothly transitions from fullscreen back to the channel guide, or cancels surfing mode.
   - **Dedicated Color Buttons**:
-    - 🔴 **Red**: M3U Playlist &amp; Cloud Settings.
-    - 🟢 **Green**: Instant Channel Search.
-    - 🟡 **Yellow**: Toggle Channel Favorite (★).
-    - 🔵 **Blue**: Toggle Fullscreen.
+    - 🔴 **Red**: Start Over (↺ rewind to stream start).
+    - 🟢 **Green**: Rewind 30 seconds (⏪).
+    - 🟡 **Yellow**: Pause / Play (⏯).
+    - 🔵 **Blue**: Fast Forward 30 seconds (⏩).
   - **0-9 Keypad**: Numeric direct channel jump with on-screen confirmation badge.
-  - **Channel Up / Down (CH+ / CH-)**: Quick channel surfing during fullscreen playback.
+  - **Channel Up / Down (CH+ / CH-)**: Immediate channel switching during fullscreen playback.
   - Full support for the **LG Magic Remote air-mouse cursor**.
+
+- 📅 **Integrated EPG (Electronic Program Guide) & Synopsis**:
+  - Automatically loads XMLTV guide from M3U headers (`url-tvg` / `x-tvg-url`) or user-configured EPG URL.
+  - High-accuracy intelligent fallback engine: Channels *always* show current show, timeline progress bar, detailed synopsis (תקציר), and upcoming show.
 
 - 📺 **Full Compatibility with webOS 4.64 &amp; 5.0+**:
   - Extremely lightweight vanilla architecture (memory footprint < 15MB vs 150MB+ in heavy frameworks).
@@ -85,15 +90,14 @@
 
 | Remote Button | Action in Browse Mode | Action in Fullscreen Mode |
 | :--- | :--- | :--- |
-| **D-Pad Up / Down** | Scroll through channels / categories | Next / Previous Channel (Zap) |
-| **D-Pad Left** | Open collapsible Category Rail | Toggle Channel Info (OSD) |
-| **D-Pad Right** | Jump to Live Preview &amp; Actions | Toggle Channel Info (OSD) |
-| **OK / Enter** | **Enter Fullscreen Playback** | Show Channel Info Banner (OSD) |
-| **Back (461 / ESC)** | Return to Category Rail / Exit prompt | **Exit Fullscreen to Channel Guide** |
-| **Red Button 🔴** | Open M3U &amp; Cloud Settings | Open M3U &amp; Cloud Settings |
-| **Green Button 🟢** | Open Instant Search Modal | Open Instant Search Modal |
-| **Yellow Button 🟡** | Add / Remove highlighted channel from Favorites (★) | Add / Remove channel from Favorites |
-| **Blue Button 🔵** | Toggle Fullscreen | Toggle Fullscreen |
+| **D-Pad Up / Down** | Scroll through channels / categories | **Info-Bar Channel Surfing** (preview channel & synopsis without switching stream) |
+| **D-Pad Left / Right** | Open Category Rail / Preview Actions | Rewind 15s (Left) / Fast-Forward 15s (Right) |
+| **OK / Enter** | **Enter Fullscreen Playback** | **Confirm Channel Switch** (if surfing) / Show OSD |
+| **Back (461 / ESC)** | Return to Category Rail / Exit prompt | **Cancel Surfing / Exit Fullscreen to Guide** |
+| **Red Button 🔴** | Start Over (↺ stream beginning) | Start Over (↺ stream beginning) |
+| **Green Button 🟢** | Rewind 30s (⏪) | Rewind 30s (⏪) |
+| **Yellow Button 🟡** | Pause / Play (⏯) | Pause / Play (⏯) |
+| **Blue Button 🔵** | Fast-Forward 30s (⏩) | Fast-Forward 30s (⏩) |
 | **CH+ / CH−** | Page Up / Down channel list | Switch to Previous / Next Channel |
 | **0 – 9 (Digits)** | Type channel number &amp; jump | Type channel number &amp; jump |
 

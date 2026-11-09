@@ -5,6 +5,7 @@
 
 const STORAGE_KEYS = {
   M3U_URL: 'zenplay_iptv_m3u_url',
+  EPG_URL: 'zenplay_iptv_epg_url',
   REMOTE_URL: 'zenplay_iptv_remote_url',
   FAVORITES: 'zenplay_iptv_favorites',
   LAST_CHANNEL: 'zenplay_iptv_last_channel'
@@ -19,6 +20,7 @@ class IPTVApp {
     this.focusArea = 'channels'; // 'rail', 'channels', 'preview', 'modal'
     
     this.parser = new M3UParser();
+    this.epg = new EPGService();
     this.player = null;
     this.remote = null;
 
@@ -35,6 +37,10 @@ class IPTVApp {
     this.focusedChannelIndex = 0;
     this.focusedModalIndex = 0;
 
+    // Fullscreen Info-Bar Surfing state (זפינג בפס מידע ללא החלפת ערוץ)
+    this.isSurfing = false;
+    this.surfingIndex = 0;
+
     this.previewDebounceTimer = null;
     this.osdTimer = null;
     this.toastTimer = null;
@@ -48,6 +54,14 @@ class IPTVApp {
     this.initRemote();
     this.initClock();
     this.bindDOMEvents();
+
+    // Check if user already configured an EPG URL
+    const savedEpgUrl = localStorage.getItem(STORAGE_KEYS.EPG_URL);
+    if (savedEpgUrl) {
+      const epgInput = document.getElementById('epg-url-input');
+      if (epgInput) epgInput.value = savedEpgUrl;
+      this.epg.loadEPG(savedEpgUrl);
+    }
 
     // Check if user already configured an M3U URL
     const savedUrl = localStorage.getItem(STORAGE_KEYS.M3U_URL);
@@ -167,6 +181,14 @@ class IPTVApp {
       this.categoryMap = result.categoryMap;
 
       localStorage.setItem(STORAGE_KEYS.M3U_URL, url);
+
+      // Auto-load EPG URL discovered from M3U header
+      if (result.epgUrl && !localStorage.getItem(STORAGE_KEYS.EPG_URL)) {
+        console.log('Found EPG URL in M3U header:', result.epgUrl);
+        const epgInput = document.getElementById('epg-url-input');
+        if (epgInput && !epgInput.value) epgInput.value = result.epgUrl;
+        this.epg.loadEPG(result.epgUrl);
+      }
 
       if (this.allChannels.length === 0) {
         this.showToast('לא נמצאו ערוצים בפלייליסט זה');
@@ -356,6 +378,9 @@ class IPTVApp {
     // Update Favorite Button State
     this.updateFavoriteButtonUI();
 
+    // Update EPG in preview card
+    this.updateEPGUI(channel);
+
     // Debounced video playback to prevent hammering TV decoder while scrolling
     clearTimeout(this.previewDebounceTimer);
     this.previewDebounceTimer = setTimeout(() => {
@@ -363,14 +388,42 @@ class IPTVApp {
     }, 450);
 
     // Update Fullscreen OSD info as well
-    this.updateOSD(channel);
+    this.updateOSD(channel, false);
   }
 
-  updateOSD(channel) {
+  updateEPGUI(channel) {
+    if (!channel || !this.epg) return;
+    const epgData = this.epg.getNowNext(channel);
+    if (!epgData) return;
+
+    const titleEl = document.getElementById('preview-epg-title');
+    const timeEl = document.getElementById('preview-epg-time');
+    const progressEl = document.getElementById('preview-epg-progress');
+    const descEl = document.getElementById('preview-epg-desc');
+    const nextTitleEl = document.getElementById('preview-epg-next-title');
+    const nextTimeEl = document.getElementById('preview-epg-next-time');
+
+    if (titleEl) titleEl.textContent = epgData.current.title;
+    if (timeEl) timeEl.textContent = `${epgData.current.startStr} - ${epgData.current.stopStr}`;
+    if (progressEl) progressEl.style.width = `${epgData.current.progressPercent}%`;
+    if (descEl) descEl.textContent = epgData.current.desc;
+
+    if (nextTitleEl) {
+      nextTitleEl.textContent = epgData.next ? epgData.next.title : 'שידור בהמשך';
+    }
+    if (nextTimeEl) {
+      nextTimeEl.textContent = epgData.next ? epgData.next.startStr : '';
+    }
+  }
+
+  updateOSD(channel, isSurfing = false) {
     if (!channel) return;
-    document.getElementById('osd-channel-number').textContent = channel.number;
-    document.getElementById('osd-channel-name').textContent = channel.name;
-    document.getElementById('osd-channel-category').textContent = channel.group || 'שידור חי';
+    const numEl = document.getElementById('osd-channel-number');
+    const nameEl = document.getElementById('osd-channel-name');
+    const catEl = document.getElementById('osd-channel-category');
+    if (numEl) numEl.textContent = channel.number;
+    if (nameEl) nameEl.textContent = channel.name;
+    if (catEl) catEl.textContent = channel.group || 'שידור חי';
 
     const osdLogo = document.getElementById('osd-channel-logo');
     const osdPlaceholder = document.getElementById('osd-logo-placeholder');
@@ -386,15 +439,52 @@ class IPTVApp {
       osdLogo.classList.add('hidden');
       osdPlaceholder.classList.remove('hidden');
     }
+
+    // EPG Now & Next in OSD
+    if (this.epg) {
+      const epgData = this.epg.getNowNext(channel);
+      if (epgData) {
+        const osdTitle = document.getElementById('osd-epg-title');
+        const osdTime = document.getElementById('osd-epg-time');
+        const osdProg = document.getElementById('osd-epg-progress');
+        const osdDesc = document.getElementById('osd-epg-desc');
+        const osdNextTitle = document.getElementById('osd-epg-next-title');
+        const osdNextTime = document.getElementById('osd-epg-next-time');
+
+        if (osdTitle) osdTitle.textContent = epgData.current.title;
+        if (osdTime) osdTime.textContent = `${epgData.current.startStr} - ${epgData.current.stopStr}`;
+        if (osdProg) osdProg.style.width = `${epgData.current.progressPercent}%`;
+        if (osdDesc) osdDesc.textContent = epgData.current.desc;
+        if (osdNextTitle) osdNextTitle.textContent = epgData.next ? epgData.next.title : 'שידור בהמשך';
+        if (osdNextTime) osdNextTime.textContent = epgData.next ? epgData.next.startStr : '';
+      }
+    }
+
+    // Surfing Mode Prompt
+    const surfPrompt = document.getElementById('osd-surf-prompt');
+    if (surfPrompt) {
+      if (isSurfing) {
+        surfPrompt.classList.remove('hidden');
+      } else {
+        surfPrompt.classList.add('hidden');
+      }
+    }
   }
 
-  showOSD() {
+  showOSD(duration = 4000) {
     const osd = document.getElementById('fullscreen-osd');
+    if (!osd) return;
     osd.classList.remove('hidden');
     clearTimeout(this.osdTimer);
     this.osdTimer = setTimeout(() => {
       osd.classList.add('hidden');
-    }, 4000);
+      if (this.isSurfing) {
+        this.isSurfing = false;
+        if (this.selectedChannel) {
+          this.updateOSD(this.selectedChannel, false);
+        }
+      }
+    }, duration);
   }
 
   /* --------------------------------------------------------------------------
@@ -477,12 +567,33 @@ class IPTVApp {
 
   navigate(direction) {
     if (this.mode === 'FULLSCREEN') {
-      if (direction === 'up') {
-        this.changeChannelByOffset(-1);
-      } else if (direction === 'down') {
-        this.changeChannelByOffset(1);
-      } else if (direction === 'left' || direction === 'right') {
-        this.showOSD();
+      if (direction === 'up' || direction === 'down') {
+        if (this.visibleChannels.length === 0) return;
+
+        if (!this.isSurfing) {
+          this.isSurfing = true;
+          this.surfingIndex = this.focusedChannelIndex;
+        }
+
+        if (direction === 'up') {
+          this.surfingIndex = (this.surfingIndex - 1 + this.visibleChannels.length) % this.visibleChannels.length;
+        } else {
+          this.surfingIndex = (this.surfingIndex + 1) % this.visibleChannels.length;
+        }
+
+        const surfTarget = this.visibleChannels[this.surfingIndex];
+        // Preview info in OSD without switching video stream
+        this.updateOSD(surfTarget, true);
+        this.showOSD(7000);
+        return;
+      } else if (direction === 'left') {
+        this.player.rewind(15);
+        this.showToast('⏪ הרצה אחורה 15 שניות');
+        return;
+      } else if (direction === 'right') {
+        this.player.fastForward(15);
+        this.showToast('⏩ הרצה קדימה 15 שניות');
+        return;
       }
       return;
     }
@@ -531,21 +642,27 @@ class IPTVApp {
         this.closeCategoryRail();
       }
     } else if (this.focusArea === 'preview') {
+      const actions = [
+        document.getElementById('btn-toggle-favorite'),
+        document.getElementById('btn-play-full'),
+        document.getElementById('btn-open-settings')
+      ].filter(Boolean);
+
+      let curIdx = actions.findIndex(el => el.classList.contains('focused'));
+      if (curIdx === -1) curIdx = 1;
+
       if (direction === 'left') {
         this.focusArea = 'channels';
         this.clearAllFocusStyles();
         this.updateChannelFocusClass();
-      } else if (direction === 'up' || direction === 'down') {
-        // Toggle between preview frame, favorite button and fullscreen button
-        const fullBtn = document.getElementById('btn-play-full');
-        const favBtn = document.getElementById('btn-toggle-favorite');
-        if (fullBtn.classList.contains('focused')) {
-          fullBtn.classList.remove('focused');
-          favBtn.classList.add('focused');
-        } else {
-          favBtn.classList.remove('focused');
-          fullBtn.classList.add('focused');
-        }
+      } else if (direction === 'up') {
+        curIdx = (curIdx - 1 + actions.length) % actions.length;
+        this.clearAllFocusStyles();
+        actions[curIdx].classList.add('focused');
+      } else if (direction === 'down') {
+        curIdx = (curIdx + 1) % actions.length;
+        this.clearAllFocusStyles();
+        actions[curIdx].classList.add('focused');
       }
     }
   }
@@ -596,7 +713,18 @@ class IPTVApp {
 
   selectCurrent() {
     if (this.mode === 'FULLSCREEN') {
-      this.showOSD();
+      if (this.isSurfing) {
+        // Confirm channel change from surfing info bar!
+        this.focusedChannelIndex = this.surfingIndex;
+        this.isSurfing = false;
+        const targetCh = this.visibleChannels[this.focusedChannelIndex];
+        this.highlightChannel(targetCh);
+        this.updateOSD(targetCh, false);
+        this.showOSD(3500);
+        this.showToast(`עבר לערוץ: ${targetCh.name}`);
+      } else {
+        this.showOSD();
+      }
       return;
     }
 
@@ -612,8 +740,11 @@ class IPTVApp {
       }
     } else if (this.focusArea === 'preview') {
       const favBtn = document.getElementById('btn-toggle-favorite');
-      if (favBtn.classList.contains('focused')) {
+      const settingsBtn = document.getElementById('btn-open-settings');
+      if (favBtn && favBtn.classList.contains('focused')) {
         this.toggleFavorite();
+      } else if (settingsBtn && settingsBtn.classList.contains('focused')) {
+        this.openSettingsModal();
       } else {
         this.enterFullscreen();
       }
@@ -632,6 +763,15 @@ class IPTVApp {
     }
 
     if (this.mode === 'FULLSCREEN') {
+      if (this.isSurfing) {
+        // Cancel surfing and restore current playing channel info
+        this.isSurfing = false;
+        const curChannel = this.visibleChannels[this.focusedChannelIndex];
+        if (curChannel) this.updateOSD(curChannel, false);
+        const osd = document.getElementById('fullscreen-osd');
+        if (osd) osd.classList.add('hidden');
+        return;
+      }
       this.exitFullscreen();
       return;
     }
@@ -665,12 +805,14 @@ class IPTVApp {
   enterFullscreen() {
     if (!this.selectedChannel) return;
     this.mode = 'FULLSCREEN';
+    this.isSurfing = false;
     this.updateVideoSurfacePosition();
     this.showOSD();
   }
 
   exitFullscreen() {
     this.mode = 'BROWSE';
+    this.isSurfing = false;
     this.focusArea = 'channels';
     document.getElementById('fullscreen-osd').classList.add('hidden');
     this.updateVideoSurfacePosition();
@@ -679,6 +821,7 @@ class IPTVApp {
 
   changeChannelByOffset(offset) {
     if (this.visibleChannels.length === 0) return;
+    this.isSurfing = false;
     let newIdx = this.focusedChannelIndex + offset;
 
     if (newIdx < 0) newIdx = this.visibleChannels.length - 1;
@@ -698,6 +841,7 @@ class IPTVApp {
   jumpToChannelNumber(num) {
     const ch = this.allChannels.find(c => c.number === num);
     if (ch) {
+      this.isSurfing = false;
       this.highlightChannel(ch);
       if (this.mode === 'FULLSCREEN') {
         this.showOSD();
@@ -731,25 +875,37 @@ class IPTVApp {
 
   /* --------------------------------------------------------------------------
      Remote Color Buttons Handlers
+     🔴 Red: Start Over (סטארט אובר)
+     🟢 Green: Rewind (הרצה אחורה 30 שניות)
+     🟡 Yellow: Pause / Play (פאוז / נגן)
+     🔵 Blue: Fast Forward (הרצה קדימה 30 שניות)
      -------------------------------------------------------------------------- */
 
   onRedButton() {
-    this.openSettingsModal();
+    if (this.player) {
+      this.player.startOver();
+      this.showToast('↺ סטארט אובר (חזרה לתחילת השידור)');
+    }
   }
 
   onGreenButton() {
-    this.openSearchModal();
+    if (this.player) {
+      this.player.rewind(30);
+      this.showToast('⏪ הרצה אחורה 30 שניות');
+    }
   }
 
   onYellowButton() {
-    this.toggleFavorite();
+    if (this.player) {
+      const isPaused = this.player.togglePlayPause();
+      this.showToast(isPaused ? '⏸ השהייה (Pause)' : '▶ ניגון (Play)');
+    }
   }
 
   onBlueButton() {
-    if (this.mode === 'FULLSCREEN') {
-      this.exitFullscreen();
-    } else {
-      this.enterFullscreen();
+    if (this.player) {
+      this.player.fastForward(30);
+      this.showToast('⏩ הרצה קדימה 30 שניות');
     }
   }
 
@@ -775,6 +931,11 @@ class IPTVApp {
 
   openSettingsModal() {
     this.mode = 'SETTINGS';
+    const savedEpg = localStorage.getItem(STORAGE_KEYS.EPG_URL);
+    if (savedEpg) {
+      const epgInput = document.getElementById('epg-url-input');
+      if (epgInput) epgInput.value = savedEpg;
+    }
     document.getElementById('settings-modal').classList.remove('hidden');
     this.setupModalFocus('#settings-modal');
   }
@@ -937,6 +1098,14 @@ class IPTVApp {
       this.enterFullscreen();
     });
 
+    // Open settings button click
+    const btnOpenSettings = document.getElementById('btn-open-settings');
+    if (btnOpenSettings) {
+      btnOpenSettings.addEventListener('click', () => {
+        this.openSettingsModal();
+      });
+    }
+
     // Search trigger
     document.getElementById('btn-search-trigger').addEventListener('click', () => {
       this.openSearchModal();
@@ -957,11 +1126,19 @@ class IPTVApp {
     document.getElementById('btn-save-playlist').addEventListener('click', () => {
       const url = document.getElementById('m3u-url-input').value.trim();
       const remoteUrl = document.getElementById('remote-url-input').value.trim();
+      const epgUrl = document.getElementById('epg-url-input') ? document.getElementById('epg-url-input').value.trim() : '';
 
       if (remoteUrl) {
         localStorage.setItem(STORAGE_KEYS.REMOTE_URL, remoteUrl);
       } else {
         localStorage.removeItem(STORAGE_KEYS.REMOTE_URL);
+      }
+
+      if (epgUrl) {
+        localStorage.setItem(STORAGE_KEYS.EPG_URL, epgUrl);
+        this.epg.loadEPG(epgUrl);
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.EPG_URL);
       }
 
       if (url) {

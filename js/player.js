@@ -149,8 +149,48 @@ class VideoPlayer {
   togglePlayPause() {
     if (this.video.paused) {
       this.video.play().catch(e => console.warn(e));
+      return false; // not paused
     } else {
       this.video.pause();
+      return true; // is paused
+    }
+  }
+
+  rewind(seconds = 30) {
+    if (!this.video) return 0;
+    try {
+      const target = Math.max(0, this.video.currentTime - seconds);
+      this.video.currentTime = target;
+      return target;
+    } catch (e) {
+      console.warn('Rewind error:', e);
+      return 0;
+    }
+  }
+
+  fastForward(seconds = 30) {
+    if (!this.video) return 0;
+    try {
+      const target = this.video.currentTime + seconds;
+      this.video.currentTime = target;
+      return target;
+    } catch (e) {
+      console.warn('Fast forward error:', e);
+      return 0;
+    }
+  }
+
+  startOver() {
+    if (!this.video) return;
+    try {
+      if (this.video.seekable && this.video.seekable.length > 0) {
+        this.video.currentTime = this.video.seekable.start(0);
+      } else if (this.currentChannel) {
+        this.play(this.currentChannel);
+      }
+    } catch (e) {
+      console.warn('Start over error:', e);
+      if (this.currentChannel) this.play(this.currentChannel);
     }
   }
 
