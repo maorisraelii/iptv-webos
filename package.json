@@ -15,6 +15,6 @@
     "hls.js": "^1.7.4"
   },
   "devDependencies": {
-    "@webosose/ares-cli": "^2.4.0"
+    "@webos-tools/cli": "^3.2.6"
   }
 }

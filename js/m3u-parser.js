@@ -90,6 +90,15 @@ class M3UParser {
       item.group = groupMatch[1].trim();
     }
 
+    // Extract tvg-chno (Channel Number if provided by provider)
+    const chnoMatch = line.match(/tvg-chno="([^"]*)"/i);
+    if (chnoMatch && chnoMatch[1].trim()) {
+      const parsedNum = parseInt(chnoMatch[1].trim(), 10);
+      if (!isNaN(parsedNum)) {
+        item.number = parsedNum;
+      }
+    }
+
     // Extract tvg-logo
     const logoMatch = line.match(/tvg-logo="([^"]*)"/i);
     if (logoMatch && logoMatch[1].trim()) {

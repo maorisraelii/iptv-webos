@@ -25,7 +25,7 @@ class RemoteController {
     const keyCode = e.keyCode || e.which;
 
     // Prevent default browser actions for TV navigation keys
-    if ([37, 38, 39, 40, 13, 33, 34, 461, 403, 404, 405, 406].includes(keyCode)) {
+    if ([37, 38, 39, 40, 13, 33, 34, 427, 428, 457, 461, 403, 404, 405, 406].includes(keyCode)) {
       e.preventDefault();
     }
 
@@ -70,12 +70,19 @@ class RemoteController {
         this.app.handleBack();
         break;
 
-      // Channel Up / Down
+      // Channel Up / Down (support standard 33/34 and LG TV 427/428)
       case 33: // Channel Up / Page Up
+      case 427: // LG Channel Up
         this.app.changeChannelByOffset(-1);
         break;
       case 34: // Channel Down / Page Down
+      case 428: // LG Channel Down
         this.app.changeChannelByOffset(1);
+        break;
+
+      // Info key (LG 457)
+      case 457:
+        this.app.showOSD();
         break;
 
       // Color keys (LG Magic Remote / Standard TV remote)
