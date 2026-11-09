@@ -1,9 +1,8 @@
 /**
- * Polyfills & Bootstrapper for LG webOS TV (webOS 4.64 Chromium 53 & webOS 5.0 Chromium 68+)
+ * Ultra-Fast Polyfills & Zero-Delay Bootstrapper for LG webOS TV (webOS 4.64 Chromium 53 & webOS 5.0 Chromium 68+)
  */
 
 (function initWebOSPolyfills() {
-  // String.prototype.padStart polyfill for Chromium 53 (webOS 4.x)
   if (!String.prototype.padStart) {
     String.prototype.padStart = function padStart(targetLength, padString) {
       targetLength = targetLength >> 0;
@@ -20,31 +19,23 @@
     };
   }
 
-  // NodeList.prototype.forEach polyfill
   if (window.NodeList && !NodeList.prototype.forEach) {
     NodeList.prototype.forEach = Array.prototype.forEach;
   }
 })();
 
-(function initOtaLoader() {
+(function initFastBoot() {
   function dismissSplash() {
     var splash = document.getElementById('boot-splash');
     if (splash) {
-      splash.style.opacity = '0';
-      splash.style.transition = 'opacity 280ms ease-out';
-      setTimeout(function() {
-        splash.classList.add('hidden');
-        if (window.app && typeof window.app.updateVideoSurfacePosition === 'function') {
-          window.app.updateVideoSurfacePosition();
-        }
-      }, 300);
+      splash.classList.add('hidden');
     }
-
+    if (window.app && typeof window.app.updateVideoSurfacePosition === 'function') {
+      window.app.updateVideoSurfacePosition();
+    }
     try {
       window.focus();
-      if (document.body) {
-        document.body.focus();
-      }
+      if (document.body) document.body.focus();
     } catch (e) {}
   }
 
@@ -59,9 +50,6 @@
     } catch (e) {}
 
     if (remoteUrl && remoteUrl.trim() && window.location.href.indexOf(remoteUrl) !== 0) {
-      var splashText = document.getElementById('boot-splash-text');
-      if (splashText) splashText.textContent = 'טוען גרסה מעודכנת...';
-
       fetch(remoteUrl, { method: 'HEAD', cache: 'no-cache' })
         .then(function(res) {
           if (res.ok || res.status < 400) {
@@ -77,11 +65,9 @@
     }
 
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
-      setTimeout(dismissSplash, 150);
+      dismissSplash();
     } else {
-      window.addEventListener('DOMContentLoaded', function() {
-        setTimeout(dismissSplash, 150);
-      });
+      window.addEventListener('DOMContentLoaded', dismissSplash);
     }
   }
 

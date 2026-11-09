@@ -8,13 +8,12 @@
 </head>
 <body tabindex="0">
 
-  <!-- Boot Splash Screen -->
-  <div id="boot-splash" class="boot-splash">
+  <!-- Ultra-Fast Boot Splash Screen -->
+  <div id="boot-splash" class="boot-splash hidden">
     <div class="splash-logo">
       <span class="splash-dot"></span>
       <span>Live TV</span>
     </div>
-    <div class="splash-spinner"></div>
     <div id="boot-splash-text" class="splash-status">טוען שידורים חיים...</div>
   </div>
 
@@ -24,13 +23,24 @@
 
     <!-- Preview Mode Corner Hint -->
     <div id="preview-fullscreen-badge" class="preview-fullscreen-badge">
-      <span>▶ לחץ OK בשלט למסך מלא</span>
+      <span>▶ לחץ OK למסך מלא</span>
+    </div>
+
+    <!-- Catch-up / Start-Over Active Badge -->
+    <div id="video-catchup-badge" class="video-catchup-badge hidden">
+      <span>↺ סטארט אובר פעיל</span>
+    </div>
+
+    <!-- Center Pause / Play State Badge -->
+    <div id="video-pause-indicator" class="video-pause-indicator hidden">
+      <span id="video-pause-icon">❚❚</span>
+      <span id="video-pause-text">מושהה — לחץ OK להמשך</span>
     </div>
 
     <!-- Loading Indicator inside video -->
     <div id="video-loader" class="video-loader hidden">
       <div class="spinner"></div>
-      <span class="loader-text">טוען שידור חי...</span>
+      <span class="loader-text">טוען שידור...</span>
     </div>
 
     <!-- Playback Error Overlay -->
@@ -39,7 +49,7 @@
     </div>
   </div>
 
-  <!-- Main Application Shell (Browse Mode: Split Channel List & Live Preview + EPG) -->
+  <!-- Main Application Shell (Browse Mode: 2-Column Split Channel List + Live Preview + Program Timeline) -->
   <div id="app-shell" class="app-shell">
 
     <!-- Top Header Bar -->
@@ -64,14 +74,19 @@
           <span id="fav-btn-label">הוסף למועדפים</span>
         </button>
 
+        <button id="btn-open-guide" class="top-nav-btn top-nav-btn-guide focusable" data-action="open-guide">
+          <span class="color-badge badge-yellow" style="margin-left:8px;"></span>
+          <span>מדריך תוכניות (7 ימים)</span>
+        </button>
+
         <button id="btn-search-trigger" class="top-nav-btn focusable" data-action="open-search">
           <span class="btn-icon">🔍</span>
-          <span>חיפוש ערוץ</span>
+          <span>חיפוש</span>
         </button>
 
         <button id="btn-open-settings" class="top-nav-btn focusable" data-action="open-settings">
           <span class="btn-icon">⚙</span>
-          <span>הגדרות</span>
+          <span>הגדרות ו-M3U</span>
         </button>
 
         <div id="clock" class="header-clock">00:00</div>
@@ -81,14 +96,16 @@
     <!-- Main Split Content Area -->
     <div class="main-workspace">
 
-      <!-- Right Column: Big, Easy-to-Read Channel List -->
+      <!-- Right Column: Fast O(1) Channel List -->
       <section class="channel-list-panel">
         <div class="list-instruction-bar">
-          <span>▲▼ דפדוף בערוצים</span>
+          <span>▲▼ ערוצים</span>
           <span class="instruction-sep">•</span>
-          <span><strong>OK</strong> מעבר למסך מלא</span>
+          <span><strong>OK</strong> מסך מלא</span>
           <span class="instruction-sep">•</span>
-          <span><strong>◀</strong> לתפריט עליון</span>
+          <span><strong>◀</strong> לתוכניות הערוץ</span>
+          <span class="instruction-sep">•</span>
+          <span><strong>צהוב</strong> מדריך 7 ימים</span>
         </div>
 
         <div class="channel-list" id="channel-list">
@@ -96,7 +113,7 @@
         </div>
       </section>
 
-      <!-- Left Column: Live Video Preview & Large EPG Synopsis Card -->
+      <!-- Left Column: Live Video Preview + Synopsis + Previous/Next Program Strip -->
       <section class="preview-stage">
         <!-- Live Video Preview Target Box -->
         <div class="preview-frame-wrapper">
@@ -105,7 +122,7 @@
           </div>
         </div>
 
-        <!-- Large Channel & Program Synopsis Card (Designed for 10-foot Senior Readability) -->
+        <!-- Channel Details, Synopsis & Mini Program Timeline (Prev / Current / Next) -->
         <div id="channel-details-card" class="channel-details-card">
           <div class="details-top-row">
             <div class="details-logo-box">
@@ -115,18 +132,24 @@
 
             <div class="details-title-block">
               <div class="details-badges-line">
-                <span id="preview-channel-num" class="details-ch-num">#1</span>
+                <span id="preview-channel-num" class="details-ch-num">ערוץ 1</span>
                 <span class="details-live-pill">שידור חי 🔴</span>
-                <span id="preview-channel-category" class="details-group-pill">טלוויזיה</span>
+                <span id="preview-channel-category" class="details-group-pill">טלוויזיה חיה</span>
+                <span id="preview-channel-source" class="details-source-pill">פלייליסט ראשי</span>
               </div>
               <h1 id="preview-channel-name" class="details-ch-title">בחר ערוץ מהרשימה</h1>
             </div>
+
+            <button id="btn-card-full-guide" class="btn-card-guide" title="מדריך תוכניות 7 ימים">
+              <span class="color-badge badge-yellow"></span>
+              <span>מדריך 7 ימים (צהוב)</span>
+            </button>
           </div>
 
-          <!-- EPG Now Playing, Progress & Large Synopsis -->
+          <!-- Current Show Synopsis & Progress -->
           <div id="preview-epg-box" class="preview-epg-box">
             <div class="epg-now-line">
-              <span class="epg-badge-now">משודר כעת</span>
+              <span id="preview-epg-badge" class="epg-badge-now">משודר כעת</span>
               <span id="preview-epg-title" class="epg-show-title">שידור ישיר</span>
               <span id="preview-epg-time" class="epg-time-range">--:--</span>
             </div>
@@ -136,11 +159,15 @@
             </div>
 
             <p id="preview-epg-desc" class="epg-synopsis">טוען תקציר ולוח שידורים...</p>
+          </div>
 
-            <div class="epg-next-line">
-              <span class="epg-label-next">הבא בתור:</span>
-              <span id="preview-epg-next-title" class="epg-next-title">תוכנית המשך</span>
-              <span id="preview-epg-next-time" class="epg-next-time">--:--</span>
+          <!-- Interactive Program Strip: Previous Shows (Start-Over) + Current + Next Shows -->
+          <div class="program-strip-section">
+            <div class="program-strip-header">
+              <span class="strip-title">📋 לוח תוכניות בערוץ (בחר תוכנית קודמת ולחץ <strong>OK</strong> לסטארט אובר ↺):</span>
+            </div>
+            <div id="channel-program-strip" class="channel-program-strip">
+              <!-- Populated dynamically with 2 previous + current + 2 upcoming shows -->
             </div>
           </div>
         </div>
@@ -168,7 +195,7 @@
           <div class="osd-header-line">
             <span id="osd-channel-number" class="osd-channel-num">1</span>
             <h2 id="osd-channel-name" class="osd-channel-title">שם הערוץ</h2>
-            <span class="osd-live-tag">שידור חי</span>
+            <span id="osd-live-badge" class="osd-live-tag">שידור חי</span>
             <span id="osd-channel-category" class="osd-quality-tag">HD</span>
           </div>
 
@@ -195,7 +222,7 @@
               <span id="osd-epg-next-time" class="osd-epg-next-time">--:--</span>
             </div>
             <span class="osd-divider">|</span>
-            <span class="osd-hint">▲ ערוץ הבא • ▼ ערוץ קודם • <strong>OK</strong> אישור • <strong>חזור (BACK)</strong> לרשימת הערוצים</span>
+            <span class="osd-hint"><strong>OK</strong> פאוז/נגן • <strong>צהוב</strong> מדריך תוכניות • <strong>אדום</strong> סטארט אובר • <strong>BACK</strong> לרשימה</span>
           </div>
         </div>
 
@@ -220,7 +247,7 @@
   <footer id="color-bar" class="color-bar">
     <div class="color-hint">
       <span class="key-pill">OK</span>
-      <span>מסך מלא / בחירה</span>
+      <span>מסך מלא / פאוז ונגן (▶/❚❚)</span>
     </div>
     <div class="color-hint">
       <span class="key-pill">BACK</span>
@@ -234,9 +261,9 @@
       <span class="color-badge badge-green"></span>
       <span>30 שניות אחורה ◀◀</span>
     </div>
-    <div class="color-hint" id="hint-yellow" data-action="play-pause">
+    <div class="color-hint" id="hint-yellow" data-action="channel-guide">
       <span class="color-badge badge-yellow"></span>
-      <span>פאוז / נגן (▶/❚❚)</span>
+      <span>מדריך תוכניות (7 ימים)</span>
     </div>
     <div class="color-hint" id="hint-blue" data-action="fast-forward">
       <span class="color-badge badge-blue"></span>
@@ -244,39 +271,109 @@
     </div>
   </footer>
 
-  <!-- Settings Modal with Built-in TV On-Screen Keyboard -->
-  <div id="settings-modal" class="modal-backdrop hidden">
-    <div class="modal-card">
+  <!-- 7-Day Channel Program Guide Modal (Opened via Yellow Button) -->
+  <div id="guide-modal" class="modal-backdrop hidden">
+    <div class="modal-card modal-guide-card">
       <div class="modal-header">
-        <h2>⚙ הגדרות פלייליסט ולוח שידורים</h2>
+        <div class="guide-header-info">
+          <span class="color-badge badge-yellow" style="width:24px;height:24px;margin-left:14px;"></span>
+          <h2 id="guide-modal-title">📅 מדריך תוכניות (עד שבוע אחורה)</h2>
+          <span id="guide-modal-subtitle" class="guide-subtitle-pill">בחר יום בחצים ◀ ▶ ובחר תוכנית לסטארט אובר</span>
+        </div>
+        <button class="modal-close-btn focusable" data-action="close-modal">✕ סגור (BACK)</button>
+      </div>
+
+      <!-- Day Selector Bar (Today + 7 Days Back) -->
+      <div class="guide-days-bar" id="guide-days-bar">
+        <!-- Populated dynamically with 8 Day Tabs -->
+      </div>
+
+      <!-- Bounded Day Programmes List + Selected Programme Synopsis -->
+      <div class="guide-body">
+        <div class="guide-list-col" id="guide-programmes-list">
+          <!-- Populated dynamically for the active Day only (fast, bounded list) -->
+        </div>
+
+        <div class="guide-details-col">
+          <div class="guide-selected-card">
+            <span id="guide-detail-status" class="guide-status-badge">זמין לסטארט אובר ↺</span>
+            <h3 id="guide-detail-title" class="guide-detail-title">בחר תוכנית מהרשימה</h3>
+            <div id="guide-detail-time" class="guide-detail-time">--:-- - --:--</div>
+            <p id="guide-detail-desc" class="guide-detail-desc">לחץ על החצים למעלה/למטה לבחירת תוכנית, או ימינה/שמאלה למעבר מהיר בין ימים (עד 7 ימים אחורה). לחיצה על OK תפעיל את התוכנית מההתחלה (סטארט אובר).</p>
+            <div class="guide-action-hint">
+              <div><strong>OK בשלט:</strong> הפעל תוכנית זו מההתחלה (סטארט אובר ↺)</div>
+              <div><strong>◀ / ▶ בשלט:</strong> דפדוף מהיר בין ימים (היום עד 7 ימים אחורה)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Multi-M3U, Channel Numbering & PC Sync Settings Modal -->
+  <div id="settings-modal" class="modal-backdrop hidden">
+    <div class="modal-card modal-settings-card">
+      <div class="modal-header">
+        <div class="settings-tabs-bar">
+          <button id="tab-btn-sources" class="settings-tab-btn active focusable" data-settings-tab="sources">
+            💻 סנכרון ממחשב ומקורות M3U
+          </button>
+          <button id="tab-btn-channels" class="settings-tab-btn focusable" data-settings-tab="channels">
+            🔢 בחירת ערוצים ומספור מותאם
+          </button>
+        </div>
         <button class="modal-close-btn focusable" data-action="close-modal">✕ סגור</button>
       </div>
-      <div class="modal-body">
-        <label for="m3u-url-input" class="input-label">כתובת פלייליסט ערוצים (M3U / M3U8 URL):</label>
-        <div class="input-group">
-          <input type="text" id="m3u-url-input" class="tv-input focusable" placeholder="https://example.com/playlist.m3u" dir="ltr">
+
+      <!-- TAB 1: PC Sync & Multiple M3U Sources -->
+      <div id="settings-tab-sources" class="modal-body settings-tab-content">
+        <!-- PC Web Manager Sync Banner -->
+        <div class="pc-sync-box">
+          <div class="pc-sync-info">
+            <h3>💻 ניהול נוח מהמחשב או מהטלפון (מומלץ!)</h3>
+            <p>כדי להוסיף מספר קישורי M3U, לבחור אילו ערוצים יוצגו מכל רשימה ולקבוע את מספרי הערוצים בקלות עם עכבר ומקלדת — הפעל במחשב את <code>npm run studio</code> (או פתח את <code>manager.html</code>) והזן כאן את כתובת ה-IP של המחשב או קישור הסנכרון:</p>
+          </div>
+          <div class="pc-sync-controls">
+            <input type="text" id="pc-sync-input" class="tv-input focusable" placeholder="לדוגמה: 192.168.1.15 או קישור JSON" dir="ltr">
+            <button id="btn-sync-pc" class="btn-tv-primary focusable">🔄 סנכרן מהמחשב כעת</button>
+          </div>
         </div>
 
-        <label for="epg-url-input" class="input-label">כתובת לוח שידורים ותקצירים (XMLTV EPG URL - אופציונלי):</label>
-        <div class="input-group">
-          <input type="text" id="epg-url-input" class="tv-input focusable" placeholder="https://example.com/epg.xml" dir="ltr">
+        <!-- Multiple M3U Sources Manager -->
+        <div class="sources-manager-section">
+          <div class="section-title-row">
+            <h3>📋 מקורות פלייליסט (ריבוי רשימות M3U מתמזגות לרשימה אחת):</h3>
+            <span id="sources-count-badge" class="header-count-pill">1 מקורות</span>
+          </div>
+
+          <div id="m3u-sources-list" class="m3u-sources-list">
+            <!-- Populated dynamically by app.js -->
+          </div>
+
+          <!-- Add / Edit M3U Source Form -->
+          <div class="add-source-row">
+            <input type="text" id="m3u-source-name-input" class="tv-input source-name-input focusable" placeholder="שם המקור (למשל: ספורט / ראשי)" dir="rtl">
+            <input type="text" id="m3u-url-input" class="tv-input source-url-input focusable" placeholder="https://example.com/playlist.m3u" dir="ltr">
+            <button id="btn-add-source" class="btn-tv-secondary focusable">+ הוסף מקור M3U</button>
+          </div>
         </div>
 
-        <label for="remote-url-input" class="input-label">כתובת שרת לעדכון אוטומטי (אופציונלי):</label>
-        <div class="input-group">
-          <input type="text" id="remote-url-input" class="tv-input focusable" placeholder="https://..." dir="ltr">
+        <div class="epg-settings-row">
+          <div class="epg-input-col">
+            <label for="epg-url-input" class="input-label">כתובת לוח שידורים (XMLTV EPG URL - אופציונלי):</label>
+            <input type="text" id="epg-url-input" class="tv-input focusable" placeholder="https://example.com/epg.xml" dir="ltr">
+          </div>
+          <div class="epg-actions-col">
+            <button id="btn-load-sample" class="btn-tv-secondary focusable" data-action="load-sample">
+              איפוס לערוצי ברירת מחדל
+            </button>
+            <button id="btn-save-playlist" class="btn-tv-primary focusable" data-action="save-playlist">
+              שמור וטען את כל המקורות
+            </button>
+          </div>
         </div>
 
-        <div class="modal-actions-row">
-          <button id="btn-load-sample" class="btn-tv-secondary focusable" data-action="load-sample">
-            טען ערוצי ברירת מחדל
-          </button>
-          <button id="btn-save-playlist" class="btn-tv-primary focusable" data-action="save-playlist">
-            שמור וטען ערוצים כעת
-          </button>
-        </div>
-
-        <!-- On-Screen Virtual Keyboard for TV Remote Navigation -->
+        <!-- Compact Virtual Keyboard for TV Remote -->
         <div class="virtual-keyboard" id="tv-virtual-keyboard">
           <div class="kb-row">
             <button class="kb-key focusable" data-char="1">1</button>
@@ -339,7 +436,21 @@
         </div>
 
         <div id="settings-status" class="settings-status-box">
-          <span id="settings-status-text">הזן כתובת M3U ושמור כדי לטעון את הערוצים.</span>
+          <span id="settings-status-text">מוכן. ניתן להוסיף מספר מקורות M3U או לסנכרן ישירות מהמחשב.</span>
+        </div>
+      </div>
+
+      <!-- TAB 2: Channel Selection & Custom Channel Numbering on TV -->
+      <div id="settings-tab-channels" class="modal-body settings-tab-content hidden">
+        <div class="channel-editor-toolbar">
+          <span class="editor-help">בחר אילו ערוצים מכל פלייליסט יוצגו ואיזה מספר ערוץ יקבל כל אחד (ניתן גם להקיש מספרים 0-9 בשלט על כפתור המספר):</span>
+          <div class="editor-source-filters" id="editor-source-filters">
+            <!-- Source filter buttons populated dynamically -->
+          </div>
+        </div>
+
+        <div id="channel-editor-list" class="channel-editor-list">
+          <!-- Populated dynamically with channel visibility toggle + number controls -->
         </div>
       </div>
     </div>
@@ -381,6 +492,7 @@
   <script src="js/loader.js"></script>
   <script src="js/hls.min.js"></script>
   <script src="js/m3u-parser.js"></script>
+  <script src="js/lineup-store.js"></script>
   <script src="js/epg.js"></script>
   <script src="js/player.js"></script>
   <script src="js/remote.js"></script>

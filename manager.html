@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IPTV Studio - ניהול מקורות M3U, בחירת ערוצים ומספור מהמחשב</title>
+  <style>
+    :root {
+      --bg: #070b14;
+      --panel: #0f172a;
+      --card: #1e293b;
+      --accent: #0284c7;
+      --bright: #38bdf8;
+      --gold: #f59e0b;
+      --green: #10b981;
+      --danger: #e11d48;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --border: rgba(255, 255, 255, 0.14);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      line-height: 1.5;
+      padding-bottom: 60px;
+    }
+    header {
+      background: var(--panel);
+      border-bottom: 2px solid var(--border);
+      padding: 20px 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .brand-badge {
+      background: linear-gradient(135deg, #0284c7, #1d4ed8);
+      padding: 8px 18px;
+      border-radius: 12px;
+      font-weight: 900;
+      font-size: 22px;
+    }
+    .sync-banner {
+      background: rgba(16, 185, 129, 0.15);
+      border: 2px solid var(--green);
+      color: #a7f3d0;
+      padding: 8px 20px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 16px;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 28px auto;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: 440px 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 1050px) {
+      .container { grid-template-columns: 1fr; }
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px;
+    }
+    h2 {
+      font-size: 21px;
+      font-weight: 900;
+      margin-bottom: 14px;
+      color: var(--bright);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .help-text {
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+    .source-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+    }
+    .source-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .source-name {
+      font-weight: 800;
+      font-size: 16px;
+      color: #ffffff;
+    }
+    .source-url {
+      font-size: 13px;
+      color: var(--muted);
+      direction: ltr;
+      text-align: left;
+      word-break: break-all;
+      margin-bottom: 8px;
+    }
+    .form-group {
+      margin-bottom: 12px;
+    }
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 5px;
+      color: #cbd5e1;
+    }
+    input[type="text"], input[type="number"], select {
+      width: 100%;
+      padding: 10px 14px;
+      background: #070b14;
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 10px;
+      font-size: 15px;
+    }
+    input:focus, select:focus {
+      border-color: var(--bright);
+      outline: none;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      border: none;
+      color: #ffffff;
+      background: var(--accent);
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.92; }
+    .btn-green { background: var(--green); color: #052e16; }
+    .btn-secondary { background: #334155; color: #f1f5f9; }
+    .btn-danger { background: var(--danger); }
+    .btn-sm { padding: 5px 12px; font-size: 13px; border-radius: 8px; }
+    .btn-block { width: 100%; margin-top: 8px; }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 16px;
+      background: #090e1a;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    .toolbar input[type="text"] { width: 240px; }
+    .toolbar select { width: 190px; }
+
+    .channels-table-wrap {
+      max-height: 680px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #090e1a;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      text-align: right;
+      font-size: 15px;
+    }
+    th {
+      background: #141e33;
+      color: var(--bright);
+      font-weight: 800;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+    tr.row-disabled {
+      opacity: 0.45;
+    }
+    tr:hover {
+      background: rgba(56, 189, 248, 0.08);
+    }
+    .num-input {
+      width: 82px !important;
+      text-align: center;
+      font-weight: 900;
+      font-size: 16px !important;
+      color: var(--bright) !important;
+    }
+    .name-input {
+      width: 100%;
+      min-width: 180px;
+      font-weight: 700;
+    }
+    .source-pill {
+      display: inline-block;
+      background: rgba(56, 189, 248, 0.15);
+      color: #7dd3fc;
+      padding: 2px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .sync-instructions {
+      background: #112240;
+      border: 2px solid var(--bright);
+      border-radius: 14px;
+      padding: 16px;
+      margin-top: 18px;
+    }
+    .sync-ip-box {
+      font-size: 24px;
+      font-weight: 900;
+      color: var(--gold);
+      direction: ltr;
+      text-align: center;
+      background: #070b14;
+      padding: 10px;
+      border-radius: 10px;
+      margin: 10px 0;
+      letter-spacing: 1px;
+    }
+    .status-toast {
+      margin-top: 12px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: rgba(2, 132, 199, 0.2);
+      color: #bae6fd;
+      font-weight: 700;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-badge">📺 Live TV Studio</div>
+      <div>
+        <div style="font-size:20px;font-weight:900;">ממשק ניהול ערוצים ומקורות M3U מהמחשב</div>
+        <div style="font-size:14px;color:#94a3b8;">הוסף מספר רשימות M3U, בחר אילו ערוצים יוצגו וקבע לכל ערוץ את המספר שלו בטלוויזיה</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <button id="btn-save-sync" class="btn btn-green">💾 שמור וסנכרן לטלוויזיה</button>
+      <button id="btn-export-m3u" class="btn btn-secondary">⬇ הורד M3U ממוזג</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Left Column: Multi-M3U Sources & TV Sync -->
+    <div class="panel">
+      <h2>
+        <span>1. מקורות M3U (ריבוי פלייליסטים)</span>
+        <span id="sources-count" style="font-size:14px;color:#94a3b8;">1 מקורות</span>
+      </h2>
+      <p class="help-text">ניתן להוסיף מספר קישורי M3U (או להעלות קובץ M3U מהמחשב). כל הרשימות יתמזגו לרשימת ערוצים אחת בטלוויזיה.</p>
+
+      <div id="sources-container"></div>
+
+      <div style="background:#090e1a;padding:14px;border-radius:12px;border:1px solid var(--border);margin-top:12px;">
+        <div class="form-group">
+          <label>שם המקור (למשל: ספק ראשי / ערוצי ספורט):</label>
+          <input type="text" id="new-source-name" placeholder="פלייליסט חדש">
+        </div>
+        <div class="form-group">
+          <label>כתובת קישור M3U / M3U8:</label>
+          <input type="text" id="new-source-url" placeholder="https://example.com/playlist.m3u" dir="ltr">
+        </div>
+        <button id="btn-add-source" class="btn btn-block">+ הוסף מקור M3U לרשימה</button>
+
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+          <label>או בחר קובץ M3U מהמחשב:</label>
+          <input type="file" id="file-m3u-upload" accept=".m3u,.m3u8,.txt" style="margin-top:4px;font-size:13px;color:#cbd5e1;">
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:14px;">
+        <label>כתובת לוח שידורים XMLTV EPG (אופציונלי):</label>
+        <input type="text" id="epg-url-input" placeholder="https://example.com/epg.xml" dir="ltr">
+      </div>
+
+      <button id="btn-fetch-all" class="btn btn-green btn-block" style="margin-top:10px;padding:13px;">
+        🔄 טען ומזג ערוצים מכל מקורות ה-M3U
+      </button>
+
+      <div id="studio-status" class="status-toast">מוכן. הוסף מקורות M3U ולחץ על "טען ומזג ערוצים".</div>
+
+      <div class="sync-instructions">
+        <div style="font-weight:900;font-size:17px;color:#38bdf8;">📡 איך מסנכרנים לטלוויזיית ה-LG?</div>
+        <p style="font-size:14px;color:#e2e8f0;margin-top:4px;">
+          לאחר בחירת הערוצים והמספרים, לחץ על <strong>"שמור וסנכרן לטלוויזיה"</strong>. בטלוויזיה פתח <strong>הגדרות ו-M3U</strong> והזן בשדה הסנכרון את הכתובת:
+        </p>
+        <div id="sync-address-box" class="sync-ip-box">טוען כתובת מחשב...</div>
+        <p style="font-size:13px;color:#94a3b8;">
+          טיפ: בטלוויזיה מספיק להקיש עם מקשי המספרים בשלט רק את כתובת ה-IP (למשל <code>192.168.1.15</code>) וללחוץ על "סנכרן מהמחשב כעת"!
+        </p>
+      </div>
+    </div>
+
+    <!-- Right Column: Channel Selection & Custom Numbering Table -->
+    <div class="panel">
+      <h2>
+        <span>2. בחירת ערוצים וקביעת מספרי ערוצים</span>
+        <span id="channels-summary" style="font-size:15px;color:#10b981;">0 מוצגים מתוך 0</span>
+      </h2>
+
+      <div class="toolbar">
+        <input type="text" id="filter-search" placeholder="🔍 חפש שם או מספר ערוץ...">
+        <select id="filter-source">
+          <option value="ALL">כל מקורות ה-M3U</option>
+        </select>
+        <select id="filter-visibility">
+          <option value="ALL">הצג הכל (פעילים ומוסתרים)</option>
+          <option value="ENABLED">מוצגים בטלוויזיה בלבד ✓</option>
+          <option value="DISABLED">מוסתרים בלבד ✕</option>
+        </select>
+        <button id="btn-enable-filtered" class="btn btn-sm btn-secondary">✓ סמן הכל בסינון זה</button>
+        <button id="btn-disable-filtered" class="btn btn-sm btn-secondary">✕ הסתר הכל בסינון זה</button>
+        <button id="btn-renumber-seq" class="btn btn-sm btn-secondary">🔢 מספור רציף אוטומטי (1, 2, 3...)</button>
+      </div>
+
+      <div class="channels-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:70px;">הצג בטלוויזיה</th>
+              <th style="width:110px;">מספר ערוץ</th>
+              <th>שם הערוץ (ניתן לעריכה)</th>
+              <th style="width:150px;">קטגוריה</th>
+              <th style="width:160px;">מקור M3U</th>
+            </tr>
+          </thead>
+          <tbody id="channels-tbody">
+            <tr>
+              <td colspan="5" style="text-align:center;padding:40px;color:#94a3b8;">
+                טוען ערוצים...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/m3u-parser.js"></script>
+  <script src="js/lineup-store.js"></script>
+  <script>
+    const parser = new M3UParser();
+    const store = new LineupStore(parser);
+
+    function setStatus(msg) {
+      document.getElementById('studio-status').textContent = msg;
+    }
+
+    function renderSources() {
+      const container = document.getElementById('sources-container');
+      const countEl = document.getElementById('sources-count');
+      const sourceSelect = document.getElementById('filter-source');
+      container.innerHTML = '';
+      countEl.textContent = store.sources.length + ' מקורות';
+
+      const currentFilter = sourceSelect.value;
+      sourceSelect.innerHTML = '<option value="ALL">כל מקורות ה-M3U</option>';
+
+      store.sources.forEach((src) => {
+        const opt = document.createElement('option');
+        opt.value = src.id;
+        opt.textContent = src.name;
+        sourceSelect.appendChild(opt);
+
+        const card = document.createElement('div');
+        card.className = 'source-card';
+        card.innerHTML =
+          '<div class="source-card-top">' +
+            '<span class="source-name">' + src.name + '</span>' +
+            '<div style="display:flex;gap:6px;">' +
+              '<button class="btn btn-sm ' + (src.enabled ? 'btn-green' : 'btn-secondary') + '" data-toggle="' + src.id + '">' +
+                (src.enabled ? 'פעיל ✓' : 'כבוי ✕') +
+              '</button>' +
+              (store.sources.length > 1
+                ? '<button class="btn btn-sm btn-danger" data-del="' + src.id + '">מחק</button>'
+                : '') +
+            '</div>' +
+          '</div>' +
+          '<div class="source-url">' + src.url + '</div>';
+
+        card.querySelector('[data-toggle]').addEventListener('click', () => {
+          store.updateSource(src.id, { enabled: !src.enabled });
+          renderSources();
+        });
+
+        const delBtn = card.querySelector('[data-del]');
+        if (delBtn) {
+          delBtn.addEventListener('click', () => {
+            store.removeSource(src.id);
+            renderSources();
+          });
+        }
+
+        container.appendChild(card);
+      });
+
+      sourceSelect.value = currentFilter || 'ALL';
+    }
+
+    function getFilteredChannels() {
+      const q = document.getElementById('filter-search').value.trim().toLowerCase();
+      const srcFilter = document.getElementById('filter-source').value;
+      const visFilter = document.getElementById('filter-visibility').value;
+
+      return store.rawChannels.filter((ch) => {
+        const ov = store.overrides[ch.uid] || {};
+        const enabled = typeof ov.enabled === 'boolean' ? ov.enabled : true;
+        const num = typeof ov.customNumber === 'number' ? ov.customNumber : ch.number;
+        const name = (ov.customName || ch.name || '').toLowerCase();
+
+        if (srcFilter !== 'ALL' && ch.sourceId !== srcFilter) return false;
+        if (visFilter === 'ENABLED' && !enabled) return false;
+        if (visFilter === 'DISABLED' && enabled) return false;
+        if (q && name.indexOf(q) === -1 && String(num).indexOf(q) === -1 && (ch.group || '').toLowerCase().indexOf(q) === -1) {
+          return false;
+        }
+        return true;
+      });
+    }
+
+    function renderChannelsTable() {
+      const tbody = document.getElementById('channels-tbody');
+      const summaryEl = document.getElementById('channels-summary');
+      tbody.innerHTML = '';
+
+      store.recompileLineup();
+      summaryEl.textContent = store.compiledChannels.length + ' ערוצים מוצגים בטלוויזיה מתוך ' + store.rawChannels.length;
+
+      const filtered = getFilteredChannels();
+      filtered.sort((a, b) => {
+        const na = (store.overrides[a.uid] && store.overrides[a.uid].customNumber) || a.number;
+        const nb = (store.overrides[b.uid] && store.overrides[b.uid].customNumber) || b.number;
+        return na - nb;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;color:#94a3b8;">לא נמצאו ערוצים התואמים לסינון.</td></tr>';
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      filtered.forEach((ch) => {
+        const ov = store.overrides[ch.uid] || {};
+        const isEnabled = typeof ov.enabled === 'boolean' ? ov.enabled : true;
+        const curNum = typeof ov.customNumber === 'number' ? ov.customNumber : ch.number;
+        const curName = ov.customName || ch.name;
+
+        const tr = document.createElement('tr');
+        if (!isEnabled) tr.className = 'row-disabled';
+
+        tr.innerHTML =
+          '<td style="text-align:center;">' +
+            '<input type="checkbox" ' + (isEnabled ? 'checked' : '') + ' style="width:22px;height:22px;cursor:pointer;" data-chk="' + ch.uid + '">' +
+          '</td>' +
+          '<td>' +
+            '<input type="number" min="1" class="num-input" value="' + curNum + '" data-num="' + ch.uid + '">' +
+          '</td>' +
+          '<td>' +
+            '<input type="text" class="name-input" value="' + curName.replace(/"/g, '&quot;') + '" data-name="' + ch.uid + '">' +
+          '</td>' +
+          '<td>' + (ch.group || 'טלוויזיה חיה') + '</td>' +
+          '<td><span class="source-pill">' + (ch.sourceName || 'M3U') + '</span></td>';
+
+        tr.querySelector('[data-chk]').addEventListener('change', (e) => {
+          store.setChannelOverride(ch.uid, { enabled: e.target.checked });
+          tr.className = e.target.checked ? '' : 'row-disabled';
+          summaryEl.textContent = store.compiledChannels.length + ' ערוצים מוצגים בטלוויזיה מתוך ' + store.rawChannels.length;
+        });
+
+        tr.querySelector('[data-num]').addEventListener('change', (e) => {
+          const val = parseInt(e.target.value, 10);
+          if (!isNaN(val) && val > 0) {
+            store.setChannelOverride(ch.uid, { customNumber: val });
+          }
+        });
+
+        tr.querySelector('[data-name]').addEventListener('change', (e) => {
+          store.setChannelOverride(ch.uid, { customName: e.target.value.trim() });
+        });
+
+        fragment.appendChild(tr);
+      });
+
+      tbody.appendChild(fragment);
+    }
+
+    function pushToLocalSyncServer() {
+      const payload = {
+        sources: store.sources,
+        overrides: store.overrides,
+        rawChannels: store.rawChannels,
+        compiledChannels: store.compiledChannels,
+        epgUrl: document.getElementById('epg-url-input').value.trim()
+      };
+
+      fetch('/api/lineup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+        .then((res) => res.json())
+        .then((info) => {
+          setStatus('✅ נשמר וסונכרן בהצלחה! (' + store.compiledChannels.length + ' ערוצים מוכנים לסנכרון לטלוויזיה בכתובת ' + (info.lanIp || window.location.host) + ')');
+        })
+        .catch(() => {
+          setStatus('✅ נשמר בדפדפן! תוכל גם ללחוץ על "הורד M3U ממוזג" או להריץ npm run studio לסנכרון רשת ישיר.');
+        });
+    }
+
+    document.getElementById('btn-add-source').addEventListener('click', () => {
+      const nameEl = document.getElementById('new-source-name');
+      const urlEl = document.getElementById('new-source-url');
+      if (!urlEl.value.trim()) {
+        alert('נא להזין כתובת קישור M3U');
+        return;
+      }
+      store.addSource(nameEl.value.trim(), urlEl.value.trim());
+      nameEl.value = '';
+      urlEl.value = '';
+      renderSources();
+      setStatus('מקור M3U נוסף. לחץ על "טען ומזג ערוצים" כדי לשאוב את הערוצים ממנו.');
+    });
+
+    document.getElementById('file-m3u-upload').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const text = ev.target.result;
+        const srcId = 'file_' + Date.now().toString(36);
+        const srcName = file.name.replace(/\.[^.]+$/, '');
+        store.sources.push({ id: srcId, name: srcName, url: 'local://' + file.name, enabled: true });
+        store.saveSources();
+        const parsed = parser.parse(text, { id: srcId, name: srcName });
+        let nextNum = store.rawChannels.length + 1;
+        parsed.channels.forEach((ch) => {
+          ch.defaultSeqNumber = nextNum++;
+          store.rawChannels.push(ch);
+        });
+        store.recompileLineup();
+        renderSources();
+        renderChannelsTable();
+        setStatus('נטענו ' + parsed.channels.length + ' ערוצים מהקובץ ' + file.name);
+      };
+      reader.readAsText(file);
+    });
+
+    document.getElementById('btn-fetch-all').addEventListener('click', () => {
+      setStatus('מוריד וממזג את כל רשימות ה-M3U...');
+      store.fetchAllSources().then(() => {
+        renderSources();
+        renderChannelsTable();
+        pushToLocalSyncServer();
+      });
+    });
+
+    document.getElementById('btn-save-sync').addEventListener('click', () => {
+      store.recompileLineup();
+      renderChannelsTable();
+      pushToLocalSyncServer();
+    });
+
+    document.getElementById('btn-export-m3u').addEventListener('click', () => {
+      store.recompileLineup();
+      let m3u = '#EXTM3U\n';
+      store.compiledChannels.forEach((ch) => {
+        m3u += '#EXTINF:-1 tvg-chno="' + ch.number + '" tvg-id="' + (ch.epgId || '') + '" tvg-logo="' + (ch.logo || '') + '" group-title="' + (ch.group || 'טלוויזיה חיה') + '",' + ch.name + '\n' + ch.url + '\n';
+      });
+      const blob = new Blob([m3u], { type: 'audio/x-mpegurl;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'merged-iptv-lineup.m3u';
+      a.click();
+    });
+
+    document.getElementById('filter-search').addEventListener('input', renderChannelsTable);
+    document.getElementById('filter-source').addEventListener('change', renderChannelsTable);
+    document.getElementById('filter-visibility').addEventListener('change', renderChannelsTable);
+
+    document.getElementById('btn-enable-filtered').addEventListener('click', () => {
+      getFilteredChannels().forEach((ch) => {
+        const existing = store.overrides[ch.uid] || {};
+        store.overrides[ch.uid] = Object.assign({}, existing, { enabled: true });
+      });
+      store.saveOverrides();
+      renderChannelsTable();
+    });
+
+    document.getElementById('btn-disable-filtered').addEventListener('click', () => {
+      getFilteredChannels().forEach((ch) => {
+        const existing = store.overrides[ch.uid] || {};
+        store.overrides[ch.uid] = Object.assign({}, existing, { enabled: false });
+      });
+      store.saveOverrides();
+      renderChannelsTable();
+    });
+
+    document.getElementById('btn-renumber-seq').addEventListener('click', () => {
+      let n = 1;
+      getFilteredChannels().forEach((ch) => {
+        const existing = store.overrides[ch.uid] || {};
+        if (existing.enabled !== false) {
+          store.overrides[ch.uid] = Object.assign({}, existing, { customNumber: n++ });
+        }
+      });
+      store.saveOverrides();
+      renderChannelsTable();
+    });
+
+    // Boot Studio
+    renderSources();
+    fetch('/api/info')
+      .then((r) => r.json())
+      .then((info) => {
+        document.getElementById('sync-address-box').textContent = info.lanIp || window.location.host;
+      })
+      .catch(() => {
+        document.getElementById('sync-address-box').textContent = window.location.host || 'הפעל: npm run studio';
+      });
+
+    const cached = store.loadCachedLineup();
+    if (cached && cached.length > 0) {
+      renderChannelsTable();
+    } else {
+      store.fetchAllSources().then(() => renderChannelsTable());
+    }
+  </script>
+</body>
+</html>

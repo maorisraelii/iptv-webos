@@ -1,6 +1,6 @@
 /**
- * M3U Parser optimized for LG webOS TV
- * Handles large playlists without blocking the UI thread
+ * High-Speed M3U Parser optimized for LG webOS TV (webOS 4.64 & 5.0+)
+ * Supports Multi-M3U source tagging, Catch-Up / Start-Over attributes, and Hebrew category normalization.
  */
 class M3UParser {
   constructor() {
@@ -12,13 +12,16 @@ class M3UParser {
 
   /**
    * Parse M3U content string
-   * @param {string} content 
-   * @returns {{channels: Array, categories: Array, epgUrl: string}}
+   * @param {string} content
+   * @param {Object} sourceMeta Optional { id, name } for Multi-M3U playlists
    */
-  parse(content) {
+  parse(content, sourceMeta) {
     if (!content || typeof content !== 'string') {
       return { channels: [], categories: [], epgUrl: '' };
     }
+
+    const srcId = (sourceMeta && sourceMeta.id) ? sourceMeta.id : 'src_default';
+    const srcName = (sourceMeta && sourceMeta.name) ? sourceMeta.name : 'פלייליסט ראשי';
 
     const lines = content.split(/\r?\n/);
     const channels = [];
@@ -27,7 +30,8 @@ class M3UParser {
 
     // Check for EPG URL in header
     let epgUrl = '';
-    for (let i = 0; i < Math.min(15, lines.length); i++) {
+    const headerScanLimit = Math.min(15, lines.length);
+    for (let i = 0; i < headerScanLimit; i++) {
       const epgMatch = lines[i].match(/(?:url-tvg|x-tvg-url)="([^"]+)"/i);
       if (epgMatch && epgMatch[1].trim()) {
         epgUrl = epgMatch[1].trim();
@@ -43,22 +47,23 @@ class M3UParser {
       const line = lines[i].trim();
       if (!line) continue;
 
-      if (line.startsWith('#EXTINF:')) {
-        currentItem = this.parseExtInf(line, channelNumber);
-      } else if (line.startsWith('#EXTVLCOPT:') || line.startsWith('#EXTGRP:')) {
-        if (currentItem && line.startsWith('#EXTGRP:')) {
+      if (line.indexOf('#EXTINF:') === 0) {
+        currentItem = this.parseExtInf(line, channelNumber, srcId, srcName);
+      } else if (line.indexOf('#EXTGRP:') === 0) {
+        if (currentItem) {
           const grp = line.replace('#EXTGRP:', '').trim();
-          if (grp) currentItem.group = grp;
+          if (grp) currentItem.group = this.normalizeGroupName(grp);
         }
-      } else if (!line.startsWith('#')) {
-        // Stream URL line
+      } else if (line.charCodeAt(0) !== 35) {
+        // Not starting with '#' -> Stream URL line
         if (currentItem) {
           currentItem.url = line;
+          currentItem.uid = srcId + '::' + this.hashKey(currentItem.name + '|' + line);
+          currentItem.id = currentItem.uid;
           channels.push(currentItem);
 
-          const group = currentItem.group || 'אחר / שונות';
+          const group = currentItem.group || 'טלוויזיה חיה';
           categorySet.add(group);
-
           if (!categoryMap.has(group)) {
             categoryMap.set(group, []);
           }
@@ -71,7 +76,7 @@ class M3UParser {
     }
 
     this.channels = channels;
-    this.categories = Array.from(categorySet).sort((a, b) => a.localeCompare(b, 'he'));
+    this.categories = Array.from(categorySet);
     this.categoryMap = categoryMap;
 
     return {
@@ -82,55 +87,79 @@ class M3UParser {
     };
   }
 
-  /**
-   * Parse a single #EXTINF line
-   */
-  parseExtInf(line, number) {
-    // Extract attributes like tvg-name, tvg-logo, group-title
+  hashKey(str) {
+    let h = 5381;
+    for (let i = 0; i < str.length; i++) {
+      h = ((h << 5) + h) + str.charCodeAt(i);
+      h = h & h;
+    }
+    return Math.abs(h).toString(36);
+  }
+
+  parseExtInf(line, number, srcId, srcName) {
     const item = {
-      id: 'ch_' + number,
+      id: srcId + '_ch_' + number,
+      uid: '',
+      sourceId: srcId,
+      sourceName: srcName,
+      originalNumber: number,
       number: number,
       name: '',
       logo: '',
-      group: 'כללי',
+      group: 'טלוויזיה חיה',
       epgId: '',
-      url: ''
+      url: '',
+      catchupType: '',
+      catchupSource: '',
+      catchupDays: 7
     };
 
-    // Extract group-title
     const groupMatch = line.match(/group-title="([^"]*)"/i);
     if (groupMatch && groupMatch[1].trim()) {
       item.group = this.normalizeGroupName(groupMatch[1].trim());
     }
 
-    // Extract tvg-chno (Channel Number if provided by provider)
     const chnoMatch = line.match(/tvg-chno="([^"]*)"/i);
     if (chnoMatch && chnoMatch[1].trim()) {
       const parsedNum = parseInt(chnoMatch[1].trim(), 10);
-      if (!isNaN(parsedNum)) {
+      if (!isNaN(parsedNum) && parsedNum > 0) {
         item.number = parsedNum;
+        item.originalNumber = parsedNum;
       }
     }
 
-    // Extract tvg-logo
     const logoMatch = line.match(/tvg-logo="([^"]*)"/i);
     if (logoMatch && logoMatch[1].trim()) {
       item.logo = logoMatch[1].trim();
     }
 
-    // Extract tvg-name
     const nameMatch = line.match(/tvg-name="([^"]*)"/i);
     if (nameMatch && nameMatch[1].trim()) {
       item.name = nameMatch[1].trim();
     }
 
-    // Extract tvg-id
     const idMatch = line.match(/tvg-id="([^"]*)"/i);
     if (idMatch && idMatch[1].trim()) {
       item.epgId = idMatch[1].trim();
     }
 
-    // Extract Channel Name from end of comma
+    // Catch-up / Start-Over attributes
+    const catchupMatch = line.match(/catchup="([^"]*)"/i);
+    if (catchupMatch && catchupMatch[1].trim()) {
+      item.catchupType = catchupMatch[1].trim().toLowerCase();
+    }
+
+    const catchupSrcMatch = line.match(/catchup-source="([^"]*)"/i);
+    if (catchupSrcMatch && catchupSrcMatch[1].trim()) {
+      item.catchupSource = catchupSrcMatch[1].trim();
+    }
+
+    const catchupDaysMatch = line.match(/(?:catchup-days|timeshift)="([^"]*)"/i);
+    if (catchupDaysMatch && catchupDaysMatch[1].trim()) {
+      const d = parseInt(catchupDaysMatch[1].trim(), 10);
+      if (!isNaN(d) && d > 0) item.catchupDays = Math.min(7, d);
+    }
+
     const commaIndex = line.lastIndexOf(',');
     if (commaIndex !== -1) {
       const parsedName = line.substring(commaIndex + 1).trim();

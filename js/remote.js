@@ -1,6 +1,8 @@
 /**
- * Remote Control and Spatial Navigation Manager for LG webOS TV
- * Single-listener architecture with hardware deduplication so every press moves by exactly 1 step.
+ * High-Performance Remote Control Manager for LG webOS TV
+ * - Single-listener capture architecture (prevents double-jump)
+ * - Center Button (OK / Enter) = Play/Pause in Fullscreen, Confirm/Select in menus
+ * - Yellow Button (405) = Open 7-Day Channel Program Guide
  */
 class RemoteController {
   constructor(app) {
@@ -19,21 +21,22 @@ class RemoteController {
   ensureFocus() {
     try {
       window.focus();
-      if (document.body && document.activeElement !== document.body && (!document.activeElement || document.activeElement.tagName !== 'INPUT')) {
+      if (
+        document.body &&
+        document.activeElement !== document.body &&
+        (!document.activeElement || document.activeElement.tagName !== 'INPUT')
+      ) {
         document.body.focus();
       }
     } catch (e) {}
   }
 
   bindEvents() {
-    // IMPORTANT: Attach ONLY ONCE on window (capture phase) so events never fire twice!
     window.addEventListener('keydown', (e) => this.handleKeyEvent(e), true);
-
-    // Fallback for LG webOS firmware versions that emit Back (461) only on keyup
     window.addEventListener('keyup', (e) => this.handleKeyUp(e), true);
 
     window.addEventListener('blur', () => {
-      setTimeout(() => this.ensureFocus(), 100);
+      setTimeout(() => this.ensureFocus(), 80);
     });
 
     document.addEventListener('webOSLaunch', () => {
@@ -49,8 +52,7 @@ class RemoteController {
       e.preventDefault();
       e.stopImmediatePropagation();
       const now = Date.now();
-      // Only trigger Back on keyup if it was not already handled on keydown within 400ms
-      if (now - this.lastBackTime > 400) {
+      if (now - this.lastBackTime > 350) {
         this.lastBackTime = now;
         this.app.handleBack();
       }
@@ -67,14 +69,16 @@ class RemoteController {
       e.stopImmediatePropagation();
     }
 
-    // Deduplicate rapid duplicate hardware/synthetic events (< 110ms for same key)
-    if (code !== 0 && code === this.lastKeyCode && (now - this.lastKeyTime) < 110) {
+    // Fast deduplication guard: 75ms for arrow keys, 140ms for OK/Back/Color buttons
+    const isArrow = code >= 37 && code <= 40;
+    const minGap = isArrow ? 75 : 140;
+    if (code !== 0 && code === this.lastKeyCode && (now - this.lastKeyTime) < minGap) {
       return;
     }
     this.lastKeyCode = code;
     this.lastKeyTime = now;
 
-    // Number keys (0-9): 48-57 (top row) or 96-105 (numpad)
+    // Number keys (0-9): 48-57 or 96-105
     if ((code >= 48 && code <= 57) || (code >= 96 && code <= 105)) {
       const num = code >= 96 ? (code - 96).toString() : (code - 48).toString();
       this.handleNumberKey(num);
@@ -99,7 +103,7 @@ class RemoteController {
       return;
     }
 
-    // Select / OK / Enter
+    // Center Button: OK / Enter (Play/Pause in Fullscreen, Select/Confirm in Browse/Modals)
     if (code === 13 || key === 'Enter' || key === 'Select' || key === 'Accept') {
       this.app.selectCurrent();
       return;
@@ -130,33 +134,41 @@ class RemoteController {
       return;
     }
 
-    // Info key (LG 457)
+    // Info / Guide keys (LG 457 Info, 458 Guide)
     if (code === 457 || key === 'Info') {
       this.app.showOSD();
       return;
     }
+    if (code === 458 || key === 'Guide') {
+      this.app.onYellowButton();
+      return;
+    }
 
     // Color keys
+    // Red (403): Start Over
     if (code === 403 || key === 'Red' || key === 'ColorF0Red') {
       this.app.onRedButton();
       return;
     }
+    // Green (404): Rewind 30s
     if (code === 404 || key === 'Green' || key === 'ColorF1Green') {
       this.app.onGreenButton();
       return;
     }
+    // Yellow (405): Channel Program Guide (7 Days)
     if (code === 405 || key === 'Yellow' || key === 'ColorF2Yellow') {
       this.app.onYellowButton();
       return;
     }
+    // Blue (406): Fast-Forward 30s
     if (code === 406 || key === 'Blue' || key === 'ColorF3Blue') {
       this.app.onBlueButton();
       return;
     }
 
-    // Media keys
+    // Dedicated Hardware Media keys
     if (code === 415 || code === 19 || code === 179 || key === 'Play' || key === 'Pause' || key === 'MediaPlayPause') {
-      this.app.onYellowButton();
+      this.app.togglePlayPause();
       return;
     }
     if (code === 412 || key === 'Rewind' || key === 'MediaRewind' || key === 'MediaTrackPrevious') {
@@ -174,14 +186,17 @@ class RemoteController {
   }
 
   isTvControlKey(code, key) {
-    const tvKeyCodes = [13, 27, 33, 34, 37, 38, 39, 40, 403, 404, 405, 406, 412, 413, 415, 417, 427, 428, 457, 461];
+    const tvKeyCodes = [13, 19, 27, 33, 34, 37, 38, 39, 40, 179, 403, 404, 405, 406, 412, 413, 415, 417, 427, 428, 457, 458, 461];
     if (tvKeyCodes.indexOf(code) !== -1) return true;
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Back', 'GoBack', 'Escape'].indexOf(key) !== -1) return true;
     return false;
   }
 
   handleNumberKey(digit) {
-    if (this.app.isModalOpen()) return;
+    if (this.app.isModalOpen()) {
+      this.app.handleModalNumberKey(digit);
+      return;
+    }
 
     this.numberBuffer += digit;
     this.app.showNumberInputOverlay(this.numberBuffer);
@@ -193,7 +208,7 @@ class RemoteController {
       if (!isNaN(channelNum)) {
         this.app.jumpToChannelNumber(channelNum);
       }
-    }, 1200);
+    }, 1100);
   }
 }
 

@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node sync-server.js",
+    "studio": "node sync-server.js",
     "package": "ares-package -n -e node_modules -e package-lock.json -e server.js ."
   },
   "keywords": [],

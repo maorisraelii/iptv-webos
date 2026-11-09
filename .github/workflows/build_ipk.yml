@@ -36,7 +36,7 @@ jobs:
       - name: Prepare Clean App Directory
         run: |
           mkdir -p dist
-          cp -r index.html appinfo.json app-config.json css js icon.png largeIcon.png dist/
+          cp -r index.html manager.html appinfo.json app-config.json css js icon.png largeIcon.png dist/
 
       - name: Build webOS IPK Package
         run: |

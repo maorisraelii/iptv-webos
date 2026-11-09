@@ -11,7 +11,7 @@ Write-Host "`n[1/3] Preparing clean app bundle..." -ForegroundColor Green
 if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
 New-Item -ItemType Directory -Path "dist" | Out-Null
 
-Copy-Item "index.html", "appinfo.json", "app-config.json", "icon.png", "largeIcon.png" -Destination "dist"
+Copy-Item "index.html", "manager.html", "appinfo.json", "app-config.json", "icon.png", "largeIcon.png" -Destination "dist"
 Copy-Item -Recurse "css", "js" -Destination "dist"
 
 # 2. Package IPK

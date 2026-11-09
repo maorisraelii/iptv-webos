@@ -1,6 +1,8 @@
 /**
- * Video Player controller optimized for LG webOS TV (webOS 4.64 & 5.0+)
- * Dual-engine: Hls.js (with worker disabled for file:// compatibility) + automatic Native Starfish Hardware fallback
+ * High-Performance Video Player Controller for LG webOS TV (webOS 4.64 & 5.0+)
+ * - Low-memory Hls.js configuration for fast zapping on older TV CPUs
+ * - Automatic fallback to LG Starfish Native Hardware Media Pipeline
+ * - Catch-Up / Start-Over playback support (Past & Current programmes)
  */
 class VideoPlayer {
   constructor(videoElement, callbacks) {
@@ -8,10 +10,12 @@ class VideoPlayer {
     this.callbacks = callbacks || {};
     this.hls = null;
     this.currentChannel = null;
+    this.currentProgramme = null;
     this.retryCount = 0;
     this.maxRetries = 2;
     this.retryTimer = null;
     this.usedNativeFallback = false;
+    this.userPaused = false;
 
     this.initListeners();
   }
@@ -31,15 +35,23 @@ class VideoPlayer {
 
     this.video.addEventListener('playing', () => {
       this.retryCount = 0;
+      this.userPaused = false;
       this.triggerState('playing');
     });
 
     this.video.addEventListener('pause', () => {
-      this.triggerState('paused');
+      if (this.userPaused) {
+        this.triggerState('paused');
+      }
     });
 
-    this.video.addEventListener('error', (e) => {
-      console.warn('Native video error:', e);
+    this.video.addEventListener('error', () => {
+      // If a catch-up URL failed (e.g. provider doesn't support timeshift query params), fallback to live URL
+      if (this.currentProgramme && this.currentChannel) {
+        this.currentProgramme = null;
+        this.play(this.currentChannel);
+        return;
+      }
       this.handlePlaybackError('השידור אינו זמין כעת בערוץ זה');
     });
   }
@@ -50,14 +62,17 @@ class VideoPlayer {
     }
   }
 
-  play(channel) {
+  play(channel, customStreamUrl) {
     if (!channel || !channel.url) return;
     this.currentChannel = channel;
+    if (!customStreamUrl) {
+      this.currentProgramme = null;
+    }
     this.usedNativeFallback = false;
     this.cleanUp();
     this.triggerState('loading');
 
-    const url = channel.url.trim();
+    const url = (customStreamUrl || channel.url).trim();
     const isHls = url.indexOf('.m3u8') !== -1 || url.indexOf('m3u8') !== -1;
 
     if (window.Hls && window.Hls.isSupported() && isHls) {
@@ -71,30 +86,83 @@ class VideoPlayer {
     }
   }
 
+  /**
+   * Play a specific past or live programme from its beginning (Start-Over / Catch-Up)
+   */
+  playProgrammeStartOver(channel, programme) {
+    if (!channel) return;
+    if (!programme) {
+      this.startOver();
+      return;
+    }
+
+    this.currentProgramme = programme;
+    const catchupUrl = this.buildCatchupUrl(channel, programme);
+
+    if (catchupUrl && catchupUrl !== channel.url) {
+      this.play(channel, catchupUrl);
+    } else {
+      // If already playing this channel, seek back to earliest DVR buffer or restart
+      if (this.currentChannel && this.currentChannel.id === channel.id && this.video) {
+        this.startOver();
+      } else {
+        this.play(channel);
+      }
+    }
+  }
+
+  buildCatchupUrl(channel, programme) {
+    if (!channel || !channel.url || !programme || !programme.startMs) {
+      return channel ? channel.url : '';
+    }
+
+    const startUnix = Math.floor(programme.startMs / 1000);
+    const nowUnix = Math.floor(Date.now() / 1000);
+    const durationSec = Math.max(60, Math.floor(((programme.stopMs || Date.now()) - programme.startMs) / 1000));
+    const offsetSec = Math.max(0, nowUnix - startUnix);
+
+    // 1. Explicit catchup-source template from M3U
+    if (channel.catchupSource) {
+      return channel.catchupSource
+        .replace(/\$\{start\}|\{utc\}|\{start\}/gi, String(startUnix))
+        .replace(/\$\{timestamp\}|\{lutc\}/gi, String(nowUnix))
+        .replace(/\$\{duration\}|\{duration\}/gi, String(durationSec))
+        .replace(/\$\{offset\}|\{offset\}/gi, String(offsetSec));
+    }
+
+    // 2. Flussonic / Catchup shift query parameters if catchupType is specified
+    if (channel.catchupType === 'Append' || channel.catchupType === 'shift' || channel.catchupType === 'default' || channel.catchupType === 'flussonic') {
+      const sep = channel.url.indexOf('?') === -1 ? '?' : '&';
+      return channel.url + sep + 'utc=' + startUnix + '&lutc=' + nowUnix;
+    }
+
+    return channel.url;
+  }
+
   playHls(url) {
     try {
-      // IMPORTANT: enableWorker: false is required on webOS file:// protocol!
+      // Tuned for older LG webOS CPUs: low memory footprint + fast startup
       this.hls = new window.Hls({
         enableWorker: false,
-        maxBufferLength: 25,
-        maxMaxBufferLength: 50,
+        maxBufferLength: 15,
+        maxMaxBufferLength: 30,
+        backBufferLength: 20,
         lowLatencyMode: false,
-        backBufferLength: 30,
-        manifestLoadingTimeOut: 8000,
+        capLevelToPlayerSize: false,
+        manifestLoadingTimeOut: 7000,
         manifestLoadingMaxRetry: 1,
-        levelLoadingTimeOut: 8000
+        levelLoadingTimeOut: 7000
       });
 
       this.hls.attachMedia(this.video);
       this.hls.on(window.Hls.Events.MEDIA_ATTACHED, () => {
-        this.hls.loadSource(url);
+        if (this.hls) this.hls.loadSource(url);
       });
 
       this.hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
         const playPromise = this.video.play();
         if (playPromise && typeof playPromise.catch === 'function') {
-          playPromise.catch((e) => {
-            console.warn('Autoplay warning, retrying muted then unmuting:', e);
+          playPromise.catch(() => {
             this.video.muted = true;
             this.video.play().then(() => {
               this.video.muted = false;
@@ -105,9 +173,7 @@ class VideoPlayer {
 
       this.hls.on(window.Hls.Events.ERROR, (event, data) => {
         if (data && data.fatal) {
-          console.warn('Fatal HLS.js error:', data.type, data.details);
           if (!this.usedNativeFallback) {
-            console.log('Falling back to LG webOS Native Hardware Player for:', url);
             this.usedNativeFallback = true;
             this.cleanUp();
             this.playNative(url);
@@ -117,7 +183,6 @@ class VideoPlayer {
         }
       });
     } catch (err) {
-      console.error('HLS init error, using native player:', err);
       this.playNative(url);
     }
   }
@@ -128,8 +193,7 @@ class VideoPlayer {
       this.video.load();
       const playPromise = this.video.play();
       if (playPromise && typeof playPromise.catch === 'function') {
-        playPromise.catch((err) => {
-          console.warn('Native play promise warning:', err);
+        playPromise.catch(() => {
           this.video.muted = true;
           this.video.play().then(() => {
             this.video.muted = false;
@@ -141,7 +205,7 @@ class VideoPlayer {
     }
   }
 
-  handlePlaybackError(msg) {
+  handlePlaybackError() {
     if (this.retryCount < this.maxRetries) {
       this.retryCount++;
       this.triggerState('retrying');
@@ -150,7 +214,7 @@ class VideoPlayer {
         if (this.currentChannel) {
           this.playNative(this.currentChannel.url.trim());
         }
-      }, 1800);
+      }, 1500);
     } else {
       this.triggerState('error');
     }
@@ -159,13 +223,21 @@ class VideoPlayer {
   togglePlayPause() {
     if (!this.video) return false;
     if (this.video.paused) {
+      this.userPaused = false;
       const p = this.video.play();
       if (p && typeof p.catch === 'function') p.catch(() => {});
+      this.triggerState('playing');
       return false;
     } else {
+      this.userPaused = true;
       this.video.pause();
+      this.triggerState('paused');
       return true;
     }
+  }
+
+  isPaused() {
+    return this.video ? Boolean(this.video.paused) : false;
   }
 
   rewind(seconds) {
@@ -197,6 +269,10 @@ class VideoPlayer {
     try {
       if (this.video.seekable && this.video.seekable.length > 0) {
         this.video.currentTime = this.video.seekable.start(0);
+        if (this.video.paused) {
+          const p = this.video.play();
+          if (p && typeof p.catch === 'function') p.catch(() => {});
+        }
       } else if (this.currentChannel) {
         this.play(this.currentChannel);
       }
@@ -218,6 +294,8 @@ class VideoPlayer {
     clearTimeout(this.retryTimer);
     if (this.hls) {
       try {
+        this.hls.stopLoad();
+        this.hls.detachMedia();
         this.hls.destroy();
       } catch (e) {}
       this.hls = null;
