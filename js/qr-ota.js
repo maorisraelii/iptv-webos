@@ -3,7 +3,7 @@
  * Designed for LG webOS 4.0 - 24+ (Chromium 53+)
  */
 
-const APP_BUNDLE_VERSION = '4.3.0';
+const APP_BUNDLE_VERSION = '4.4.0';
 const OTA_GIST_RAW_BASE = 'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw';
 const REMOTE_PORTAL_BASE_URL = 'https://gist.githack.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/remote.html';
 
@@ -404,6 +404,9 @@ class OTACloudManager {
           document.head.appendChild(styleEl);
         }
         styleEl.textContent = bundle.cssPatch;
+        if (this.app && typeof this.app.updateVideoSurfacePosition === 'function') {
+          setTimeout(() => this.app.updateVideoSurfacePosition(true), 60);
+        }
       }
       if (bundle.jsPatch) {
         try {
