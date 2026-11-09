@@ -24,10 +24,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js 20
+      - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install dependencies
         run: |
@@ -49,29 +49,6 @@ jobs:
             IPTV-Live-webOS.ipk
             ${{ env.IPK_FILE }}
           retention-days: 30
-
-      - name: Setup GitHub Pages
-        if: github.ref == 'refs/heads/main'
-        uses: actions/configure-pages@v5
-
-      - name: Prepare Pages Deployment Directory
-        if: github.ref == 'refs/heads/main'
-        run: |
-          mkdir -p _site
-          cp -r index.html appinfo.json app-config.json css js assets icon.png largeIcon.png _site/
-          # Also copy the IPK into the site root for easy direct download from the web!
-          cp IPTV-Live-webOS.ipk _site/
-
-      - name: Upload Pages Artifact
-        if: github.ref == 'refs/heads/main'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
-      - name: Deploy to GitHub Pages
-        if: github.ref == 'refs/heads/main'
-        id: deployment
-        uses: actions/deploy-pages@v4
 
       - name: Create or Update GitHub Release
         if: github.ref == 'refs/heads/main'
@@ -99,3 +76,28 @@ jobs:
             --title "$RELEASE_TITLE" \
             --notes "$NOTES" \
             --latest || gh release upload "$TAG" "IPTV-Live-webOS.ipk" --clobber
+
+      - name: Prepare Pages Deployment Directory
+        if: github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p _site
+          cp -r index.html appinfo.json app-config.json css js icon.png largeIcon.png _site/
+          cp IPTV-Live-webOS.ipk _site/
+
+      - name: Upload Pages Artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy-pages:
+    if: github.ref == 'refs/heads/main'
+    needs: build-and-release
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
