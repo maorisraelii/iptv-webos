@@ -1,6 +1,6 @@
 {
   "id": "com.iptv.livetv",
-  "version": "4.9.1",
+  "version": "4.9.2",
   "vendor": "IPTV",
   "type": "web",
   "main": "index.html",
@@ -11,5 +11,6 @@
   "bgColor": "#070b14",
   "resolution": "1920x1080",
   "disableBackHistoryAPI": true,
+  "handlesRelaunch": true,
   "requiredACG": []
 }

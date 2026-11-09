@@ -119,6 +119,19 @@ class IPTVApp {
     this.updateVideoSurfacePosition(true);
     setTimeout(() => this.updateVideoSurfacePosition(true), 150);
     window.addEventListener('resize', () => this.updateVideoSurfacePosition(true));
+
+    // Restore hardware audio pipeline on resume from standby, sleep, or HDMI input switch
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && this.player) {
+        this.player.recoverAudioSink();
+      }
+    });
+    document.addEventListener('webOSRelaunch', () => {
+      if (this.player) {
+        this.player.recoverAudioSink();
+      }
+    });
+
     if (this.otaManager && typeof this.otaManager.applySavedOTABundle === 'function') {
       this.otaManager.applySavedOTABundle();
     }

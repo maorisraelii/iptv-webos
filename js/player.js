@@ -249,6 +249,16 @@ class VideoPlayer {
       // Smoothly ramp quality up/down as buffer accumulates
       this.updateProgressiveQualityByBuffer();
 
+      // Hardware Audio Watchdog: prevent silent muted drop or volume attenuation
+      if (this.video && !this.userPaused) {
+        if (this.video.muted) {
+          this.video.muted = false;
+        }
+        if (this.video.volume < 1.0) {
+          this.video.volume = 1.0;
+        }
+      }
+
       const ct = this.video.currentTime || 0;
       if (ct > 0 && Math.abs(ct - this.lastWatchdogTime) < 0.01) {
         this.stallTicks++;
@@ -305,6 +315,12 @@ class VideoPlayer {
     this.userPaused = false;
     this.stallTicks = 0;
     this.cleanUp();
+
+    if (this.video) {
+      this.video.muted = false;
+      this.video.volume = 1.0;
+    }
+
     this.triggerState('loading');
 
     const url = (customStreamUrl || channel.url).trim();
@@ -382,6 +398,9 @@ class VideoPlayer {
         // Progressive Quality Ramp-Up: start on level 0 for instant channel start, then ramp up as buffer fills
         startLevel: prof.progressiveQuality ? 0 : -1,
         capLevelToPlayerSize: false,
+        // Audio Synchronization & Codec Support
+        maxAudioFramesDrift: 1,
+        forceKeyFrameOnDiscontinuity: true,
         // Buffer Configuration
         maxBufferLength: prof.maxBufferLength,
         maxMaxBufferLength: prof.maxMaxBufferLength,
@@ -428,10 +447,30 @@ class VideoPlayer {
             this.video
               .play()
               .then(() => {
-                this.video.muted = false;
+                setTimeout(() => {
+                  if (this.video && !this.userPaused) {
+                    this.video.muted = false;
+                    this.video.volume = 1.0;
+                  }
+                }, 100);
               })
               .catch(() => {});
           });
+        }
+      });
+
+      // Ensure audio track is always active and unmuted
+      this.hls.on(window.Hls.Events.AUDIO_TRACK_LOADED, () => {
+        if (this.video && !this.userPaused) {
+          this.video.muted = false;
+          this.video.volume = 1.0;
+        }
+      });
+
+      this.hls.on(window.Hls.Events.AUDIO_TRACK_SWITCHED, () => {
+        if (this.video && !this.userPaused) {
+          this.video.muted = false;
+          this.video.volume = 1.0;
         }
       });
 
@@ -448,6 +487,14 @@ class VideoPlayer {
             this.updateProgressiveQualityByBuffer();
           } else if (data.details === window.Hls.ErrorDetails.BUFFER_SEEK_OVER_HOLE) {
             this.nudgeIfBufferedAhead();
+          } else if (
+            data.details === window.Hls.ErrorDetails.AUDIO_TRACK_LOAD_ERROR ||
+            data.details === window.Hls.ErrorDetails.AUDIO_TRACK_LOAD_TIMEOUT
+          ) {
+            console.warn('Audio track load error, falling back to primary audio track...');
+            if (this.hls && this.hls.audioTracks && this.hls.audioTracks.length > 0) {
+              this.hls.audioTrack = 0;
+            }
           }
           return;
         }
@@ -461,9 +508,14 @@ class VideoPlayer {
           }
         } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
           const now = Date.now();
-          if (now - this.lastMediaRecoveryMs > 3000 && this.hls) {
+          if (now - this.lastMediaRecoveryMs > 2000 && this.hls) {
             this.lastMediaRecoveryMs = now;
+            console.warn('Media/Audio decode error, recovering media pipeline...');
             this.hls.recoverMediaError();
+            if (this.video) {
+              this.video.muted = false;
+              this.video.volume = 1.0;
+            }
             return;
           }
         }
@@ -485,6 +537,8 @@ class VideoPlayer {
     try {
       this.video.src = url;
       this.video.load();
+      this.video.muted = false;
+      this.video.volume = 1.0;
       const playPromise = this.video.play();
       if (playPromise && typeof playPromise.catch === 'function') {
         playPromise.catch(() => {
@@ -492,7 +546,12 @@ class VideoPlayer {
           this.video
             .play()
             .then(() => {
-              this.video.muted = false;
+              setTimeout(() => {
+                if (this.video && !this.userPaused) {
+                  this.video.muted = false;
+                  this.video.volume = 1.0;
+                }
+              }, 100);
             })
             .catch(() => {});
         });
@@ -581,11 +640,6 @@ class VideoPlayer {
 
   stop() {
     this.cleanUp();
-    if (this.video) {
-      this.video.pause();
-      this.video.removeAttribute('src');
-      this.video.load();
-    }
   }
 
   cleanUp() {
@@ -597,6 +651,45 @@ class VideoPlayer {
         this.hls.destroy();
       } catch (e) {}
       this.hls = null;
+    }
+    if (this.video) {
+      try {
+        this.video.pause();
+        this.video.removeAttribute('src');
+        if (this.video.srcObject) this.video.srcObject = null;
+        this.video.load(); // Forces webOS to release ALSA hardware audio decoder pipeline!
+        this.video.muted = false;
+        this.video.volume = 1.0;
+      } catch (e) {}
+    }
+  }
+
+  /**
+   * Recovers audio pipeline on webOS if audio was dropped by sleep, standby,
+   * HDMI input switch, or browser autoplay policy lock.
+   */
+  recoverAudioSink() {
+    if (!this.video) return;
+    try {
+      this.video.muted = false;
+      this.video.volume = 1.0;
+      if (this.hls) {
+        try {
+          this.hls.recoverMediaError();
+        } catch (e) {}
+      }
+      if (!this.userPaused && this.currentChannel) {
+        const p = this.video.play();
+        if (p && typeof p.catch === 'function') {
+          p.catch(() => {
+            this.video.muted = false;
+            this.video.volume = 1.0;
+            this.video.play().catch(() => {});
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('recoverAudioSink notice:', e);
     }
   }
 }

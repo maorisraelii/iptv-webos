@@ -2,15 +2,15 @@
   <img src="largeIcon.png" alt="Live TV Logo" width="130" height="130" style="border-radius: 28px; box-shadow: 0 12px 36px rgba(56, 189, 248, 0.3);" />
 </p>
 
-<h1 align="center">📺 Live TV for LG webOS (v4.9.1)</h1>
+<h1 align="center">📺 Live TV for LG webOS (v4.9.2)</h1>
 
 <p align="center">
   An ultra-fast, hardware-accelerated, remote-first <strong>IPTV Live TV &amp; Catch-Up Player</strong> engineered specifically for <strong>LG Smart TVs (webOS 4.0 – 24+)</strong>.<br />
-  Features <strong>Zero EPG Truncation &amp; Stale-While-Revalidate Sync</strong>, <strong>Direct Fullscreen Boot on Launch</strong>, <strong>TV Hardware Memory Crash Guard</strong>, <strong>100% Israeli XMLTV EPG Match (`epg-il.xml`)</strong>, <strong>Numeric Jump Target Channel Preview (0–9)</strong>, <strong>Live Channel-Row Mini Progress Bars</strong>, <strong>Progressive Quality Ramp-Up (Smart ABR by Buffer)</strong>, <strong>True 16:9 (960×540 qHD) Live Preview Workspace</strong>, and <strong>Full-Runtime Over-The-Air (OTA) Cloud Updates</strong>.
+  Features <strong>Hardware Audio Pipeline &amp; Auto-Unmute Guard</strong>, <strong>Zero EPG Truncation &amp; Stale-While-Revalidate Sync</strong>, <strong>Direct Fullscreen Boot on Launch</strong>, <strong>TV Hardware Memory Crash Guard</strong>, <strong>100% Israeli XMLTV EPG Match (`epg-il.xml`)</strong>, <strong>Numeric Jump Target Channel Preview (0–9)</strong>, <strong>Live Channel-Row Mini Progress Bars</strong>, <strong>Progressive Quality Ramp-Up (Smart ABR by Buffer)</strong>, <strong>True 16:9 (960×540 qHD) Live Preview Workspace</strong>, and <strong>Full-Runtime Over-The-Air (OTA) Cloud Updates</strong>.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-4.9.1%20Production-0284c7?style=for-the-badge" alt="Version 4.9.1" />
+  <img src="https://img.shields.io/badge/Version-4.9.2%20Production-0284c7?style=for-the-badge" alt="Version 4.9.2" />
   <a href="https://github.com/maorisraelii/iptv-webos/actions/workflows/build_ipk.yml"><img src="https://img.shields.io/github/actions/workflow/status/maorisraelii/iptv-webos/build_ipk.yml?branch=main&style=for-the-badge&label=Build%20%26%20Release&logo=githubactions" alt="Build Status" /></a>
   <img src="https://img.shields.io/badge/Platform-LG%20webOS%204.64%20|%205.0%2B-a50034?style=for-the-badge&logo=lg" alt="LG webOS 4.64+" />
   <img src="https://img.shields.io/badge/Smart%20ABR-Progressive%20Quality%20by%20Buffer-f59e0b?style=for-the-badge" alt="Progressive Quality Ramp-Up" />
@@ -20,12 +20,12 @@
 
 ---
 
-## 📸 Screenshots (v4.9.1)
+## 📸 Screenshots (v4.9.2)
 
 <p align="center">
   <img src="screenshots/1-browse-live.png" alt="Live TV Main Workspace with Real-Time Israeli EPG, Channel List Mini Progress Bars, True 16:9 960x540 Live Preview, Prev/Now/Next EPG and 5-Show Strip" width="100%" />
   <br />
-  <em>Main Split Workspace (v4.9.1): Right-side Wide O(1) Channel List (892px wide) with Real-Time Israeli XMLTV Programmes, Live Mini Progress Bars, Start/End Times &amp; Remaining Minutes per Channel + Left-side True 16:9 (960×540) Live Stream Preview, Previous/Current/Next EPG, and 5-Program Start-Over Strip.</em>
+  <em>Main Split Workspace (v4.9.2): Right-side Wide O(1) Channel List (892px wide) with Real-Time Israeli XMLTV Programmes, Live Mini Progress Bars, Start/End Times &amp; Remaining Minutes per Channel + Left-side True 16:9 (960×540) Live Stream Preview, Previous/Current/Next EPG, and 5-Program Start-Over Strip.</em>
 </p>
 
 <table>
@@ -49,13 +49,14 @@
 
 ---
 
-## 🚀 What's New in v4.9.1
+## 🚀 What's New in v4.9.2
 
-1. **Zero-Truncation EPG Local Cache (`js/epg.js`)**:
-   - Fixed a bug where saving to the local cache truncated channels beyond the 63rd channel due to an arbitrary programme count cap (`count > 3500`), causing channels to lose their EPG when exiting and re-entering the app.
-   - The local cache now reliably preserves **100% of all 285 channels and 896 aliases** by saving the active viewing window (-6h to +24h, up to 25 shows per channel) in an ultra-compact ~890KB format that stays safely within browser storage limits.
-2. **Stale-While-Revalidate EPG Loading (`js/epg.js`)**:
-   - On app boot, cached schedules are served instantaneously (< 15ms) for a zero-wait cold boot, while a non-blocking background fetch silently refreshes the full XMLTV schedule, guaranteeing accurate live programs across 100% of channels every time you open the app.
+1. **Hardware Audio Pipeline Guard &amp; Zero Audio-Drop Architecture (`js/player.js`, `js/remote.js`, `js/app.js`)**:
+   - Fixed an issue on LG webOS Smart TVs where sound could intermittently vanish, requiring an app reboot.
+   - **Root Cause &amp; Solution**: WebOS hardware ALSA audio decoders can enter a locked state when channels switch without an explicit hardware sink flush (`video.load()`), or when WebKit's autoplay restrictions trigger silent muting on boot without user gestures.
+   - The app now cleanly releases the hardware audio sink on every stream teardown, automatically monitors audio health every 2 seconds via an active audio watchdog, un-mutes on any remote interaction, and listens to `webOSRelaunch` and `visibilitychange` to restore audio instantly when waking up from TV standby or switching back from HDMI inputs.
+2. **Zero-Truncation EPG Local Cache (`v4.9.1`)**:
+   - The local cache preserves **100% of all 285 channels and 896 aliases** by saving the active viewing window in an ultra-compact ~890KB format that stays safely within browser storage limits.
 3. **Direct Fullscreen Boot &amp; TV Hardware Memory Crash Guard (`v4.9.0`)**:
    - Immediate fullscreen playback on the last watched channel upon launching, with 15MB hardware memory limits preventing WebKit crashes on newer webOS displays.
    - `epg-il.xml` and `ota-manifest.json` continuously synced via GitHub Actions and Cloud Gist for instantaneous zero-effort client updates without reinstalling IPK files.
@@ -97,9 +98,9 @@
 
 ### Method 1: Direct Download via GitHub Releases (Recommended)
 1. Download the latest pre-built package from Releases:
-   👉 **[Download `com.iptv.livetv_4.9.1_all.ipk` / `IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest)**
+   👉 **[Download `com.iptv.livetv_4.9.2_all.ipk` / `IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest)**
 2. Open [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop) on your PC with your TV connected.
-3. Click **Install App** and select `com.iptv.livetv_4.9.1_all.ipk` (or `IPTV-Live-webOS.ipk`).
+3. Click **Install App** and select `com.iptv.livetv_4.9.2_all.ipk` (or `IPTV-Live-webOS.ipk`).
 4. Subsequent updates are delivered automatically via **Over-The-Air (OTA) Cloud Updates** directly inside the app!
 
 ### Method 2: 1-Click Local Build &amp; Direct TV Install (PowerShell)

@@ -78,6 +78,16 @@ class RemoteController {
     this.lastKeyCode = code;
     this.lastKeyTime = now;
 
+    // Unmute & unlock hardware audio on user gesture (fixes webOS silent autoplay policy bug)
+    if (this.app && this.app.player && this.app.player.video) {
+      if (this.app.player.video.muted && !this.app.player.userPaused) {
+        this.app.player.video.muted = false;
+      }
+      if (this.app.player.video.volume < 1.0) {
+        this.app.player.video.volume = 1.0;
+      }
+    }
+
     // Number keys (0-9): 48-57 or 96-105
     if ((code >= 48 && code <= 57) || (code >= 96 && code <= 105)) {
       const num = code >= 96 ? (code - 96).toString() : (code - 48).toString();
