@@ -159,10 +159,6 @@ class IPTVApp {
       },
       onError: (msg) => {
         this.showToast(msg);
-      },
-      onAdaptiveBoost: (channel, level) => {
-        const chName = channel && channel.name ? channel.name : 'זה';
-        this.showToast('באפר חכם: זוהתה האטה בערוץ ' + chName + ' — מגדיל באפר אוטומטית (דרגה ' + level + ')');
       }
     });
   }
@@ -1608,16 +1604,10 @@ class IPTVApp {
 
     const statusEl = document.getElementById('perf-cache-status');
     if (statusEl) {
-      const prof = this.player ? this.player.getBufferProfile() : { label: 'אוטומטי חכם' };
-      const boostedCount = this.player && typeof this.player.getProblematicChannelsCount === 'function'
-        ? this.player.getProblematicChannelsCount()
-        : 0;
+      const prof = this.player ? this.player.getBufferProfile() : { label: 'אוטומטי חכם — איכות מדורגת לפי באפר' };
       const ttlLabel =
         curTtl === 0 ? 'ידני בלבד' : curTtl === 24 ? 'כל 24 שעות' : curTtl === 72 ? 'כל 3 ימים' : 'כל 7 ימים';
-      const boostText = curBuffer === 'smart' && boostedCount > 0
-        ? ' (' + boostedCount + ' ערוצים במצב מוגבר)'
-        : '';
-      statusEl.textContent = 'פעיל כעת: ' + prof.label + boostText + ' | רענון לוח שידורים: ' + ttlLabel;
+      statusEl.textContent = 'פעיל כעת: ' + prof.label + ' | רענון לוח שידורים: ' + ttlLabel;
     }
   }
 
