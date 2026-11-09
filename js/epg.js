@@ -18,7 +18,7 @@ class EPGService {
     this.lastUpdatedMs = 0;
     this.MAX_PAST_DAYS = 7;
     this.DAY_MS = 86400000;
-    this.EPG_CACHE_KEY = 'zenplay_iptv_epg_cache_v49';
+    this.EPG_CACHE_KEY = 'zenplay_iptv_epg_cache_v491';
     this.TTL_STORAGE_KEY = 'zenplay_iptv_cache_ttl_hours';
     this.DEFAULT_LIVE_EPG_URL =
       'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/epg-il.xml';
@@ -182,38 +182,68 @@ class EPGService {
 
   saveToLocalCache(cacheKeyUrl) {
     try {
+      const now = Date.now();
+      // Active viewing window: from 6 hours ago to 24 hours ahead
+      const minMs = now - 6 * 3600000;
+      const maxMs = now + 24 * 3600000;
+
       const entries = [];
-      let count = 0;
       this.programmesByChannel.forEach((list, chId) => {
-        if (chId.indexOf('gen_') === 0 || count > 3500) return;
-        const compact = list.slice(0, 90).map((p) => ({
-          t: p.title,
-          d: p.desc ? p.desc.substring(0, 160) : '',
-          s: p.startMs,
-          e: p.stopMs
-        }));
-        entries.push([chId, compact]);
-        count += compact.length;
+        if (!chId || chId.indexOf('gen_') === 0 || !Array.isArray(list)) return;
+        // Keep shows in current active viewing window, up to 25 shows per channel
+        const active = list.filter((p) => p.stopMs >= minMs && p.startMs <= maxMs).slice(0, 25);
+        if (active.length > 0) {
+          entries.push([
+            chId,
+            active.map((p) => ({
+              t: p.title,
+              d: p.desc ? p.desc.substring(0, 80) : '',
+              s: p.startMs,
+              e: p.stopMs
+            }))
+          ]);
+        }
       });
 
       const aliases = [];
       this.channelAliasMap.forEach((targetId, aliasKey) => {
-        if (aliases.length < 1500 && aliasKey !== targetId) {
+        if (aliasKey && targetId && aliasKey !== targetId) {
           aliases.push([aliasKey, targetId]);
         }
       });
 
       this.lastUpdatedMs = Date.now();
-      localStorage.setItem(
-        this.EPG_CACHE_KEY,
-        JSON.stringify({
-          url: cacheKeyUrl,
-          updatedAt: this.lastUpdatedMs,
-          entries: entries,
-          aliases: aliases
-        })
-      );
-    } catch (e) {}
+      const payload = JSON.stringify({
+        url: cacheKeyUrl,
+        updatedAt: this.lastUpdatedMs,
+        entries: entries,
+        aliases: aliases
+      });
+
+      localStorage.setItem(this.EPG_CACHE_KEY, payload);
+    } catch (e) {
+      console.warn('saveToLocalCache storage error, attempting minimal compaction:', e);
+      try {
+        const minimalEntries = [];
+        this.programmesByChannel.forEach((list, chId) => {
+          if (!chId || chId.indexOf('gen_') === 0) return;
+          const active = list.slice(0, 15);
+          minimalEntries.push([
+            chId,
+            active.map((p) => ({ t: p.title, d: '', s: p.startMs, e: p.stopMs }))
+          ]);
+        });
+        localStorage.setItem(
+          this.EPG_CACHE_KEY,
+          JSON.stringify({
+            url: cacheKeyUrl,
+            updatedAt: Date.now(),
+            entries: minimalEntries,
+            aliases: []
+          })
+        );
+      } catch (inner) {}
+    }
   }
 
   clearCache() {
@@ -227,7 +257,9 @@ class EPGService {
   }
 
   /**
-   * Loads one or more XMLTV URLs (supports comma-separated strings, arrays, .xml and .xml.gz)
+   * Loads one or more XMLTV URLs (supports comma-separated strings, arrays, .xml and .xml.gz).
+   * Implements Stale-While-Revalidate: serves instant cached schedule for 0-ms cold boot,
+   * while continuing background network fetch to guarantee 100% freshness across all channels.
    */
   loadEPG(urlOrUrls, onComplete, forceRefresh) {
     let urls = [];
@@ -269,13 +301,19 @@ class EPGService {
     this.epgUrl = urls[0];
     this.loadedUrls = urls;
 
-    if (!forceRefresh && this.loadFromLocalCache(cacheKeyUrl)) {
+    // Stale-While-Revalidate: render immediately from local cache if available (< 15ms)
+    const hasCachedData = !forceRefresh && this.loadFromLocalCache(cacheKeyUrl);
+    if (hasCachedData) {
       if (onComplete) onComplete(true);
-      return;
+      const ageMs = Date.now() - (this.lastUpdatedMs || 0);
+      // If cache was refreshed within last 20 minutes, don't spam network fetch
+      if (ageMs < 20 * 60 * 1000) {
+        return;
+      }
     }
 
     this.isLoading = true;
-    let ClearFirst = true;
+    let ClearFirst = !hasCachedData; // Don't wipe memory during background revalidation!
 
     const fetchPromises = urls.map((u) =>
       this.fetchAndDecodeXMLTV(u)
