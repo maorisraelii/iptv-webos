@@ -104,7 +104,7 @@ class IPTVApp {
     if (cached && cached.length > 0) {
       this.allChannels = cached;
       this.applyChannelFilter();
-      this.restoreLastWatchedChannel();
+      this.restoreLastWatchedChannel(true);
       this.updateVideoSurfacePosition(true);
 
       // Only refresh in background if the cache TTL (24h / 3d / 7d) has expired!
@@ -165,9 +165,18 @@ class IPTVApp {
       }
     }
 
-    if (urls.length > 0 && this.epg) {
+    // Safety guard: rewrite monolithic global EPG feeds (like epg.team/3.1.xml) to safe defaultLiveEpg
+    const safeUrls = urls.map((u) => {
+      if (u && (u.indexOf('epg.team') !== -1 || u.indexOf('epg_ripper_ALL') !== -1)) {
+        return defaultLiveEpg;
+      }
+      return u;
+    });
+    const uniqueUrls = Array.from(new Set(safeUrls));
+
+    if (uniqueUrls.length > 0 && this.epg) {
       this.epg.loadEPG(
-        urls,
+        uniqueUrls,
         () => {
           this.refreshVisibleEPGLabels();
         },
@@ -319,7 +328,8 @@ class IPTVApp {
         if (!silentBackground) {
           this.onlyFavorites = false;
           this.applyChannelFilter();
-          this.restoreLastWatchedChannel();
+          const shouldFullscreen = !this.selectedChannel;
+          this.restoreLastWatchedChannel(shouldFullscreen);
           this.updateVideoSurfacePosition();
         } else {
           // Silent background update: preserve current channel & focus index
@@ -343,7 +353,7 @@ class IPTVApp {
       });
   }
 
-  restoreLastWatchedChannel() {
+  restoreLastWatchedChannel(openFullscreen = false) {
     const lastChId = localStorage.getItem(STORAGE_KEYS.LAST_CHANNEL);
     const startIdx = this.visibleChannels.findIndex((c) => c.id === lastChId);
     this.focusedChannelIndex = startIdx !== -1 ? startIdx : 0;
@@ -352,6 +362,9 @@ class IPTVApp {
     const startCh = this.visibleChannels[this.focusedChannelIndex];
     if (startCh) {
       this.highlightChannel(startCh, true);
+      if (openFullscreen) {
+        this.enterFullscreen();
+      }
     }
   }
 

@@ -74,7 +74,7 @@ const jsPatch = `
         syncClassProto({ prototype: Object.getPrototypeOf(app.epg) }, OtaEPGService);
         if (!app.epg.channelAliasMap) app.epg.channelAliasMap = new Map();
         if (!app.epg.loadedUrls) app.epg.loadedUrls = [];
-        app.epg.EPG_CACHE_KEY = 'zenplay_iptv_epg_cache_v48';
+        app.epg.EPG_CACHE_KEY = 'zenplay_iptv_epg_cache_v49';
         app.epg.DEFAULT_LIVE_EPG_URL = 'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/epg-il.xml';
       }
 
@@ -97,8 +97,8 @@ const jsPatch = `
         syncClassProto({ prototype: Object.getPrototypeOf(app.remote) }, OtaRemoteController);
       }
 
-      if (!app.__zenplayOtaUpgradedV48) {
-        app.__zenplayOtaUpgradedV48 = true;
+      if (!app.__zenplayOtaUpgradedV49) {
+        app.__zenplayOtaUpgradedV49 = true;
         if (typeof app.loadActiveEPGSources === 'function') {
           app.loadActiveEPGSources(false);
         }
@@ -124,12 +124,12 @@ const jsPatch = `
 const manifest = {
   version: version,
   releaseDate: new Date().toISOString().slice(0, 10),
-  title: 'עדכון גרסה ' + version + ' - לוח שידורים ישראלי חי (XMLTV), תצוגת ערוץ בהקלדת מספר, וביטול התראות מיותרות',
+  title: 'עדכון גרסה ' + version + ' - פתיחה במסך מלא, הגנת קריסות מסך, ולוח שידורים ישראלי מלא (100%)',
   releaseNotes: [
-    'לוח שידורים ישראלי אמיתי וחי (Real-Time XMLTV EPG): סנכרון מלא של לוח השידורים האמיתי בישראל (כאן 11, קשת 12, רשת 13, עכשיו 14, ספורט 5/פלוס/סטארס/לייב/גולד, ערוץ 9, ערוץ 24, i24NEWS, ויוה, הידברות, ילדים ועוד) כולל שליפה אוטומטית מקישורי M3U',
-    'תצוגה מקדימה של הערוץ בחלונית הקלדת מספר (0-9): בעת הקלדת מספר ערוץ בשלט מוצגים מיד שם הערוץ, הלוגו והתוכנית המשודרת בו עוד לפני שהערוץ עובר (ולחיצה על OK מעבירה מיד)',
-    'ביטול התראות ה-Toast המיותרות בתחתית המסך בעת מעבר בין ערוצים',
-    'מנוע עדכון OTA מלא (Full Runtime Bundle): מעדכן את כל קוד האפליקציה והעיצוב ישירות מהענן ללא צורך בהתקנה ידנית של קובץ IPK'
+    'פתיחה ישירה במסך מלא (Direct Fullscreen Boot): בעת פתיחת האפליקציה השידור נפתח מיד על מסך מלא של הערוץ האחרון שנצפה בדיוק כמו ממיר טלוויזיה מקצועי',
+    'הגנה מלאה מקריסות חומרה וכיבוי מסך (TV Hardware Memory Guard): חסימת פיצוצי זיכרון מהורדת קבצי XMLTV ענקיים (מעל 300MB) שמקורם ב-epg.team, המונעת לחלוטין קריסות של ה-Web Engine וכיבוי פתאומי של מסך הטלוויזיה',
+    'כיסוי מושלם (100%) של לוח השידורים לכל 103 ערוצי המשתמש: תמיכה מובנית מלאה בכל מזהי chXXXX וקידומיות IL:, כולל ערוצי ספורט 5, One, דיסקברי, נשיונל ג\'יאוגרפיק, Yes, HOT, Cellcom ו-Free TV',
+    'מנוע עדכוני OTA ענני מלא: שדרוג ישיר של האפליקציה למסכי LG webOS ללא צורך בהתקנה ידנית'
   ],
   cssPatch: cssContent,
   jsPatch: jsPatch

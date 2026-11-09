@@ -18,9 +18,9 @@ Copy-Item -Recurse "css", "js" -Destination "dist"
 # Sync OTA Manifest, Live EPG & Remote Portal to Public Cloud Gist if gh is available
 if (Get-Command gh -ErrorAction SilentlyContinue) {
     Write-Host "`n[OTA] Syncing ota-manifest.json, epg-il.xml & remote.html to Cloud OTA Gist..." -ForegroundColor Cyan
-    gh gist edit b4408ca1c31143ed2f50164629f53f1c -a ota-manifest.json 2>$null
-    gh gist edit b4408ca1c31143ed2f50164629f53f1c -a epg-il.xml 2>$null
-    gh gist edit b4408ca1c31143ed2f50164629f53f1c -a remote.html 2>$null
+    gh gist edit b4408ca1c31143ed2f50164629f53f1c --filename ota-manifest.json ota-manifest.json 2>$null
+    gh gist edit b4408ca1c31143ed2f50164629f53f1c --filename epg-il.xml epg-il.xml 2>$null
+    gh gist edit b4408ca1c31143ed2f50164629f53f1c --filename remote.html remote.html 2>$null
 }
 
 # 2. Package IPK
