@@ -97,8 +97,8 @@ const jsPatch = `
         syncClassProto({ prototype: Object.getPrototypeOf(app.remote) }, OtaRemoteController);
       }
 
-      if (!app.__zenplayOtaUpgradedV491) {
-        app.__zenplayOtaUpgradedV491 = true;
+      if (!app.__zenplayOtaUpgradedV492) {
+        app.__zenplayOtaUpgradedV492 = true;
         if (typeof app.loadActiveEPGSources === 'function') {
           app.loadActiveEPGSources(false);
         }
@@ -124,11 +124,11 @@ const jsPatch = `
 const manifest = {
   version: version,
   releaseDate: new Date().toISOString().slice(0, 10),
-  title: 'עדכון גרסה ' + version + ' - תיקון שימור לוח השידורים ביציאה וכניסה לאפליקציה (100% ערוצים)',
+  title: 'עדכון גרסה ' + version + ' - הגנה מלאה על ערוצי השמע ומניעת איבוד סאונד (Hardware Audio Pipeline)',
   releaseNotes: [
-    'תיקון שימור לוח שידורים מקומי (Zero EPG Truncation): תוקן באג שבו שמירת הקאש המקומי ביציאה מהאפליקציה קטעה חלק מהערוצים. כעת נשמרים 100% מכלל הערוצים (285 ערוצים ו-896 כינויים) ללא איבוד מידע',
-    'מנגנון Stale-While-Revalidate: עלייה מיידית מהקאש (פחות מ-15 מילישניות) ובמקביל רענון רקע ענני מלא שמבטיח שכל הערוצים מציגים תמיד את לוח השידורים החי והמעודכן ביותר',
-    'שמירה על פתיחה ישירה במסך מלא והגנת קריסות חומרה על כל מסכי LG webOS'
+    'הגנה על פענוח שמע בחומרה (Hardware Audio Pipeline): שחרור ואיפוס מוחלט של מפענח השמע בחומרה של LG webOS במעבר בין ערוצים וביציאה למניעת השתקת סאונד או נעילת דרייבר שמע',
+    'שחזור שמע אוטומטי בהתעוררות מהמתנה (Resume from Standby / HDMI Switch): זיהוי אוטומטי של חזרת המסך מהמתנה וחיבור מיידי של מפענח השמע ללא צורך ביציאה וכניסה מחדש',
+    'ביטול נעילות Autoplay והשתקה שקטה: הבטחת ניגון בעוצמת שמע מלאה (Unmuted) בכל לחיצה בשלט או מעבר ערוץ'
   ],
   cssPatch: cssContent,
   jsPatch: jsPatch
