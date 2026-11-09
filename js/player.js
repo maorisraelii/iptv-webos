@@ -171,16 +171,16 @@ class VideoPlayer {
 
     const totalLevels = this.hls.levels.length;
     const maxLevelIdx = totalLevels - 1;
-    const midLevelIdx = Math.max(0, Math.floor(maxLevelIdx / 2));
+    const midLevelIdx = Math.max(1, Math.ceil(maxLevelIdx / 2));
     const forwardSec = this.getForwardBufferSeconds();
 
     if (forwardSec < 3.5) {
-      // Low buffer: cap to fast/lightweight level so buffer refills rapidly without stalling
-      this.hls.autoLevelCapping = Math.min(1, midLevelIdx);
+      // Low buffer: cap to fastest/lightest level (0) so buffer refills rapidly without stalling
+      this.hls.autoLevelCapping = 0;
       this.currentQualityTier = 'low-fast';
     } else if (forwardSec < 8.5) {
       // Medium buffer: step up to intermediate quality while continuing to accumulate buffer
-      this.hls.autoLevelCapping = Math.max(1, midLevelIdx);
+      this.hls.autoLevelCapping = midLevelIdx;
       this.currentQualityTier = 'ramping-up';
     } else {
       // Healthy buffer (>= 8.5s): uncap completely so hls.js plays highest Full HD quality!
