@@ -88,16 +88,6 @@ class IPTVApp {
       if (document.body) document.body.focus();
     } catch (e) {}
 
-    // Load saved EPG URL if configured
-    const savedEpgUrl = localStorage.getItem(STORAGE_KEYS.EPG_URL);
-    if (savedEpgUrl) {
-      const epgInput = document.getElementById('epg-url-input');
-      if (epgInput) epgInput.value = savedEpgUrl;
-      this.epg.loadEPG(savedEpgUrl, () => {
-        this.refreshVisibleEPGLabels();
-      });
-    }
-
     // Populate PC Sync input if saved
     const savedPcHost = localStorage.getItem(LINEUP_KEYS.PC_SYNC_HOST);
     if (savedPcHost) {
@@ -107,6 +97,9 @@ class IPTVApp {
 
     // INSTANT COLD BOOT: Render immediately from cached lineup if available (< 20ms)
     const cached = this.store.loadCachedLineup();
+    // Load saved EPG URL + any M3U-discovered EPG URLs immediately (even on cached boot)
+    this.loadActiveEPGSources(false);
+
     if (cached && cached.length > 0) {
       this.allChannels = cached;
       this.applyChannelFilter();
@@ -125,6 +118,50 @@ class IPTVApp {
     this.updateVideoSurfacePosition(true);
     setTimeout(() => this.updateVideoSurfacePosition(true), 150);
     window.addEventListener('resize', () => this.updateVideoSurfacePosition(true));
+  }
+
+  /**
+   * Collects both manually configured EPG URL(s) and EPG URLs auto-discovered
+   * inside M3U headers (`url-tvg` / `x-tvg-url` / `tvg-url` / Xtream `xmltv.php`)
+   * and loads them into EPGService.
+   */
+  loadActiveEPGSources(forceRefresh) {
+    const urls = [];
+    const savedEpgUrl = localStorage.getItem(STORAGE_KEYS.EPG_URL);
+    if (savedEpgUrl && savedEpgUrl.trim()) {
+      savedEpgUrl
+        .split(',')
+        .map((u) => u.trim())
+        .filter(Boolean)
+        .forEach((u) => {
+          if (urls.indexOf(u) === -1) urls.push(u);
+        });
+    }
+
+    if (this.store && Array.isArray(this.store.discoveredEpgUrls)) {
+      this.store.discoveredEpgUrls.forEach((u) => {
+        if (u && urls.indexOf(u) === -1) urls.push(u);
+      });
+    }
+
+    const epgInput = document.getElementById('epg-url-input');
+    if (epgInput) {
+      if (savedEpgUrl && savedEpgUrl.trim()) {
+        epgInput.value = savedEpgUrl.trim();
+      } else if (urls.length > 0 && !epgInput.value) {
+        epgInput.placeholder = 'נשלף אוטומטית מה-M3U: ' + urls[0];
+      }
+    }
+
+    if (urls.length > 0 && this.epg) {
+      this.epg.loadEPG(
+        urls,
+        () => {
+          this.refreshVisibleEPGLabels();
+        },
+        Boolean(forceRefresh)
+      );
+    }
   }
 
   /* --------------------------------------------------------------------------
@@ -168,16 +205,23 @@ class IPTVApp {
   }
 
   initClock() {
+    let lastMinute = -1;
     const updateTime = () => {
       const now = new Date();
       const hours = ('0' + now.getHours()).slice(-2);
-      const minutes = ('0' + now.getMinutes()).slice(-2);
+      const minNum = now.getMinutes();
+      const minutes = ('0' + minNum).slice(-2);
       const timeStr = hours + ':' + minutes;
 
       const headerClock = document.getElementById('clock');
       const osdClock = document.getElementById('osd-clock');
       if (headerClock) headerClock.textContent = timeStr;
       if (osdClock) osdClock.textContent = timeStr;
+
+      if (minNum !== lastMinute && lastMinute !== -1) {
+        this.refreshVisibleEPGLabels();
+      }
+      lastMinute = minNum;
     };
     updateTime();
     setInterval(updateTime, 15000);
@@ -240,11 +284,8 @@ class IPTVApp {
     this.store
       .fetchAllSources()
       .then((res) => {
-        if (res.epgUrl && !localStorage.getItem(STORAGE_KEYS.EPG_URL)) {
-          const epgInput = document.getElementById('epg-url-input');
-          if (epgInput && !epgInput.value) epgInput.value = res.epgUrl;
-          this.epg.loadEPG(res.epgUrl, () => this.refreshVisibleEPGLabels());
-        }
+        // Load any M3U-discovered EPG URLs + user-configured EPG URL
+        this.loadActiveEPGSources(false);
 
         if (!res.compiledChannels || res.compiledChannels.length === 0) {
           if (!silentBackground) {
@@ -360,6 +401,57 @@ class IPTVApp {
     }
   }
 
+  getChannelRowEPGMetrics(ch) {
+    const epgInfo = this.epg ? this.epg.getNowNext(ch) : null;
+    const cur = epgInfo && epgInfo.current ? epgInfo.current : null;
+    const title = cur ? cur.title : 'שידור ישיר';
+    let timeRange = '';
+    let pct = 0;
+    let remText = '';
+    let isEndingSoon = false;
+
+    if (cur) {
+      if (cur.startStr && cur.stopStr) {
+        timeRange = cur.startStr + ' - ' + cur.stopStr;
+      } else if (cur.start && (cur.stop || cur.end) && this.epg) {
+        timeRange = this.epg.formatTime(cur.start) + ' - ' + this.epg.formatTime(cur.stop || cur.end);
+      }
+
+      pct =
+        typeof cur.progressPercent === 'number'
+          ? cur.progressPercent
+          : cur.startMs && cur.stopMs
+          ? Math.max(
+              0,
+              Math.min(100, Math.round(((Date.now() - cur.startMs) / Math.max(60000, cur.stopMs - cur.startMs)) * 100))
+            )
+          : 0;
+
+      const remMin =
+        typeof cur.remainingMin === 'number'
+          ? cur.remainingMin
+          : cur.stopMs
+          ? Math.max(1, Math.ceil((cur.stopMs - Date.now()) / 60000))
+          : 15;
+
+      isEndingSoon = pct >= 85 || (remMin > 0 && remMin <= 5);
+      if (remMin <= 1) {
+        remText = 'דקה אחרונה!';
+      } else if (isEndingSoon) {
+        remText = 'מסתיים בקרוב • ' + remMin + ' דק׳';
+      } else {
+        remText = 'נותרו ' + remMin + ' דק׳';
+      }
+    }
+    return {
+      title: title,
+      timeRange: timeRange,
+      pct: pct,
+      remText: remText,
+      isEndingSoon: isEndingSoon
+    };
+  }
+
   renderChannelList() {
     const listEl = document.getElementById('channel-list');
     if (!listEl) return;
@@ -388,8 +480,7 @@ class IPTVApp {
       if (isSelected) this.currentActiveRowEl = item;
 
       const isFav = this.favorites.has(ch.id);
-      const epgInfo = this.epg ? this.epg.getNowNext(ch) : null;
-      const nowPlayingTitle = epgInfo && epgInfo.current ? epgInfo.current.title : 'שידור ישיר';
+      const epgMetrics = this.getChannelRowEPGMetrics(ch);
       const monogram = this.getChannelMonogram(ch);
       const pillLabel = isSelected ? 'מתנגן • OK למסך מלא ▶' : 'לחץ OK למעבר';
 
@@ -402,8 +493,17 @@ class IPTVApp {
           '<span class="channel-thumb-placeholder">' + monogram + '</span>' +
         '</div>' +
         '<div class="channel-text-col">' +
-          '<span class="channel-title">' + ch.name + '</span>' +
-          '<span class="channel-epg-sub">כעת: ' + nowPlayingTitle + '</span>' +
+          '<div class="channel-row-top">' +
+            '<span class="channel-title">' + ch.name + '</span>' +
+            '<span class="channel-epg-sub">' + epgMetrics.title + '</span>' +
+          '</div>' +
+          '<div class="channel-mini-bar-row">' +
+            '<span class="channel-mini-time">' + epgMetrics.timeRange + '</span>' +
+            '<div class="channel-mini-progress-track">' +
+              '<div class="channel-mini-progress-fill' + (epgMetrics.isEndingSoon ? ' ending-soon' : '') + '" style="width:' + epgMetrics.pct + '%"></div>' +
+            '</div>' +
+            '<span class="channel-mini-rem-badge' + (epgMetrics.isEndingSoon ? ' ending-soon' : '') + '">' + epgMetrics.remText + '</span>' +
+          '</div>' +
         '</div>' +
         (isFav ? '<span class="channel-fav-star">★</span>' : '') +
         '<span class="channel-playing-badge">מתנגן ▶</span>' +
@@ -432,12 +532,25 @@ class IPTVApp {
       const ch = this.visibleChannels[i];
       const row = this.channelRowNodes[i];
       if (!ch || !row) continue;
+
+      const epgMetrics = this.getChannelRowEPGMetrics(ch);
       const sub = row.querySelector('.channel-epg-sub');
       if (sub) {
-        const epgInfo = this.epg.getNowNext(ch);
-        if (epgInfo && epgInfo.current) {
-          sub.textContent = 'כעת: ' + epgInfo.current.title;
-        }
+        sub.textContent = epgMetrics.title;
+      }
+      const timeEl = row.querySelector('.channel-mini-time');
+      if (timeEl) {
+        timeEl.textContent = epgMetrics.timeRange;
+      }
+      const fillEl = row.querySelector('.channel-mini-progress-fill');
+      if (fillEl) {
+        fillEl.style.width = epgMetrics.pct + '%';
+        fillEl.classList.toggle('ending-soon', epgMetrics.isEndingSoon);
+      }
+      const remEl = row.querySelector('.channel-mini-rem-badge');
+      if (remEl) {
+        remEl.textContent = epgMetrics.remText;
+        remEl.classList.toggle('ending-soon', epgMetrics.isEndingSoon);
       }
     }
     const previewCh = this.visibleChannels[this.focusedChannelIndex] || this.selectedChannel;
@@ -2080,10 +2193,7 @@ class IPTVApp {
     const btnForceRefresh = document.getElementById('btn-force-refresh-cache');
     if (btnForceRefresh) {
       btnForceRefresh.addEventListener('click', () => {
-        const epgUrl = localStorage.getItem(STORAGE_KEYS.EPG_URL);
-        if (epgUrl) {
-          this.epg.loadEPG(epgUrl, () => this.refreshVisibleEPGLabels(), true);
-        }
+        this.loadActiveEPGSources(true);
         this.refreshAllSources(false);
         this.showToast('מרענן כעת את כל הערוצים ולוח השידורים...');
       });

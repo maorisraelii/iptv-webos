@@ -263,8 +263,8 @@ html, body {
 .channel-item {
   display: flex;
   align-items: center;
-  height: 88px;
-  padding: 12px 18px;
+  height: 98px;
+  padding: 10px 18px;
   margin-bottom: 10px;
   border-radius: 14px;
   background-color: var(--bg-card);
@@ -284,8 +284,8 @@ html, body {
 }
 
 .channel-number {
-  min-width: 62px;
-  font-size: 31px;
+  min-width: 58px;
+  font-size: 30px;
   font-weight: 900;
   color: var(--primary-bright);
   text-align: center;
@@ -334,10 +334,18 @@ html, body {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  margin-left: 12px;
+}
+
+.channel-row-top {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
 }
 
 .channel-title {
-  font-size: 27px;
+  font-size: 25px;
   font-weight: 800;
   color: #ffffff;
   white-space: nowrap;
@@ -345,20 +353,110 @@ html, body {
   text-overflow: ellipsis;
   unicode-bidi: plaintext;
   text-align: right;
+  flex-shrink: 0;
+  max-width: 48%;
+}
+
+#search-results-list .channel-title {
+  max-width: 100%;
 }
 
 .channel-epg-sub {
-  font-size: 19px;
-  font-weight: 600;
-  color: #94a3b8;
+  font-size: 18px;
+  font-weight: 700;
+  color: #bae6fd;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 2px;
+  flex: 1;
+  min-width: 0;
 }
 
 .channel-item.focused .channel-epg-sub {
+  color: #ffffff;
+}
+
+.channel-mini-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  min-width: 0;
+}
+
+.channel-mini-time {
+  font-size: 15px;
+  font-weight: 800;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+  unicode-bidi: embed;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.channel-item.focused .channel-mini-time {
   color: #e0f2fe;
+}
+
+.channel-mini-progress-track {
+  flex: 1;
+  max-width: 230px;
+  min-width: 85px;
+  height: 8px;
+  border-radius: 999px;
+  background-color: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  overflow: hidden;
+  direction: ltr;
+}
+
+.channel-item.focused .channel-mini-progress-track {
+  background-color: rgba(2, 6, 23, 0.68);
+  border-color: rgba(255, 255, 255, 0.42);
+}
+
+.channel-mini-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #38bdf8, #0ea5e9);
+}
+
+.channel-item.focused .channel-mini-progress-fill {
+  background: linear-gradient(90deg, #7dd3fc, #38bdf8);
+}
+
+.channel-mini-progress-fill.ending-soon {
+  background: linear-gradient(90deg, #f59e0b, #ef4444);
+}
+
+.channel-item.focused .channel-mini-progress-fill.ending-soon {
+  background: linear-gradient(90deg, #fde047, #f97316);
+}
+
+.channel-mini-rem-badge {
+  font-size: 14px;
+  font-weight: 800;
+  color: #cbd5e1;
+  background-color: rgba(15, 23, 42, 0.62);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  padding: 2px 9px;
+  border-radius: 7px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.channel-item.focused .channel-mini-rem-badge {
+  color: #f8fafc;
+  background-color: rgba(15, 23, 42, 0.55);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.channel-mini-rem-badge.ending-soon,
+.channel-item.focused .channel-mini-rem-badge.ending-soon {
+  color: #fef08a;
+  background-color: rgba(245, 158, 11, 0.28);
+  border-color: rgba(251, 191, 36, 0.78);
 }
 
 .channel-fav-star {
