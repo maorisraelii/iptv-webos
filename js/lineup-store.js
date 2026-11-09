@@ -23,6 +23,7 @@ class LineupStore {
     this.overrides = {}; // { [channelUid]: { enabled: true/false, customNumber: 12, customName: '' } }
     this.rawChannels = []; // All parsed channels from all enabled sources
     this.compiledChannels = []; // Filtered (enabled) & sorted by customNumber
+    this.discoveredEpgUrls = [];
 
     this.loadConfig();
   }
@@ -89,6 +90,7 @@ class LineupStore {
       if (data && Array.isArray(data.compiledChannels) && data.compiledChannels.length > 0) {
         this.rawChannels = data.rawChannels || data.compiledChannels;
         this.compiledChannels = data.compiledChannels;
+        this.discoveredEpgUrls = Array.isArray(data.discoveredEpgUrls) ? data.discoveredEpgUrls : [];
         this.lastCacheTimestamp = data.updatedAt || 0;
         return this.compiledChannels;
       }
@@ -117,6 +119,7 @@ class LineupStore {
       // Keep cache compact (cap at 800 channels for 5MB localStorage limit safety)
       const payload = {
         updatedAt: this.lastCacheTimestamp,
+        discoveredEpgUrls: this.discoveredEpgUrls || [],
         rawChannels: this.rawChannels.slice(0, 800),
         compiledChannels: this.compiledChannels.slice(0, 800)
       };
@@ -235,6 +238,7 @@ class LineupStore {
     }
 
     let discoveredEpgUrl = '';
+    const discoveredEpgSet = new Set();
     const fetchPromises = activeSources.map((src) => {
       const normalizedUrl = this.normalizeM3uInput(src.url);
       let textPromise;
@@ -251,9 +255,15 @@ class LineupStore {
 
       return textPromise
         .then((text) => {
-          const parsed = this.parser.parse(text, { id: src.id, name: src.name });
-          if (parsed.epgUrl && !discoveredEpgUrl) {
-            discoveredEpgUrl = parsed.epgUrl;
+          const parsed = this.parser.parse(text, { id: src.id, name: src.name, url: normalizedUrl });
+          if (Array.isArray(parsed.epgUrls)) {
+            for (let i = 0; i < parsed.epgUrls.length; i++) {
+              if (parsed.epgUrls[i]) discoveredEpgSet.add(parsed.epgUrls[i]);
+            }
+          }
+          if (parsed.epgUrl) {
+            discoveredEpgSet.add(parsed.epgUrl);
+            if (!discoveredEpgUrl) discoveredEpgUrl = parsed.epgUrl;
           }
           return parsed.channels || [];
         })
@@ -265,6 +275,11 @@ class LineupStore {
     });
 
     return Promise.all(fetchPromises).then((channelArrays) => {
+      this.discoveredEpgUrls = Array.from(discoveredEpgSet);
+      if (!discoveredEpgUrl && this.discoveredEpgUrls.length > 0) {
+        discoveredEpgUrl = this.discoveredEpgUrls[0];
+      }
+
       const mergedRaw = [];
       let sequentialFallback = 1;
 
@@ -285,7 +300,8 @@ class LineupStore {
       return {
         rawChannels: this.rawChannels,
         compiledChannels: this.compiledChannels,
-        epgUrl: discoveredEpgUrl
+        epgUrl: discoveredEpgUrl,
+        epgUrls: this.discoveredEpgUrls
       };
     });
   }
@@ -320,6 +336,8 @@ class LineupStore {
           number: assignedNum,
           originalNumber: raw.originalNumber,
           name: (ov.customName && ov.customName.trim()) ? ov.customName.trim() : raw.name,
+          rawName: raw.name,
+          tvgName: raw.tvgName || raw.name,
           logo: raw.logo,
           group: raw.group,
           epgId: raw.epgId,
