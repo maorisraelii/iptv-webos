@@ -11,16 +11,110 @@ class EPGService {
     this.dayBucketsCache = new Map();
     this.epgUrl = '';
     this.isLoading = false;
+    this.lastUpdatedMs = 0;
     this.MAX_PAST_DAYS = 7;
     this.DAY_MS = 86400000;
+    this.EPG_CACHE_KEY = 'zenplay_iptv_epg_cache_v2';
+    this.TTL_STORAGE_KEY = 'zenplay_iptv_cache_ttl_hours';
   }
 
-  loadEPG(url, onComplete) {
+  getCacheTtlHours() {
+    try {
+      const val = parseInt(localStorage.getItem(this.TTL_STORAGE_KEY), 10);
+      if (!isNaN(val) && val >= 0) return val;
+    } catch (e) {}
+    return 24; // Default: refresh EPG once every 24 hours
+  }
+
+  setCacheTtlHours(hours) {
+    try {
+      localStorage.setItem(this.TTL_STORAGE_KEY, String(hours));
+    } catch (e) {}
+  }
+
+  loadFromLocalCache(url) {
+    try {
+      const raw = localStorage.getItem(this.EPG_CACHE_KEY);
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      if (!data || data.url !== url || !Array.isArray(data.entries)) return false;
+
+      const ttlHours = this.getCacheTtlHours();
+      const ageMs = Date.now() - (data.updatedAt || 0);
+      // ttlHours === 0 means manual refresh only (cache never expires automatically)
+      if (ttlHours > 0 && ageMs > ttlHours * 3600000) {
+        return false;
+      }
+
+      this.programmesByChannel.clear();
+      for (let i = 0; i < data.entries.length; i++) {
+        const entry = data.entries[i];
+        const chId = entry[0];
+        const progs = entry[1].map((p) => ({
+          id: chId + '_' + p.s,
+          title: p.t,
+          desc: p.d,
+          startMs: p.s,
+          stopMs: p.e,
+          start: new Date(p.s),
+          stop: new Date(p.e)
+        }));
+        this.programmesByChannel.set(chId, progs);
+      }
+      this.lastUpdatedMs = data.updatedAt || Date.now();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  saveToLocalCache(url) {
+    try {
+      const entries = [];
+      let count = 0;
+      this.programmesByChannel.forEach((list, chId) => {
+        if (chId.indexOf('gen_') === 0 || count > 2500) return;
+        const compact = list.slice(0, 80).map((p) => ({
+          t: p.title,
+          d: p.desc ? p.desc.substring(0, 160) : '',
+          s: p.startMs,
+          e: p.stopMs
+        }));
+        entries.push([chId, compact]);
+        count += compact.length;
+      });
+      this.lastUpdatedMs = Date.now();
+      localStorage.setItem(
+        this.EPG_CACHE_KEY,
+        JSON.stringify({
+          url: url,
+          updatedAt: this.lastUpdatedMs,
+          entries: entries
+        })
+      );
+    } catch (e) {}
+  }
+
+  clearCache() {
+    try {
+      localStorage.removeItem(this.EPG_CACHE_KEY);
+      this.lastUpdatedMs = 0;
+    } catch (e) {}
+  }
+
+  loadEPG(url, onComplete, forceRefresh) {
     if (!url || typeof url !== 'string' || this.isLoading) {
       if (onComplete) onComplete(false);
       return;
     }
     this.epgUrl = url.trim();
+
+    // Check long-term cache first (24h / 3d / 7d) to avoid network & CPU load during playback
+    if (!forceRefresh && this.loadFromLocalCache(this.epgUrl)) {
+      if (onComplete) onComplete(true);
+      return;
+    }
+
     this.isLoading = true;
 
     fetch(this.epgUrl)
@@ -30,6 +124,7 @@ class EPGService {
       })
       .then((xmlText) => {
         this.parseXMLTV(xmlText);
+        this.saveToLocalCache(this.epgUrl);
         this.dayBucketsCache.clear();
         this.isLoading = false;
         if (onComplete) onComplete(true);

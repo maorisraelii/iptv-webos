@@ -316,10 +316,16 @@
       <div class="modal-header">
         <div class="settings-tabs-bar">
           <button id="tab-btn-sources" class="settings-tab-btn active focusable" data-settings-tab="sources">
-            💻 סנכרון ממחשב ומקורות M3U
+            💻 מקורות M3U ומחשב
           </button>
           <button id="tab-btn-channels" class="settings-tab-btn focusable" data-settings-tab="channels">
-            🔢 בחירת ערוצים ומספור מותאם
+            🔢 בחירת ערוצים ומספור
+          </button>
+          <button id="tab-btn-performance" class="settings-tab-btn focusable" data-settings-tab="performance">
+            ⚡ באפר וקאש (נגד תקיעות)
+          </button>
+          <button id="tab-btn-about" class="settings-tab-btn focusable" data-settings-tab="about">
+            ℹ️ אודות
           </button>
         </div>
         <button class="modal-close-btn focusable" data-action="close-modal">✕ סגור</button>
@@ -451,6 +457,108 @@
 
         <div id="channel-editor-list" class="channel-editor-list">
           <!-- Populated dynamically with channel visibility toggle + number controls -->
+        </div>
+      </div>
+
+      <!-- TAB 3: Stream Anti-Freeze Buffer & EPG/Playlist Cache Settings -->
+      <div id="settings-tab-performance" class="modal-body settings-tab-content hidden">
+        <div class="perf-section-card">
+          <h3>🛡️ גודל באפר לשידור חי (מניעת תקיעות ופריזים בשידור)</h3>
+          <p class="perf-desc">אם השידור נתקע לעיתים כל כמה שניות או דקות בגלל עומס אצל ספק ה-IPTV או ברשת, הגדלת הבאפר אוגרת מראש שניות שידור נוספות בזיכרון ומונעת עצירות:</p>
+          <div class="perf-options-grid" id="buffer-mode-options">
+            <button class="perf-option-btn focusable" data-buffer="fast">
+              <span class="perf-opt-title">⚡ מהיר (15 שניות)</span>
+              <span class="perf-opt-sub">מעבר ערוצים מהיר במיוחד (לסיבים אופטיים יציבים)</span>
+            </button>
+            <button class="perf-option-btn focusable" data-buffer="balanced">
+              <span class="perf-opt-title">⚖️ מאוזן (35 שניות)</span>
+              <span class="perf-opt-sub">איזון בין מהירות זפזופ ליציבות שידור</span>
+            </button>
+            <button class="perf-option-btn focusable" data-buffer="deep">
+              <span class="perf-opt-title">🛡️ באפר גבוה נגד תקיעות (65 שניות - מומלץ)</span>
+              <span class="perf-opt-sub">מונע תקיעות קטנות, קפיצות ופריזים במהלך הצפייה</span>
+            </button>
+            <button class="perf-option-btn focusable" data-buffer="extreme">
+              <span class="perf-opt-title">🚀 אקסטרים (120 שניות)</span>
+              <span class="perf-opt-sub">יציבות מקסימלית לשרתי IPTV עמוסים או חיבור אלחוטי</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="perf-section-card">
+          <h3>📅 תדירות עדכון לוח שידורים (EPG) ורשימות ערוצים (קאש חכם)</h3>
+          <p class="perf-desc">כדי לא להכביד על המעבד והזיכרון של הטלוויזיה בכל פתיחה של האפליקציה, לוח השידורים והערוצים נשמרים בזיכרון המטמון (Cache) ומתעדכנים רק אחת לתקופה שתבחר:</p>
+          <div class="perf-options-grid" id="cache-ttl-options">
+            <button class="perf-option-btn focusable" data-ttl="24">
+              <span class="perf-opt-title">🕒 כל 24 שעות (פעם ביום - מומלץ)</span>
+              <span class="perf-opt-sub">טעינה מיידית מהקאש, מתעדכן פעם ביממה בלבד</span>
+            </button>
+            <button class="perf-option-btn focusable" data-ttl="72">
+              <span class="perf-opt-title">📆 כל 3 ימים (72 שעות)</span>
+              <span class="perf-opt-sub">חיסכון גבוה במשאבי מעבד ורשת</span>
+            </button>
+            <button class="perf-option-btn focusable" data-ttl="168">
+              <span class="perf-opt-title">🗓️ פעם בשבוע (7 ימים)</span>
+              <span class="perf-opt-sub">שמירת קאש ארוכת טווח ללא הורדות ברקע</span>
+            </button>
+            <button class="perf-option-btn focusable" data-ttl="0">
+              <span class="perf-opt-title">🔒 ידני בלבד (ללא עדכון אוטומטי)</span>
+              <span class="perf-opt-sub">מתעדכן אך ורק בלחיצה על כפתור הרענון למטה</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="perf-actions-bar">
+          <div id="perf-cache-status" class="perf-cache-status">מצב קאש ובאפר פעיל</div>
+          <div class="perf-action-btns">
+            <button id="btn-force-refresh-cache" class="btn-tv-primary focusable">🔄 רענן ערוצים ולוח שידורים כעת</button>
+            <button id="btn-clear-all-cache" class="btn-tv-secondary focusable">🧹 נקה זיכרון קאש</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: About & Developer Info (Maor Israeli) -->
+      <div id="settings-tab-about" class="modal-body settings-tab-content hidden">
+        <div class="about-card">
+          <div class="about-header-row">
+            <div class="about-app-icon">📺</div>
+            <div class="about-title-col">
+              <div class="about-app-name">Live TV — LG webOS Broadcast Player</div>
+              <div class="about-app-version">גרסה 4.1.0 • Production Anti-Freeze Edition (webOS 4.64 &amp; 5.0+)</div>
+            </div>
+          </div>
+
+          <div class="about-developer-box">
+            <h3>👨‍💻 פיתוח, ארכיטקטורה ועיצוב מערכת</h3>
+            <div class="about-info-grid">
+              <div class="about-info-item">
+                <span class="about-label">מפתח ראשי (Lead Developer):</span>
+                <span class="about-value">Maor Israeli (מאור ישראלי)</span>
+              </div>
+              <div class="about-info-item">
+                <span class="about-label">חשבון GitHub:</span>
+                <span class="about-value" dir="ltr">github.com/maorisraelii (@maorisraelii)</span>
+              </div>
+              <div class="about-info-item">
+                <span class="about-label">דואר אלקטרוני (Email):</span>
+                <span class="about-value" dir="ltr">maorisraelii@gmail.com</span>
+              </div>
+              <div class="about-info-item">
+                <span class="about-label">מאגר פרויקט:</span>
+                <span class="about-value" dir="ltr">maorisraelii/iptv-webos (Private Production Repo)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="about-features-box">
+            <h3>✨ יכולות מרכזיות במערכת</h3>
+            <ul>
+              <li><strong>מנוע וידאו Anti-Freeze כפול:</strong> באפר עמוק להתגברות על תקיעות רשת, מעבר אוטומטי על פערי שידור (Watchdog) ותמיכה בנגן החומרה המובנה של LG.</li>
+              <li><strong>קאש חכם ומהירות שיא (O(1) Navigation):</strong> פתיחה מיידית ב-0 השהיה ועדכון לוח שידורים חסכוני (כל 24 שעות / 3 ימים / 7 ימים).</li>
+              <li><strong>מדריך תוכניות 7 ימים וסטארט אובר:</strong> דפדוף נוח לפי ימים (צהוב בשלט), ציר זמן חי במסך הראשי ופאוז/נגן בכפתור האמצע (OK).</li>
+              <li><strong>ריבוי מקורות M3U ו-PC Web Studio:</strong> מיזוג מספר רשימות M3U, בחירת ערוצים ומספור ערוצים מותאם אישית מהמחשב או מהטלוויזיה.</li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>

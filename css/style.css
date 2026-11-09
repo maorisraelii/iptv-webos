@@ -1772,6 +1772,209 @@ html, body {
   color: #ffffff;
 }
 
+/* ==========================================================================
+   Performance, Buffer & Cache Tab (#settings-tab-performance)
+   ========================================================================== */
+
+.perf-section-card {
+  background-color: #090e1a;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 18px 22px;
+  margin-bottom: 16px;
+}
+
+.perf-section-card h3 {
+  font-size: 24px;
+  font-weight: 900;
+  color: #38bdf8;
+  margin-bottom: 6px;
+}
+
+.perf-desc {
+  font-size: 19px;
+  color: #cbd5e1;
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+
+.perf-options-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.perf-option-btn {
+  width: 49%;
+  background-color: #16213a;
+  border: 2px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  text-align: right;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+
+.perf-option-btn.active-option {
+  background-color: rgba(16, 185, 129, 0.2);
+  border-color: #10b981;
+}
+
+.perf-option-btn.focused,
+.perf-option-btn:hover {
+  background-color: var(--primary-accent);
+  border-color: #ffffff;
+}
+
+.perf-opt-title {
+  font-size: 22px;
+  font-weight: 900;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.perf-opt-sub {
+  font-size: 17px;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.perf-option-btn.focused .perf-opt-sub {
+  color: #ffffff;
+}
+
+.perf-actions-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #112240;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 14px;
+  padding: 14px 20px;
+}
+
+.perf-cache-status {
+  font-size: 20px;
+  font-weight: 800;
+  color: #bae6fd;
+}
+
+.perf-action-btns {
+  display: flex;
+  align-items: center;
+}
+
+/* ==========================================================================
+   About & Developer Tab (#settings-tab-about)
+   ========================================================================== */
+
+.about-card {
+  background-color: #090e1a;
+  border: 2px solid rgba(56, 189, 248, 0.35);
+  border-radius: 20px;
+  padding: 28px 34px;
+}
+
+.about-header-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 20px;
+  margin-bottom: 22px;
+}
+
+.about-app-icon {
+  width: 84px;
+  height: 84px;
+  border-radius: 20px;
+  background-color: #0284c7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 44px;
+  margin-left: 24px;
+  flex-shrink: 0;
+}
+
+.about-app-name {
+  font-size: 34px;
+  font-weight: 900;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.about-app-version {
+  font-size: 22px;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.about-developer-box {
+  background-color: #141e33;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  padding: 20px 26px;
+  margin-bottom: 20px;
+}
+
+.about-developer-box h3,
+.about-features-box h3 {
+  font-size: 25px;
+  font-weight: 900;
+  color: #f59e0b;
+  margin-bottom: 14px;
+}
+
+.about-info-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.about-info-item {
+  width: 48%;
+  background-color: #090e1a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 12px 18px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.about-label {
+  font-size: 18px;
+  font-weight: 700;
+  color: #94a3b8;
+  margin-bottom: 4px;
+}
+
+.about-value {
+  font-size: 23px;
+  font-weight: 900;
+  color: #ffffff;
+}
+
+.about-features-box {
+  background-color: #141e33;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  padding: 20px 28px;
+}
+
+.about-features-box ul {
+  list-style: none;
+}
+
+.about-features-box li {
+  font-size: 21px;
+  color: #e2e8f0;
+  margin-bottom: 10px;
+  line-height: 1.45;
+}
+
 /* Virtual Keyboard */
 .virtual-keyboard {
   background-color: #090e1a;

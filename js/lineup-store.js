@@ -89,17 +89,34 @@ class LineupStore {
       if (data && Array.isArray(data.compiledChannels) && data.compiledChannels.length > 0) {
         this.rawChannels = data.rawChannels || data.compiledChannels;
         this.compiledChannels = data.compiledChannels;
+        this.lastCacheTimestamp = data.updatedAt || 0;
         return this.compiledChannels;
       }
     } catch (e) {}
     return null;
   }
 
+  isLineupCacheFresh(ttlHours) {
+    if (!this.lastCacheTimestamp) return false;
+    // ttlHours === 0 means manual refresh only (never auto-fetch in background)
+    if (ttlHours === 0) return true;
+    const ageMs = Date.now() - this.lastCacheTimestamp;
+    return ageMs < ttlHours * 3600000;
+  }
+
+  clearLineupCache() {
+    try {
+      localStorage.removeItem(LINEUP_KEYS.CACHED_LINEUP);
+      this.lastCacheTimestamp = 0;
+    } catch (e) {}
+  }
+
   saveCachedLineup() {
     try {
+      this.lastCacheTimestamp = Date.now();
       // Keep cache compact (cap at 800 channels for 5MB localStorage limit safety)
       const payload = {
-        updatedAt: Date.now(),
+        updatedAt: this.lastCacheTimestamp,
         rawChannels: this.rawChannels.slice(0, 800),
         compiledChannels: this.compiledChannels.slice(0, 800)
       };

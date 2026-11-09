@@ -105,9 +105,13 @@ class IPTVApp {
       this.allChannels = cached;
       this.applyChannelFilter();
       this.restoreLastWatchedChannel();
-      this.updateVideoSurfacePosition();
-      // Refresh sources silently in background without interrupting playback
-      setTimeout(() => this.refreshAllSources(true), 800);
+      this.updateVideoSurfacePosition(true);
+
+      // Only refresh in background if the cache TTL (24h / 3d / 7d) has expired!
+      const ttlHours = this.epg.getCacheTtlHours();
+      if (!this.store.isLineupCacheFresh(ttlHours)) {
+        setTimeout(() => this.refreshAllSources(true), 1500);
+      }
     } else {
       this.refreshAllSources(false);
     }
@@ -1418,23 +1422,64 @@ class IPTVApp {
 
   switchSettingsTab(tabName) {
     this.activeSettingsTab = tabName;
-    const btnSources = document.getElementById('tab-btn-sources');
-    const btnChannels = document.getElementById('tab-btn-channels');
-    const tabSources = document.getElementById('settings-tab-sources');
-    const tabChannels = document.getElementById('settings-tab-channels');
+    const tabs = [
+      { key: 'sources', btn: 'tab-btn-sources', panel: 'settings-tab-sources' },
+      { key: 'channels', btn: 'tab-btn-channels', panel: 'settings-tab-channels' },
+      { key: 'performance', btn: 'tab-btn-performance', panel: 'settings-tab-performance' },
+      { key: 'about', btn: 'tab-btn-about', panel: 'settings-tab-about' }
+    ];
+
+    tabs.forEach((t) => {
+      const b = document.getElementById(t.btn);
+      const p = document.getElementById(t.panel);
+      if (t.key === tabName) {
+        if (b) b.classList.add('active');
+        if (p) p.classList.remove('hidden');
+      } else {
+        if (b) b.classList.remove('active');
+        if (p) p.classList.add('hidden');
+      }
+    });
 
     if (tabName === 'channels') {
-      if (btnSources) btnSources.classList.remove('active');
-      if (btnChannels) btnChannels.classList.add('active');
-      if (tabSources) tabSources.classList.add('hidden');
-      if (tabChannels) tabChannels.classList.remove('hidden');
       this.renderChannelEditorTab();
-    } else {
-      if (btnSources) btnSources.classList.add('active');
-      if (btnChannels) btnChannels.classList.remove('active');
-      if (tabSources) tabSources.classList.remove('hidden');
-      if (tabChannels) tabChannels.classList.add('hidden');
+    } else if (tabName === 'performance') {
+      this.renderPerformanceTab();
+    } else if (tabName === 'sources') {
       this.renderSourcesManagerList();
+    }
+  }
+
+  renderPerformanceTab() {
+    const curBuffer = this.player ? this.player.bufferMode : 'deep';
+    const curTtl = this.epg ? this.epg.getCacheTtlHours() : 24;
+
+    const bufBtns = document.querySelectorAll('#buffer-mode-options .perf-option-btn');
+    for (let i = 0; i < bufBtns.length; i++) {
+      const btn = bufBtns[i];
+      if (btn.dataset.buffer === curBuffer) {
+        btn.classList.add('active-option');
+      } else {
+        btn.classList.remove('active-option');
+      }
+    }
+
+    const ttlBtns = document.querySelectorAll('#cache-ttl-options .perf-option-btn');
+    for (let i = 0; i < ttlBtns.length; i++) {
+      const btn = ttlBtns[i];
+      if (parseInt(btn.dataset.ttl, 10) === curTtl) {
+        btn.classList.add('active-option');
+      } else {
+        btn.classList.remove('active-option');
+      }
+    }
+
+    const statusEl = document.getElementById('perf-cache-status');
+    if (statusEl) {
+      const prof = this.player ? this.player.getBufferProfile() : { label: 'באפר גבוה (65 שניות)' };
+      const ttlLabel =
+        curTtl === 0 ? 'ידני בלבד' : curTtl === 24 ? 'כל 24 שעות' : curTtl === 72 ? 'כל 3 ימים' : 'כל 7 ימים';
+      statusEl.textContent = 'פעיל כעת: ' + prof.label + ' | רענון לוח שידורים: ' + ttlLabel;
     }
   }
 
@@ -1857,8 +1902,63 @@ class IPTVApp {
     // Settings Tabs
     const tabBtnSources = document.getElementById('tab-btn-sources');
     const tabBtnChannels = document.getElementById('tab-btn-channels');
+    const tabBtnPerf = document.getElementById('tab-btn-performance');
+    const tabBtnAbout = document.getElementById('tab-btn-about');
     if (tabBtnSources) tabBtnSources.addEventListener('click', () => this.switchSettingsTab('sources'));
     if (tabBtnChannels) tabBtnChannels.addEventListener('click', () => this.switchSettingsTab('channels'));
+    if (tabBtnPerf) tabBtnPerf.addEventListener('click', () => this.switchSettingsTab('performance'));
+    if (tabBtnAbout) tabBtnAbout.addEventListener('click', () => this.switchSettingsTab('about'));
+
+    // Buffer Mode option buttons
+    const bufBtns = document.querySelectorAll('#buffer-mode-options .perf-option-btn');
+    for (let i = 0; i < bufBtns.length; i++) {
+      const btn = bufBtns[i];
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.buffer;
+        if (this.player && mode) {
+          this.player.setBufferMode(mode);
+          this.renderPerformanceTab();
+          this.showToast('גודל הבאפר עודכן: ' + this.player.getBufferProfile().label);
+        }
+      });
+    }
+
+    // Cache TTL option buttons
+    const ttlBtns = document.querySelectorAll('#cache-ttl-options .perf-option-btn');
+    for (let i = 0; i < ttlBtns.length; i++) {
+      const btn = ttlBtns[i];
+      btn.addEventListener('click', () => {
+        const hours = parseInt(btn.dataset.ttl, 10);
+        if (this.epg && !isNaN(hours)) {
+          this.epg.setCacheTtlHours(hours);
+          this.renderPerformanceTab();
+          const label = hours === 0 ? 'ידני בלבד' : 'כל ' + hours + ' שעות';
+          this.showToast('תדירות עדכון לוח השידורים והקאש הוגדרה ל: ' + label);
+        }
+      });
+    }
+
+    // Force Refresh Cache & Clear Cache buttons
+    const btnForceRefresh = document.getElementById('btn-force-refresh-cache');
+    if (btnForceRefresh) {
+      btnForceRefresh.addEventListener('click', () => {
+        const epgUrl = localStorage.getItem(STORAGE_KEYS.EPG_URL);
+        if (epgUrl) {
+          this.epg.loadEPG(epgUrl, () => this.refreshVisibleEPGLabels(), true);
+        }
+        this.refreshAllSources(false);
+        this.showToast('מרענן כעת את כל הערוצים ולוח השידורים...');
+      });
+    }
+
+    const btnClearCache = document.getElementById('btn-clear-all-cache');
+    if (btnClearCache) {
+      btnClearCache.addEventListener('click', () => {
+        this.store.clearLineupCache();
+        this.epg.clearCache();
+        this.showToast('זיכרון הקאש נוקה בהצלחה!');
+      });
+    }
 
     // PC Sync Button
     const btnSyncPc = document.getElementById('btn-sync-pc');
