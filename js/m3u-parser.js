@@ -100,7 +100,7 @@ class M3UParser {
     // Extract group-title
     const groupMatch = line.match(/group-title="([^"]*)"/i);
     if (groupMatch && groupMatch[1].trim()) {
-      item.group = groupMatch[1].trim();
+      item.group = this.normalizeGroupName(groupMatch[1].trim());
     }
 
     // Extract tvg-chno (Channel Number if provided by provider)
@@ -140,10 +140,36 @@ class M3UParser {
     }
 
     if (!item.name) {
-      item.name = `ערוץ ${number}`;
+      item.name = 'ערוץ ' + number;
     }
 
     return item;
+  }
+
+  normalizeGroupName(rawGroup) {
+    if (!rawGroup) return 'טלוויזיה חיה';
+    const g = rawGroup.trim().toLowerCase();
+    if (g === 'undefined' || g === 'none' || g === 'null' || g === 'uncategorized') return 'טלוויזיה חיה';
+    const map = {
+      'general': 'ערוצים מרכזיים',
+      'news': 'חדשות ואקטואליה',
+      'sports': 'ספורט',
+      'sport': 'ספורט',
+      'entertainment': 'בידור',
+      'movies': 'סרטים וסינמה',
+      'series': 'סדרות',
+      'kids': 'ילדים ונוער',
+      'children': 'ילדים ונוער',
+      'music': 'מוזיקה',
+      'religious': 'מסורת ודת',
+      'documentary': 'דוקו וטבע',
+      'education': 'חינוך ומדע',
+      'culture': 'תרבות',
+      'legislative': 'ציבורי וכנסת',
+      'business': 'כלכלה ועסקים',
+      'lifestyle': 'לייף סטייל'
+    };
+    return map[g] || rawGroup;
   }
 }
 

@@ -60,8 +60,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="v1.0.${{ github.run_number }}"
-          RELEASE_TITLE="Live TV webOS v1.0.${{ github.run_number }}"
+          APP_VER=$(node -p "require('./appinfo.json').version")
+          TAG="v${APP_VER}"
+          RELEASE_TITLE="Live TV webOS v${APP_VER} (Build #${{ github.run_number }})"
           
           NOTES=$(cat << 'EOF'
           ## 📺 Live TV for LG webOS TV (Production Redesign)

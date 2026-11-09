@@ -972,8 +972,9 @@ class IPTVApp {
     this.clearAllFocusStyles();
     const focusableElements = document.querySelectorAll(modalSelector + ' .focusable');
     if (focusableElements.length > 0) {
-      this.focusedModalIndex = 0;
-      focusableElements[0].classList.add('focused');
+      // Start focus on the first main interactive control (skip the top-left close button if possible)
+      this.focusedModalIndex = focusableElements.length > 1 ? 1 : 0;
+      focusableElements[this.focusedModalIndex].classList.add('focused');
     }
   }
 
@@ -984,20 +985,73 @@ class IPTVApp {
     const focusables = Array.from(activeModal.querySelectorAll('.focusable'));
     if (focusables.length === 0) return;
 
-    let current = this.focusedModalIndex;
-    if (direction === 'down' || direction === 'left') {
-      current = (current + 1) % focusables.length;
-    } else if (direction === 'up' || direction === 'right') {
-      current = (current - 1 + focusables.length) % focusables.length;
+    const currentEl = focusables[this.focusedModalIndex] || focusables[0];
+    const curRect = currentEl.getBoundingClientRect();
+    const curCx = curRect.left + curRect.width / 2;
+    const curCy = curRect.top + curRect.height / 2;
+
+    let bestIndex = -1;
+    let bestScore = Infinity;
+
+    for (let i = 0; i < focusables.length; i++) {
+      if (i === this.focusedModalIndex) continue;
+      const rect = focusables[i].getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) continue;
+
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dx = cx - curCx;
+      const dy = cy - curCy;
+
+      let isCandidate = false;
+      let primaryDist = 0;
+      let secondaryDist = 0;
+
+      if (direction === 'down' && dy > 14) {
+        isCandidate = true;
+        primaryDist = dy;
+        secondaryDist = Math.abs(dx) * 2.2;
+      } else if (direction === 'up' && dy < -14) {
+        isCandidate = true;
+        primaryDist = -dy;
+        secondaryDist = Math.abs(dx) * 2.2;
+      } else if (direction === 'left' && dx < -14) {
+        isCandidate = true;
+        primaryDist = -dx;
+        secondaryDist = Math.abs(dy) * 2.5;
+      } else if (direction === 'right' && dx > 14) {
+        isCandidate = true;
+        primaryDist = dx;
+        secondaryDist = Math.abs(dy) * 2.5;
+      }
+
+      if (isCandidate) {
+        const score = primaryDist + secondaryDist;
+        if (score < bestScore) {
+          bestScore = score;
+          bestIndex = i;
+        }
+      }
     }
 
-    this.focusedModalIndex = current;
+    if (bestIndex === -1) {
+      if (direction === 'down' || direction === 'left') {
+        bestIndex = (this.focusedModalIndex + 1) % focusables.length;
+      } else {
+        bestIndex = (this.focusedModalIndex - 1 + focusables.length) % focusables.length;
+      }
+    }
+
+    this.focusedModalIndex = bestIndex;
     this.clearAllFocusStyles();
-    const target = focusables[current];
+    const target = focusables[bestIndex];
     if (target) {
       target.classList.add('focused');
       if (target.tagName === 'INPUT') {
         this.activeSettingsInputId = target.id;
+      }
+      if (target.parentElement && target.parentElement.id === 'search-results-list') {
+        this.scrollChannelIntoView(target.parentElement, target);
       }
     }
   }
