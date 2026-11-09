@@ -13,23 +13,27 @@ class EPGService {
   /**
    * Set EPG source URL and trigger background load
    */
-  async loadEPG(url) {
+  loadEPG(url) {
     if (!url || typeof url !== 'string' || this.isLoading) return;
     this.epgUrl = url.trim();
     this.isLoading = true;
 
-    try {
-      console.log('Fetching EPG XMLTV data from:', this.epgUrl);
-      const res = await fetch(this.epgUrl);
-      if (!res.ok) throw new Error(`EPG fetch failed (${res.status})`);
-      const xmlText = await res.text();
-      this.parseXMLTV(xmlText);
-      console.log(`Parsed XMLTV guide for ${this.programmesByChannel.size} channels.`);
-    } catch (err) {
-      console.warn('Could not load remote XMLTV EPG:', err);
-    } finally {
-      this.isLoading = false;
-    }
+    console.log('Fetching EPG XMLTV data from:', this.epgUrl);
+    fetch(this.epgUrl)
+      .then(res => {
+        if (!res.ok) throw new Error('EPG fetch failed (' + res.status + ')');
+        return res.text();
+      })
+      .then(xmlText => {
+        this.parseXMLTV(xmlText);
+        console.log('Parsed XMLTV guide for ' + this.programmesByChannel.size + ' channels.');
+      })
+      .catch(err => {
+        console.warn('Could not load remote XMLTV EPG:', err);
+      })
+      .then(() => {
+        this.isLoading = false;
+      });
   }
 
   /**

@@ -1,7 +1,7 @@
 /**
  * Remote Control and Spatial Navigation Manager for LG webOS TV
- * Supports D-Pad, OK, Back (461), Color Buttons, Numbers, Channel Up/Down
- * Also compatible with standard desktop keyboard & Magic Remote pointer.
+ * Supports D-Pad, OK, Back (461), Color Buttons, Numbers, Channel Up/Down, Media Keys
+ * Compatible with webOS 4.64, 5.0+, 6.0+, webOS OSE, and Magic Remote pointer.
  */
 class RemoteController {
   constructor(app) {
@@ -10,117 +10,166 @@ class RemoteController {
     this.numberTimer = null;
 
     this.bindEvents();
+    this.ensureFocus();
+  }
+
+  ensureFocus() {
+    try {
+      window.focus();
+      if (document.body) {
+        document.body.focus();
+      }
+    } catch (e) {
+      console.warn('Focus error:', e);
+    }
   }
 
   bindEvents() {
-    window.addEventListener('keydown', (e) => this.handleKeyDown(e));
+    const onKey = (e) => this.handleKeyEvent(e);
 
-    // Handle LG WebOS hardware back key event if present
+    // Register on both window and document with capturing to ensure events are never lost
+    window.addEventListener('keydown', onKey, true);
+    document.addEventListener('keydown', onKey, true);
+
+    // Some webOS firmware fires Back key (461) on keyup
+    window.addEventListener('keyup', (e) => this.handleKeyUp(e), true);
+    document.addEventListener('keyup', (e) => this.handleKeyUp(e), true);
+
+    // Keep window focused on webOS
+    window.addEventListener('blur', () => {
+      setTimeout(() => this.ensureFocus(), 100);
+    });
+
     document.addEventListener('webOSLaunch', () => {
-      console.log('webOS launch event received');
+      this.ensureFocus();
     });
   }
 
-  handleKeyDown(e) {
-    const keyCode = e.keyCode || e.which;
+  handleKeyUp(e) {
+    const code = e.keyCode || e.which || 0;
+    const key = e.key || '';
 
-    // Prevent default browser actions for TV navigation keys
-    if ([37, 38, 39, 40, 13, 33, 34, 427, 428, 457, 461, 403, 404, 405, 406].includes(keyCode)) {
+    // Handle Back on keyup if not handled on keydown
+    if (code === 461 || key === 'Back' || key === 'GoBack') {
+      e.preventDefault();
+      // Back is handled on keydown; prevent default bubble
+    }
+  }
+
+  handleKeyEvent(e) {
+    const code = e.keyCode || e.which || 0;
+    const key = e.key || '';
+
+    // Prevent default browser behavior for TV remote keys
+    if (this.isTvControlKey(code, key)) {
       e.preventDefault();
     }
 
     // Number keys (0-9): 48-57 (top row) or 96-105 (numpad)
-    if ((keyCode >= 48 && keyCode <= 57) || (keyCode >= 96 && keyCode <= 105)) {
-      const num = keyCode >= 96 ? (keyCode - 96).toString() : (keyCode - 48).toString();
+    if ((code >= 48 && code <= 57) || (code >= 96 && code <= 105)) {
+      const num = code >= 96 ? (code - 96).toString() : (code - 48).toString();
       this.handleNumberKey(num);
       return;
     }
 
-    switch (keyCode) {
-      // D-Pad Arrows
-      case 37: // Left
-        this.app.navigate('left');
-        break;
-      case 38: // Up
-        this.app.navigate('up');
-        break;
-      case 39: // Right
-        this.app.navigate('right');
-        break;
-      case 40: // Down
-        this.app.navigate('down');
-        break;
+    // D-Pad Navigation
+    if (code === 37 || key === 'ArrowLeft' || key === 'Left') {
+      this.app.navigate('left');
+      return;
+    }
+    if (code === 38 || key === 'ArrowUp' || key === 'Up') {
+      this.app.navigate('up');
+      return;
+    }
+    if (code === 39 || key === 'ArrowRight' || key === 'Right') {
+      this.app.navigate('right');
+      return;
+    }
+    if (code === 40 || key === 'ArrowDown' || key === 'Down') {
+      this.app.navigate('down');
+      return;
+    }
 
-      // Select / OK / Enter
-      case 13: // Enter
-        this.app.selectCurrent();
-        break;
+    // Select / OK / Enter
+    if (code === 13 || key === 'Enter' || key === 'Select' || key === 'Accept') {
+      this.app.selectCurrent();
+      return;
+    }
 
-      // Back key (461 on LG webOS, 27 on Esc, 8 on Backspace)
-      case 461:
-      case 27:
-        this.app.handleBack();
-        break;
-      case 8:
-        // Only treat backspace as Back if not typing inside an active input element
-        if (document.activeElement && document.activeElement.tagName === 'INPUT') {
-          return;
-        }
-        e.preventDefault();
-        this.app.handleBack();
-        break;
+    // Back key (webOS 461, Escape 27, Backspace 8)
+    if (code === 461 || code === 27 || key === 'Back' || key === 'GoBack' || key === 'Escape' || key === 'XF86Back') {
+      this.app.handleBack();
+      return;
+    }
+    if (code === 8 || key === 'Backspace') {
+      if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+        return; // Allow typing in input fields
+      }
+      this.app.handleBack();
+      return;
+    }
 
-      // Channel Up / Down (support standard 33/34 and LG TV 427/428)
-      case 33: // Channel Up / Page Up
-      case 427: // LG Channel Up
-        this.app.changeChannelByOffset(-1);
-        break;
-      case 34: // Channel Down / Page Down
-      case 428: // LG Channel Down
-        this.app.changeChannelByOffset(1);
-        break;
+    // Channel Up / Down (33/34 and LG 427/428)
+    if (code === 33 || code === 427 || key === 'ChannelUp' || key === 'PageUp') {
+      this.app.changeChannelByOffset(-1);
+      return;
+    }
+    if (code === 34 || code === 428 || key === 'ChannelDown' || key === 'PageDown') {
+      this.app.changeChannelByOffset(1);
+      return;
+    }
 
-      // Info key (LG 457)
-      case 457:
-        this.app.showOSD();
-        break;
+    // Info key (LG 457)
+    if (code === 457 || key === 'Info') {
+      this.app.showOSD();
+      return;
+    }
 
-      // Color keys (LG Magic Remote / Standard TV remote)
-      case 403: // Red
-        this.app.onRedButton();
-        break;
-      case 404: // Green
-        this.app.onGreenButton();
-        break;
-      case 405: // Yellow
-        this.app.onYellowButton();
-        break;
-      case 406: // Blue
-        this.app.onBlueButton();
-        break;
+    // Color keys
+    if (code === 403 || key === 'Red' || key === 'ColorF0Red') {
+      this.app.onRedButton();
+      return;
+    }
+    if (code === 404 || key === 'Green' || key === 'ColorF1Green') {
+      this.app.onGreenButton();
+      return;
+    }
+    if (code === 405 || key === 'Yellow' || key === 'ColorF2Yellow') {
+      this.app.onYellowButton();
+      return;
+    }
+    if (code === 406 || key === 'Blue' || key === 'ColorF3Blue') {
+      this.app.onBlueButton();
+      return;
+    }
 
-      // Media keys
-      case 415: // Play
-      case 19:  // Pause
-        this.app.onYellowButton();
-        break;
-      case 412: // Rewind
-        this.app.onGreenButton();
-        break;
-      case 417: // Fast Forward
-        this.app.onBlueButton();
-        break;
-      case 413: // Stop
-        this.app.stopPlayback();
-        break;
-
-      default:
-        break;
+    // Media keys
+    if (code === 415 || code === 19 || code === 179 || key === 'Play' || key === 'Pause' || key === 'MediaPlayPause') {
+      this.app.onYellowButton(); // Play / Pause toggle
+      return;
+    }
+    if (code === 412 || key === 'Rewind' || key === 'MediaRewind' || key === 'MediaTrackPrevious') {
+      this.app.onGreenButton(); // Rewind 30s
+      return;
+    }
+    if (code === 417 || key === 'FastForward' || key === 'MediaFastForward' || key === 'MediaTrackNext') {
+      this.app.onBlueButton(); // Fast forward 30s
+      return;
+    }
+    if (code === 413 || key === 'Stop' || key === 'MediaStop') {
+      this.app.stopPlayback();
+      return;
     }
   }
 
+  isTvControlKey(code, key) {
+    const tvKeyCodes = [13, 27, 33, 34, 37, 38, 39, 40, 403, 404, 405, 406, 412, 413, 415, 417, 427, 428, 457, 461];
+    if (tvKeyCodes.indexOf(code) !== -1) return true;
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Back', 'GoBack', 'Escape'].indexOf(key) !== -1) return true;
+    return false;
+  }
+
   handleNumberKey(digit) {
-    // If settings or search modal is open, let normal keyboard handle it
     if (this.app.isModalOpen()) return;
 
     this.numberBuffer += digit;

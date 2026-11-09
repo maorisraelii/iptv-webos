@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0",
-  "remoteAppUrl": "https://maorisraelii.github.io/iptv-webos/",
+  "version": "1.0.6",
+  "remoteAppUrl": "",
   "timeoutMs": 2500,
-  "description": "Hosted URL for Over-The-Air auto-updates on LG webOS TV."
+  "description": "Configuration for IPTV Live TV player on LG webOS."
 }

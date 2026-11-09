@@ -48,12 +48,18 @@ class IPTVApp {
     this.init();
   }
 
-  async init() {
+  init() {
     this.loadFavorites();
     this.initPlayer();
     this.initRemote();
     this.initClock();
     this.bindDOMEvents();
+
+    // Ensure keyboard / remote focus is attached to window & document on webOS
+    window.focus();
+    if (document.body) {
+      document.body.focus();
+    }
 
     // Check if user already configured an EPG URL
     const savedEpgUrl = localStorage.getItem(STORAGE_KEYS.EPG_URL);
@@ -72,12 +78,12 @@ class IPTVApp {
     }
     if (savedUrl) {
       document.getElementById('m3u-url-input').value = savedUrl;
-      await this.loadPlaylist(savedUrl);
+      this.loadPlaylist(savedUrl);
     } else {
       // First boot: open settings or load sample
       document.getElementById('m3u-url-input').value = SAMPLE_M3U_URL;
       this.showToast('ברוך הבא! טוען ערוצים לדוגמה...');
-      await this.loadPlaylist(SAMPLE_M3U_URL);
+      this.loadPlaylist(SAMPLE_M3U_URL);
     }
 
     this.updateVideoSurfacePosition();
@@ -162,59 +168,62 @@ class IPTVApp {
      M3U Playlist Loading & Parsing
      -------------------------------------------------------------------------- */
 
-  async loadPlaylist(url) {
+  loadPlaylist(url) {
     if (!url) return;
     this.showToast('טוען רשימת שידור M3U...');
     const statusText = document.getElementById('settings-status-text');
     if (statusText) statusText.textContent = 'מוריד נתוני פלייליסט...';
 
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`שגיאת שרת: ${response.status}`);
-      }
-      const m3uContent = await response.text();
-      const result = this.parser.parse(m3uContent);
+    fetch(url)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('שגיאת שרת: ' + response.status);
+        }
+        return response.text();
+      })
+      .then(m3uContent => {
+        const result = this.parser.parse(m3uContent);
 
-      this.allChannels = result.channels;
-      this.categories = result.categories;
-      this.categoryMap = result.categoryMap;
+        this.allChannels = result.channels;
+        this.categories = result.categories;
+        this.categoryMap = result.categoryMap;
 
-      localStorage.setItem(STORAGE_KEYS.M3U_URL, url);
+        localStorage.setItem(STORAGE_KEYS.M3U_URL, url);
 
-      // Auto-load EPG URL discovered from M3U header
-      if (result.epgUrl && !localStorage.getItem(STORAGE_KEYS.EPG_URL)) {
-        console.log('Found EPG URL in M3U header:', result.epgUrl);
-        const epgInput = document.getElementById('epg-url-input');
-        if (epgInput && !epgInput.value) epgInput.value = result.epgUrl;
-        this.epg.loadEPG(result.epgUrl);
-      }
+        // Auto-load EPG URL discovered from M3U header
+        if (result.epgUrl && !localStorage.getItem(STORAGE_KEYS.EPG_URL)) {
+          console.log('Found EPG URL in M3U header:', result.epgUrl);
+          const epgInput = document.getElementById('epg-url-input');
+          if (epgInput && !epgInput.value) epgInput.value = result.epgUrl;
+          this.epg.loadEPG(result.epgUrl);
+        }
 
-      if (this.allChannels.length === 0) {
-        this.showToast('לא נמצאו ערוצים בפלייליסט זה');
-        if (statusText) statusText.textContent = 'הפלייליסט ריק או לא תקין.';
-        return;
-      }
+        if (this.allChannels.length === 0) {
+          this.showToast('לא נמצאו ערוצים בפלייליסט זה');
+          if (statusText) statusText.textContent = 'הפלייליסט ריק או לא תקין.';
+          return;
+        }
 
-      if (statusText) {
-        statusText.textContent = `נטענו בהצלחה ${this.allChannels.length} ערוצים ב-${this.categories.length} קטגוריות.`;
-      }
-      this.showToast(`נטענו ${this.allChannels.length} ערוצים`);
+        if (statusText) {
+          statusText.textContent = 'נטענו בהצלחה ' + this.allChannels.length + ' ערוצים ב-' + this.categories.length + ' קטגוריות.';
+        }
+        this.showToast('נטענו ' + this.allChannels.length + ' ערוצים');
 
-      this.renderCategoryRail();
-      this.selectCategory('__all__');
+        this.renderCategoryRail();
+        this.selectCategory('__all__');
 
-      // Play first channel or restore last watched
-      const lastChId = localStorage.getItem(STORAGE_KEYS.LAST_CHANNEL);
-      const startCh = this.allChannels.find(c => c.id === lastChId) || this.allChannels[0];
-      if (startCh) {
-        this.highlightChannel(startCh);
-      }
-    } catch (err) {
-      console.error('Failed to load M3U:', err);
-      this.showToast('שגיאה בטעינת ה-M3U. ודא שהקישור תקין ויש חיבור רשת.');
-      if (statusText) statusText.textContent = `שגיאה: ${err.message}`;
-    }
+        // Play first channel or restore last watched
+        const lastChId = localStorage.getItem(STORAGE_KEYS.LAST_CHANNEL);
+        const startCh = this.allChannels.find(c => c.id === lastChId) || this.allChannels[0];
+        if (startCh) {
+          this.highlightChannel(startCh);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to load M3U:', err);
+        this.showToast('שגיאה בטעינת ה-M3U. ודא שהקישור תקין ויש חיבור רשת.');
+        if (statusText) statusText.textContent = 'שגיאה: ' + err.message;
+      });
   }
 
   /* --------------------------------------------------------------------------
@@ -316,7 +325,8 @@ class IPTVApp {
     const fragment = document.createDocumentFragment();
     this.visibleChannels.forEach((ch, idx) => {
       const item = document.createElement('div');
-      item.className = 'channel-item focusable' + (this.selectedChannel?.id === ch.id ? ' active' : '');
+      const isSelected = this.selectedChannel && this.selectedChannel.id === ch.id;
+      item.className = 'channel-item focusable' + (isSelected ? ' active' : '');
       item.dataset.index = idx;
       item.dataset.channelId = ch.id;
 
