@@ -18,7 +18,7 @@ class EPGService {
     this.lastUpdatedMs = 0;
     this.MAX_PAST_DAYS = 7;
     this.DAY_MS = 86400000;
-    this.EPG_CACHE_KEY = 'zenplay_iptv_epg_cache_v48';
+    this.EPG_CACHE_KEY = 'zenplay_iptv_epg_cache_v49';
     this.TTL_STORAGE_KEY = 'zenplay_iptv_cache_ttl_hours';
     this.DEFAULT_LIVE_EPG_URL =
       'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/epg-il.xml';
@@ -249,6 +249,15 @@ class EPGService {
       }
     }
 
+    // Safety guard for TV hardware: monolithic global XML feeds (like epg.team/3.1.xml which is 307MB)
+    // will crash webOS WebKit memory. Redirect them to our optimized, pre-filtered Israeli feed!
+    urls = urls.map((u) => {
+      if (u && (u.indexOf('epg.team') !== -1 || u.indexOf('epg_ripper_ALL') !== -1)) {
+        return this.DEFAULT_LIVE_EPG_URL;
+      }
+      return u;
+    });
+
     // Deduplicate URLs
     urls = Array.from(new Set(urls));
     if (urls.length === 0 || this.isLoading) {
@@ -301,15 +310,34 @@ class EPGService {
   }
 
   /**
-   * Fetches XMLTV from URL and automatically decompresses if it is GZIP (.xml.gz)
+   * Fetches XMLTV from URL with hardware memory protection guards,
+   * automatically decompresses if it is GZIP (.xml.gz).
    */
   fetchAndDecodeXMLTV(url) {
+    if (!url) return Promise.resolve('');
+    // Hardware guard: intercept known giant monolithic feeds
+    if (url.indexOf('epg.team') !== -1 || url.indexOf('epg_ripper_ALL') !== -1) {
+      url = this.DEFAULT_LIVE_EPG_URL;
+    }
+
+    const MAX_SAFE_EPG_BYTES = 15 * 1024 * 1024; // 15MB limit to prevent Smart TV memory crashes
+
     return fetch(url)
       .then((res) => {
         if (!res.ok) throw new Error('EPG HTTP ' + res.status);
+        const cl = res.headers.get('content-length');
+        if (cl && parseInt(cl, 10) > MAX_SAFE_EPG_BYTES) {
+          console.warn('EPG feed exceeds TV memory safety limit (>15MB), aborting:', url);
+          return null;
+        }
         return res.arrayBuffer();
       })
       .then((buffer) => {
+        if (!buffer) return '';
+        if (buffer.byteLength > MAX_SAFE_EPG_BYTES) {
+          console.warn('EPG feed buffer exceeded 15MB safe limit, skipped:', url);
+          return '';
+        }
         const bytes = new Uint8Array(buffer);
         // Check GZIP magic header (0x1f 0x8b)
         if (bytes.length > 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
