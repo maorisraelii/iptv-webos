@@ -2008,12 +2008,18 @@ html, body {
   background-color: #16213a;
   border: 2px solid rgba(255, 255, 255, 0.16);
   border-radius: 14px;
-  padding: 14px 18px;
-  margin-bottom: 10px;
+  padding: 11px 16px;
+  margin-bottom: 8px;
   text-align: right;
   cursor: pointer;
   display: flex;
   flex-direction: column;
+}
+
+.perf-option-btn.perf-option-wide {
+  width: 100%;
+  background-color: #152b4a;
+  border-color: rgba(56, 189, 248, 0.45);
 }
 
 .perf-option-btn.active-option {
