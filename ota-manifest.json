@@ -1,11 +1,13 @@
 {
-  "version": "4.3.0",
+  "version": "4.4.0",
   "releaseDate": "2026-11-09",
-  "title": "עדכון גרסה 4.3.0 - העלאת M3U בקוד QR ומנגנון עדכוני OTA מלא",
+  "title": "עדכון גרסה 4.4.0 - מסך תצוגה מקדימה ביחס 16:9 מלא (ללא שוליים מבוזבזים) ועיצוב חסכוני במקום",
   "releaseNotes": [
-    "העלאת כתובות וקובצי M3U בקליק מהטלפון או מהמחשב באמצעות סריקת QR או קוד 4 ספרות ללא הקלדה בטלוויזיה",
-    "תמיכה בקיצורי כתובות וקודי Pastebin חכמים",
-    "מנגנון עדכוני OTA אוטומטי מהענן עם התראות פופאפ בעת זיהוי עדכון ולאחר סיום העדכון",
-    "הצגת מספר הגרסה הפעילה בפס המידע (Info-Bar), בסרגל העליון ובהגדרות"
-  ]
+    "חלון וידאו חי ביחס 16:9 מדויק (960x540 — חצי Full HD) ללא שטחים מתים או שוליים שחורים בצדדים",
+    "הרחבת עמודת רשימת הערוצים מימין לתצוגה מלאה וברורה של שמות הערוצים והתוכנית המשודרת",
+    "עיצוב מחדש של כרטיס תקציר הערוץ ורצף 5 התוכניות (סטארט אובר) בניצול מקסימלי של שטח המסך",
+    "העלאת M3U בקוד QR / קוד 4 ספרות ומנגנון עדכוני OTA מלא מהענן"
+  ],
+  "cssPatch": ":root{--footer-height:58px;--header-height:76px;}.main-workspace{padding:14px 24px;}.channel-list-panel{width:auto;flex:1;min-width:0;margin-left:20px;}.preview-stage{width:960px;flex:0 0 960px;}.preview-frame-wrapper{width:960px;height:540px;margin-bottom:12px;}.video-surface.preview-mode #tv-video{object-fit:cover;}.channel-details-card{padding:10px 18px;border-radius:18px;}.details-top-row{margin-bottom:6px;}.details-logo-box{width:54px;height:54px;margin-left:14px;}.details-ch-title{font-size:27px;line-height:1.15;}.preview-epg-box{padding:8px 14px;margin-bottom:6px;}.epg-show-title{font-size:21px;}.epg-synopsis{font-size:17px;line-height:1.25;margin-bottom:5px;}.epg-prev-next-bar{padding-top:4px;font-size:16px;}.strip-title{font-size:17px;}.program-strip-item{padding:6px 9px;margin-left:6px;}.strip-item-time{font-size:14px;white-space:nowrap;}.strip-item-tag{font-size:12px;padding:1px 5px;white-space:nowrap;}.strip-item-title{font-size:16px;}",
+  "jsPatch": "if(window.app&&typeof window.app.updateVideoSurfacePosition==='function'){window.app.updateVideoSurfacePosition(true);}"
 }
