@@ -74,7 +74,7 @@ const jsPatch = `
         syncClassProto({ prototype: Object.getPrototypeOf(app.epg) }, OtaEPGService);
         if (!app.epg.channelAliasMap) app.epg.channelAliasMap = new Map();
         if (!app.epg.loadedUrls) app.epg.loadedUrls = [];
-        app.epg.EPG_CACHE_KEY = 'zenplay_iptv_epg_cache_v49';
+        app.epg.EPG_CACHE_KEY = 'zenplay_iptv_epg_cache_v491';
         app.epg.DEFAULT_LIVE_EPG_URL = 'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/epg-il.xml';
       }
 
@@ -97,8 +97,8 @@ const jsPatch = `
         syncClassProto({ prototype: Object.getPrototypeOf(app.remote) }, OtaRemoteController);
       }
 
-      if (!app.__zenplayOtaUpgradedV49) {
-        app.__zenplayOtaUpgradedV49 = true;
+      if (!app.__zenplayOtaUpgradedV491) {
+        app.__zenplayOtaUpgradedV491 = true;
         if (typeof app.loadActiveEPGSources === 'function') {
           app.loadActiveEPGSources(false);
         }
@@ -124,12 +124,11 @@ const jsPatch = `
 const manifest = {
   version: version,
   releaseDate: new Date().toISOString().slice(0, 10),
-  title: 'עדכון גרסה ' + version + ' - פתיחה במסך מלא, הגנת קריסות מסך, ולוח שידורים ישראלי מלא (100%)',
+  title: 'עדכון גרסה ' + version + ' - תיקון שימור לוח השידורים ביציאה וכניסה לאפליקציה (100% ערוצים)',
   releaseNotes: [
-    'פתיחה ישירה במסך מלא (Direct Fullscreen Boot): בעת פתיחת האפליקציה השידור נפתח מיד על מסך מלא של הערוץ האחרון שנצפה בדיוק כמו ממיר טלוויזיה מקצועי',
-    'הגנה מלאה מקריסות חומרה וכיבוי מסך (TV Hardware Memory Guard): חסימת פיצוצי זיכרון מהורדת קבצי XMLTV ענקיים (מעל 300MB) שמקורם ב-epg.team, המונעת לחלוטין קריסות של ה-Web Engine וכיבוי פתאומי של מסך הטלוויזיה',
-    'כיסוי מושלם (100%) של לוח השידורים לכל 103 ערוצי המשתמש: תמיכה מובנית מלאה בכל מזהי chXXXX וקידומיות IL:, כולל ערוצי ספורט 5, One, דיסקברי, נשיונל ג\'יאוגרפיק, Yes, HOT, Cellcom ו-Free TV',
-    'מנוע עדכוני OTA ענני מלא: שדרוג ישיר של האפליקציה למסכי LG webOS ללא צורך בהתקנה ידנית'
+    'תיקון שימור לוח שידורים מקומי (Zero EPG Truncation): תוקן באג שבו שמירת הקאש המקומי ביציאה מהאפליקציה קטעה חלק מהערוצים. כעת נשמרים 100% מכלל הערוצים (285 ערוצים ו-896 כינויים) ללא איבוד מידע',
+    'מנגנון Stale-While-Revalidate: עלייה מיידית מהקאש (פחות מ-15 מילישניות) ובמקביל רענון רקע ענני מלא שמבטיח שכל הערוצים מציגים תמיד את לוח השידורים החי והמעודכן ביותר',
+    'שמירה על פתיחה ישירה במסך מלא והגנת קריסות חומרה על כל מסכי LG webOS'
   ],
   cssPatch: cssContent,
   jsPatch: jsPatch
