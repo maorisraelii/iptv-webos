@@ -1,16 +1,22 @@
 {
-  "name": "iptv",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "iptv-live-webos",
+  "version": "4.2.0",
+  "description": "High-performance IPTV Live TV & Catch-Up Player for LG webOS Smart TVs with Multi-M3U Merger, 7-Day Guide, Anti-Freeze HLS Buffer, and PC Web Studio",
+  "main": "index.html",
   "scripts": {
     "start": "node sync-server.js",
     "studio": "node sync-server.js",
-    "package": "ares-package -n -e node_modules -e package-lock.json -e server.js ."
+    "package": "powershell -ExecutionPolicy Bypass -File .\\package_ipk.ps1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "lg-webos",
+    "iptv",
+    "m3u",
+    "smart-tv",
+    "live-tv"
+  ],
+  "author": "Maor Israeli",
+  "license": "MIT",
   "type": "commonjs",
   "dependencies": {
     "hls.js": "^1.7.4"
