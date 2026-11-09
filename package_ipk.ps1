@@ -6,10 +6,17 @@ Write-Host "==========================================================" -Foregro
 Write-Host "   IPTV Live TV - LG webOS IPK Packager" -ForegroundColor Yellow
 Write-Host "==========================================================" -ForegroundColor Cyan
 
-# 1. Package IPK
-Write-Host "`n[1/3] Packaging webOS App..." -ForegroundColor Green
-$packageCmd = "npx ares-package -n -e node_modules -e package-lock.json -e server.js -e .git -e .github ."
-Invoke-Expression $packageCmd
+# 1. Clean & Prepare dist directory
+Write-Host "`n[1/3] Preparing clean app bundle..." -ForegroundColor Green
+if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
+New-Item -ItemType Directory -Path "dist" | Out-Null
+
+Copy-Item "index.html", "appinfo.json", "app-config.json", "icon.png", "largeIcon.png" -Destination "dist"
+Copy-Item -Recurse "css", "js" -Destination "dist"
+
+# 2. Package IPK
+Write-Host "`n[2/3] Packaging webOS App with @webos-tools/cli..." -ForegroundColor Green
+npx ares-package -n dist
 
 $ipkFiles = Get-ChildItem -Filter "com.iptv.livetv_*.ipk" | Sort-Object LastWriteTime -Descending
 if ($ipkFiles.Count -eq 0) {
@@ -20,11 +27,6 @@ if ($ipkFiles.Count -eq 0) {
 $latestIpk = $ipkFiles[0].Name
 Copy-Item $latestIpk -Destination "IPTV-Live-webOS.ipk" -Force
 Write-Host "[OK] Package created: $latestIpk -> IPTV-Live-webOS.ipk" -ForegroundColor Green
-
-# 2. Check for connected LG devices
-Write-Host "`n[2/3] Checking connected webOS TV devices..." -ForegroundColor Green
-$devicesOutput = npx ares-setup-device -l 2>&1
-Write-Host $devicesOutput
 
 # 3. Optional Direct Install
 if ($Device -ne "") {

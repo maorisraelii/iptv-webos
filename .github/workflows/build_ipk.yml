@@ -33,9 +33,14 @@ jobs:
         run: |
           npm install
 
+      - name: Prepare Clean App Directory
+        run: |
+          mkdir -p dist
+          cp -r index.html appinfo.json app-config.json css js icon.png largeIcon.png dist/
+
       - name: Build webOS IPK Package
         run: |
-          npx ares-package -n -e "node_modules" -e "package-lock.json" -e "server.js" -e ".git" -e ".github" .
+          npx ares-package -n dist
           IPK_FILE=$(ls com.iptv.livetv_*.ipk | head -n 1)
           echo "Generated IPK: $IPK_FILE"
           cp "$IPK_FILE" IPTV-Live-webOS.ipk
@@ -62,10 +67,11 @@ jobs:
           ## 📺 Live TV for LG webOS TV
 
           ### 🚀 מה חדש בעדכון זה:
+          - **תוקנה שגיאת אימות IPK (-5: ipk verified failed):** מעבר ל-CLI הרשמי והעדכני `@webos-tools/cli`, הוספת `requiredACG: []` ומחיקת הרשאות מיותרות שחסמו התקנה.
           - **עדכונים חיים מהענן (Over-The-Air):** האפליקציה מתעדכנת אוטומטית בעת הפתיחה בטלוויזיה ללא צורך בהתקנה מחדש של ה-IPK!
-          - ממשק ZenPlay Live TV מותאם שלט (D-pad, OK, Back 461, Color buttons, 0-9 channel jumps).
-          - תמיכה מלאה ב-webOS 4.64 ו-webOS 5.0 ומעלה.
-          - תמיכה בלעדית ומהירה בפלייליסט M3U עם חלוקה לקטגוריות ומועדפים.
+          - תמיכה במקשי ערוצים מותאמים בשלט LG (427/428, 33/34, 457 Info).
+          - תמיכה במספור ערוצים מובנה מתוך ה-M3U (`tvg-chno`).
+          - תאימות מלאה ל-webOS 4.64 ו-webOS 5.0 ומעלה.
 
           ---
           📦 **הורדת קובץ התקנה:** הורד את `IPTV-Live-webOS.ipk` והתקן בטלוויזיה עם webOS Dev Manager.
@@ -81,7 +87,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: |
           mkdir -p _site
-          cp -r index.html appinfo.json app-config.json css js icon.png largeIcon.png _site/
+          cp -r dist/* _site/
           cp IPTV-Live-webOS.ipk _site/
 
       - name: Upload Pages Artifact
