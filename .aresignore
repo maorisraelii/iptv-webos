@@ -1,0 +1,7 @@
+node_modules
+package-lock.json
+server.js
+_zenplay_ref
+.git
+.gitignore
+*.ipk

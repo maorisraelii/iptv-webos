@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Live TV</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="theme-zenplay">
+  <!-- Boot Splash & OTA Update Check -->
+  <div id="boot-splash" class="boot-splash hidden">
+    <div class="boot-splash-content">
+      <div class="boot-logo-box">
+        <div class="boot-dot"></div>
+        <div class="boot-logo-text">Live TV</div>
+      </div>
+      <div class="boot-spinner"></div>
+      <div id="boot-splash-text" class="boot-splash-text">בודק עדכונים...</div>
+    </div>
+  </div>
+
+  <!-- Dynamic Mesh Background -->
+  <div id="mesh-bg" class="mesh-bg">
+    <div class="mesh-blob blob-1"></div>
+    <div class="mesh-blob blob-2"></div>
+  </div>
+
+  <!-- Shared High Performance Video Player Surface -->
+  <div id="video-surface" class="video-surface preview-mode">
+    <video id="tv-video" playsinline webkit-playsinline></video>
+    <div id="video-loader" class="video-loader hidden">
+      <div class="spinner"></div>
+      <span id="video-loader-text">טוען שידור...</span>
+    </div>
+    <div id="video-error-badge" class="video-error-badge hidden">
+      <span>שידור לא זמין כרגע</span>
+    </div>
+  </div>
+
+  <!-- Main Browsing View -->
+  <div id="browse-view" class="browse-view">
+    <!-- Thin Collapsed Category Rail on Far Left -->
+    <div id="collapsed-rail" class="collapsed-rail" title="פתח קטגוריות">
+      <div class="rail-icon-box">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="8" y1="6" x2="21" y2="6"></line>
+          <line x1="8" y1="12" x2="21" y2="12"></line>
+          <line x1="8" y1="18" x2="21" y2="18"></line>
+          <line x1="3" y1="6" x2="3.01" y2="6"></line>
+          <line x1="3" y1="12" x2="3.01" y2="12"></line>
+          <line x1="3" y1="18" x2="3.01" y2="18"></line>
+        </svg>
+      </div>
+      <div class="rail-hint">‹</div>
+    </div>
+
+    <!-- Expanded Flyout Category Rail -->
+    <div id="category-rail-backdrop" class="category-rail-backdrop hidden"></div>
+    <nav id="category-rail" class="category-rail hidden">
+      <div class="category-rail-header">
+        <div class="app-logo">
+          <div class="logo-dot"></div>
+          <h2>Live TV</h2>
+        </div>
+        <div id="clock" class="tv-clock">00:00</div>
+      </div>
+      <div class="category-rail-scroll" id="category-list">
+        <!-- Rendered dynamically -->
+      </div>
+    </nav>
+
+    <!-- Channels Column -->
+    <section id="channel-column" class="channel-column">
+      <div class="channel-column-header">
+        <div class="channel-header-info">
+          <h1 id="active-category-title">כל הערוצים</h1>
+          <span id="channel-count-badge" class="count-badge">0 ערוצים</span>
+        </div>
+        <div class="channel-header-actions">
+          <button id="btn-search-trigger" class="btn-icon-circle focusable" data-action="open-search" title="חיפוש ערוץ (ירוק)">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="channel-list-container" id="channel-list-container">
+        <div id="channel-list" class="channel-list">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Preview Column -->
+    <section id="preview-column" class="preview-column">
+      <!-- Live Indicator Badge -->
+      <div class="preview-top-bar">
+        <div class="live-pulse-badge">
+          <span class="live-dot"></span>
+          <span>LIVE שידור חי</span>
+        </div>
+        <div class="fullscreen-prompt">
+          <span>לחץ <strong>אישור (OK)</strong> למסך מלא</span>
+        </div>
+      </div>
+
+      <!-- Preview Frame (Anchor for the video surface in preview mode) -->
+      <div id="preview-frame" class="preview-frame focusable" data-action="toggle-fullscreen">
+        <div class="preview-click-overlay">
+          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Channel Details Card -->
+      <div id="channel-details-card" class="channel-details-card">
+        <div class="preview-channel-line">
+          <div class="preview-logo-box">
+            <img id="preview-channel-logo" src="" alt="" class="hidden">
+            <div id="preview-channel-placeholder" class="preview-logo-placeholder">TV</div>
+          </div>
+          <div class="preview-text-box">
+            <div class="preview-number-row">
+              <span id="preview-channel-num" class="preview-ch-num">1</span>
+              <span id="preview-channel-category" class="preview-ch-group">כללי</span>
+            </div>
+            <h2 id="preview-channel-name" class="preview-ch-title">בחר ערוץ לצפייה</h2>
+          </div>
+        </div>
+
+        <div class="preview-actions-row">
+          <button id="btn-toggle-favorite" class="btn-tv-action focusable" data-action="toggle-favorite">
+            <svg id="fav-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+            <span id="fav-btn-label">הוסף למועדפים (צהוב)</span>
+          </button>
+
+          <button id="btn-play-full" class="btn-tv-action btn-primary focusable" data-action="toggle-fullscreen">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <span>מסך מלא</span>
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Fullscreen OSD Overlay (shown on channel change or remote OK/Info) -->
+  <div id="fullscreen-osd" class="fullscreen-osd hidden">
+    <div class="osd-content">
+      <div class="osd-logo-box">
+        <img id="osd-channel-logo" src="" alt="" class="hidden">
+        <div id="osd-logo-placeholder" class="osd-placeholder">TV</div>
+      </div>
+      <div class="osd-info-box">
+        <div class="osd-header-line">
+          <span id="osd-channel-number" class="osd-channel-num">1</span>
+          <h2 id="osd-channel-name" class="osd-channel-title">שם הערוץ</h2>
+          <span class="osd-live-tag">LIVE</span>
+          <span id="osd-quality-tag" class="osd-quality-tag">HD</span>
+        </div>
+        <div class="osd-sub-line">
+          <span id="osd-channel-category" class="osd-category">ספורט</span>
+          <span class="osd-divider">•</span>
+          <span class="osd-hint">לחץ חזרה ⮌ לרשימת הערוצים | ▲▼ להחלפת ערוץ</span>
+        </div>
+      </div>
+      <div class="osd-clock-box">
+        <div id="osd-clock" class="osd-clock">00:00</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Channel Numeric Jump Overlay (0-9 input) -->
+  <div id="channel-number-jump" class="channel-number-jump hidden">
+    <span class="jump-label">מעבר לערוץ:</span>
+    <span id="jump-number-digits" class="jump-digits">1</span>
+  </div>
+
+  <!-- Remote Color Buttons Legend Bar (Bottom) -->
+  <footer id="color-bar" class="color-bar">
+    <div class="color-hint" id="hint-red" data-action="open-settings">
+      <span class="color-badge badge-red"></span>
+      <span>הגדרות M3U</span>
+    </div>
+    <div class="color-hint" id="hint-green" data-action="open-search">
+      <span class="color-badge badge-green"></span>
+      <span>חיפוש</span>
+    </div>
+    <div class="color-hint" id="hint-yellow" data-action="toggle-favorite">
+      <span class="color-badge badge-yellow"></span>
+      <span>מועדף</span>
+    </div>
+    <div class="color-hint" id="hint-blue" data-action="toggle-fullscreen">
+      <span class="color-badge badge-blue"></span>
+      <span>מסך מלא</span>
+    </div>
+  </footer>
+
+  <!-- Settings Modal with Built-in TV On-Screen Keyboard -->
+  <div id="settings-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>הגדרות פלייליסט M3U</h2>
+        <button class="modal-close-btn focusable" data-action="close-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <label for="m3u-url-input" class="input-label">כתובת פלייליסט M3U / M3U8 (URL):</label>
+        <div class="input-group">
+          <input type="text" id="m3u-url-input" class="tv-input focusable" placeholder="https://example.com/playlist.m3u" dir="ltr">
+        </div>
+
+        <label for="remote-url-input" class="input-label">כתובת שרת לעדכונים אוטומטיים (OTA Hosted URL - אופציונלי):</label>
+        <div class="input-group">
+          <input type="text" id="remote-url-input" class="tv-input focusable" placeholder="https://username.github.io/iptv/" dir="ltr">
+        </div>
+
+        <div class="modal-actions-row">
+          <button id="btn-load-sample" class="btn-tv-secondary focusable" data-action="load-sample">
+            טען פלייליסט לדוגמה (ערוצים ציבוריים)
+          </button>
+          <button id="btn-save-playlist" class="btn-tv-primary focusable" data-action="save-playlist">
+            שמור וטען ערוצים
+          </button>
+        </div>
+
+        <!-- On-Screen Virtual Keyboard for TV Remote Navigation -->
+        <div class="virtual-keyboard" id="tv-virtual-keyboard">
+          <div class="kb-row">
+            <button class="kb-key focusable" data-char="1">1</button>
+            <button class="kb-key focusable" data-char="2">2</button>
+            <button class="kb-key focusable" data-char="3">3</button>
+            <button class="kb-key focusable" data-char="4">4</button>
+            <button class="kb-key focusable" data-char="5">5</button>
+            <button class="kb-key focusable" data-char="6">6</button>
+            <button class="kb-key focusable" data-char="7">7</button>
+            <button class="kb-key focusable" data-char="8">8</button>
+            <button class="kb-key focusable" data-char="9">9</button>
+            <button class="kb-key focusable" data-char="0">0</button>
+            <button class="kb-key kb-key-wide focusable" data-kb="backspace">מחק ⌫</button>
+          </div>
+          <div class="kb-row">
+            <button class="kb-key focusable" data-char="q">q</button>
+            <button class="kb-key focusable" data-char="w">w</button>
+            <button class="kb-key focusable" data-char="e">e</button>
+            <button class="kb-key focusable" data-char="r">r</button>
+            <button class="kb-key focusable" data-char="t">t</button>
+            <button class="kb-key focusable" data-char="y">y</button>
+            <button class="kb-key focusable" data-char="u">u</button>
+            <button class="kb-key focusable" data-char="i">i</button>
+            <button class="kb-key focusable" data-char="o">o</button>
+            <button class="kb-key focusable" data-char="p">p</button>
+            <button class="kb-key focusable" data-char="/">/</button>
+          </div>
+          <div class="kb-row">
+            <button class="kb-key focusable" data-char="a">a</button>
+            <button class="kb-key focusable" data-char="s">s</button>
+            <button class="kb-key focusable" data-char="d">d</button>
+            <button class="kb-key focusable" data-char="f">f</button>
+            <button class="kb-key focusable" data-char="g">g</button>
+            <button class="kb-key focusable" data-char="h">h</button>
+            <button class="kb-key focusable" data-char="j">j</button>
+            <button class="kb-key focusable" data-char="k">k</button>
+            <button class="kb-key focusable" data-char="l">l</button>
+            <button class="kb-key focusable" data-char=":">:</button>
+            <button class="kb-key focusable" data-char=".">.</button>
+          </div>
+          <div class="kb-row">
+            <button class="kb-key focusable" data-char="z">z</button>
+            <button class="kb-key focusable" data-char="x">x</button>
+            <button class="kb-key focusable" data-char="c">c</button>
+            <button class="kb-key focusable" data-char="v">v</button>
+            <button class="kb-key focusable" data-char="b">b</button>
+            <button class="kb-key focusable" data-char="n">n</button>
+            <button class="kb-key focusable" data-char="m">m</button>
+            <button class="kb-key focusable" data-char="-">-</button>
+            <button class="kb-key focusable" data-char="_">_</button>
+            <button class="kb-key focusable" data-char="?">?</button>
+            <button class="kb-key focusable" data-char="=">=</button>
+          </div>
+          <div class="kb-row">
+            <button class="kb-key kb-key-wide focusable" data-kb="clear">נקה הכל</button>
+            <button class="kb-key kb-key-space focusable" data-kb="space">רווח (Space)</button>
+            <button class="kb-key kb-key-wide focusable" data-kb="http">https://</button>
+            <button class="kb-key kb-key-wide focusable" data-kb="m3u">.m3u8</button>
+          </div>
+        </div>
+
+        <div id="settings-status" class="settings-status-box">
+          <span id="settings-status-text">הזן כתובת M3U או טען פלייליסט לדוגמה כדי להתחיל.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search Modal -->
+  <div id="search-modal" class="modal-backdrop hidden">
+    <div class="modal-card modal-search-card">
+      <div class="modal-header">
+        <h2>חיפוש ערוצים</h2>
+        <button class="modal-close-btn focusable" data-action="close-modal">✕</button>
+      </div>
+      <div class="modal-body search-layout">
+        <div class="search-left-panel">
+          <input type="text" id="search-query-input" class="tv-input focusable" placeholder="הקלד שם ערוץ..." dir="auto">
+          <div class="virtual-keyboard" id="search-keyboard">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+        <div class="search-right-panel">
+          <div class="search-results-header">
+            <span>תוצאות חיפוש:</span>
+            <span id="search-results-count">0</span>
+          </div>
+          <div class="search-results-list" id="search-results-list">
+            <!-- Results rendered here -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast hidden">
+    <span id="toast-message"></span>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/loader.js"></script>
+  <script src="js/hls.min.js"></script>
+  <script src="js/m3u-parser.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/remote.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

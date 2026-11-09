@@ -1,0 +1,6 @@
+{
+  "version": "1.0.0",
+  "remoteAppUrl": "https://maorisraelii.github.io/iptv-webos/",
+  "timeoutMs": 2500,
+  "description": "Hosted URL for Over-The-Air auto-updates on LG webOS TV."
+}

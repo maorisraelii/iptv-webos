@@ -1,0 +1,101 @@
+name: Build webOS IPK & Publish OTA Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages-and-build"
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: |
+          npm install
+
+      - name: Build webOS IPK Package
+        run: |
+          npx ares-package -n -e "node_modules" -e "package-lock.json" -e "server.js" -e ".git" -e ".github" .
+          IPK_FILE=$(ls com.iptv.livetv_*.ipk | head -n 1)
+          echo "Generated IPK: $IPK_FILE"
+          cp "$IPK_FILE" IPTV-Live-webOS.ipk
+          echo "IPK_FILE=$IPK_FILE" >> $GITHUB_ENV
+
+      - name: Upload IPK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: IPTV-Live-webOS-IPK
+          path: |
+            IPTV-Live-webOS.ipk
+            ${{ env.IPK_FILE }}
+          retention-days: 30
+
+      - name: Setup GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@v5
+
+      - name: Prepare Pages Deployment Directory
+        if: github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p _site
+          cp -r index.html appinfo.json app-config.json css js assets icon.png largeIcon.png _site/
+          # Also copy the IPK into the site root for easy direct download from the web!
+          cp IPTV-Live-webOS.ipk _site/
+
+      - name: Upload Pages Artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Create or Update GitHub Release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v1.0.${{ github.run_number }}"
+          RELEASE_TITLE="Live TV webOS v1.0.${{ github.run_number }}"
+          
+          NOTES=$(cat << 'EOF'
+          ## 📺 Live TV for LG webOS TV
+
+          ### 🚀 מה חדש בעדכון זה:
+          - **עדכונים חיים מהענן (Over-The-Air):** האפליקציה מתעדכנת אוטומטית בעת הפתיחה בטלוויזיה ללא צורך בהתקנה מחדש של ה-IPK!
+          - ממשק ZenPlay Live TV מותאם שלט (D-pad, OK, Back 461, Color buttons, 0-9 channel jumps).
+          - תמיכה מלאה ב-webOS 4.64 ו-webOS 5.0 ומעלה.
+          - תמיכה בלעדית ומהירה בפלייליסט M3U עם חלוקה לקטגוריות ומועדפים.
+
+          ---
+          📦 **הורדת קובץ התקנה:** הורד את `IPTV-Live-webOS.ipk` והתקן בטלוויזיה עם webOS Dev Manager.
+          EOF
+          )
+
+          gh release create "$TAG" "IPTV-Live-webOS.ipk" \
+            --title "$RELEASE_TITLE" \
+            --notes "$NOTES" \
+            --latest || gh release upload "$TAG" "IPTV-Live-webOS.ipk" --clobber
