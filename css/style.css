@@ -1355,34 +1355,119 @@ html, body {
 }
 
 /* ==========================================================================
-   Numeric Jump Display Overlay (0-9 input)
+   Numeric Jump Display Overlay (0-9 input with Live Channel Preview)
    ========================================================================== */
 
 .channel-number-jump {
   position: fixed;
-  top: 44px;
-  right: 54px;
-  background-color: #0f172a;
+  top: 40px;
+  right: 48px;
+  background-color: rgba(15, 23, 42, 0.96);
   border: 3px solid var(--primary-bright);
-  padding: 18px 38px;
-  border-radius: 20px;
+  padding: 16px 26px;
+  border-radius: 22px;
   display: flex;
   align-items: center;
+  gap: 20px;
+  min-width: 440px;
+  max-width: 680px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75);
   z-index: 250;
 }
 
+.jump-num-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(56, 189, 248, 0.14);
+  border: 2px solid rgba(56, 189, 248, 0.45);
+  border-radius: 16px;
+  padding: 8px 20px;
+  min-width: 96px;
+}
+
 .jump-label {
-  font-size: 28px;
-  font-weight: 700;
-  color: #cbd5e1;
-  margin-left: 18px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #bae6fd;
+  line-height: 1.1;
 }
 
 .jump-digits {
-  font-size: 58px;
+  font-size: 48px;
   font-weight: 900;
-  color: var(--primary-bright);
+  color: #ffffff;
   font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.jump-channel-preview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+}
+
+.jump-logo-box {
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  background-color: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.jump-logo-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 4px;
+}
+
+.jump-monogram {
+  font-size: 21px;
+  font-weight: 900;
+  color: #7dd3fc;
+}
+
+.jump-preview-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.jump-channel-name {
+  font-size: 26px;
+  font-weight: 900;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  unicode-bidi: plaintext;
+  text-align: right;
+}
+
+.jump-channel-name.not-found {
+  color: #fca5a5;
+  font-size: 22px;
+}
+
+.jump-channel-epg {
+  font-size: 18px;
+  font-weight: 700;
+  color: #7dd3fc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 3px;
 }
 
 /* ==========================================================================

@@ -105,6 +105,17 @@ class RemoteController {
 
     // Center Button: OK / Enter (Play/Pause in Fullscreen, Select/Confirm in Browse/Modals)
     if (code === 13 || key === 'Enter' || key === 'Select' || key === 'Accept') {
+      if (this.numberBuffer && this.numberBuffer.length > 0 && !this.app.isModalOpen()) {
+        clearTimeout(this.numberTimer);
+        const channelNum = parseInt(this.numberBuffer, 10);
+        this.numberBuffer = '';
+        const overlay = document.getElementById('channel-number-jump');
+        if (overlay) overlay.classList.add('hidden');
+        if (!isNaN(channelNum)) {
+          this.app.jumpToChannelNumber(channelNum);
+        }
+        return;
+      }
       this.app.selectCurrent();
       return;
     }
@@ -208,7 +219,7 @@ class RemoteController {
       if (!isNaN(channelNum)) {
         this.app.jumpToChannelNumber(channelNum);
       }
-    }, 1100);
+    }, 1350);
   }
 }
 
