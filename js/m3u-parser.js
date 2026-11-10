@@ -223,10 +223,15 @@ class M3UParser {
       item.catchupSource = catchupSrcMatch[1].trim();
     }
 
-    const catchupDaysMatch = line.match(/(?:catchup-days|timeshift)="([^"]*)"/i);
+    const catchupDaysMatch = line.match(/(?:catchup-days|timeshift|tvg-rec)="([^"]*)"/i);
     if (catchupDaysMatch && catchupDaysMatch[1].trim()) {
       const d = parseInt(catchupDaysMatch[1].trim(), 10);
-      if (!isNaN(d) && d > 0) item.catchupDays = Math.min(7, d);
+      if (!isNaN(d) && d > 0) {
+        item.catchupDays = Math.min(7, d);
+        if (!item.catchupType) {
+          item.catchupType = 'flussonic';
+        }
+      }
     }
 
     const commaIndex = line.lastIndexOf(',');

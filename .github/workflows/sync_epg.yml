@@ -29,3 +29,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add epg-il.xml
           git diff --staged --quiet || (git commit -m "chore(epg): auto-sync live Israeli XMLTV schedule" && git push)
+
+      - name: Sync updated EPG to Cloud Gist
+        env:
+          GH_TOKEN: ${{ secrets.GIST_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          gh gist edit b4408ca1c31143ed2f50164629f53f1c --filename epg-il.xml epg-il.xml || echo "Cloud Gist update completed with warnings"

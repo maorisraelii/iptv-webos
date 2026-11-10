@@ -365,36 +365,33 @@ class VideoPlayer {
 
     const startUnix = Math.floor(programme.startMs / 1000);
     const nowUnix = Math.floor(Date.now() / 1000);
-    const durationSec = Math.max(60, Math.floor(((programme.stopMs || Date.now()) - programme.startMs) / 1000));
+    const isLive = !programme.stopMs || programme.stopMs > Date.now();
+    const stopUnix = isLive ? nowUnix : Math.floor(programme.stopMs / 1000);
+    const durationSec = Math.max(60, stopUnix - startUnix);
     const offsetSec = Math.max(0, nowUnix - startUnix);
 
     if (channel.catchupSource) {
       return channel.catchupSource
         .replace(/\$\{start\}|\{utc\}|\{start\}/gi, String(startUnix))
-        .replace(/\$\{timestamp\}|\{lutc\}/gi, String(nowUnix))
+        .replace(/\$\{stop\}|\{lutc\}|\{timestamp\}/gi, String(stopUnix))
+        .replace(/\$\{now\}|\{now\}/gi, String(nowUnix))
         .replace(/\$\{duration\}|\{duration\}/gi, String(durationSec))
         .replace(/\$\{offset\}|\{offset\}/gi, String(offsetSec));
     }
 
-    if (
-      channel.catchupType === 'append' ||
-      channel.catchupType === 'shift' ||
-      channel.catchupType === 'default' ||
-      channel.catchupType === 'flussonic'
-    ) {
-      const sep = channel.url.indexOf('?') === -1 ? '?' : '&';
-      return channel.url + sep + 'utc=' + startUnix + '&lutc=' + nowUnix;
-    }
-
-    return channel.url;
+    const sep = channel.url.indexOf('?') === -1 ? '?' : '&';
+    return channel.url + sep + 'utc=' + startUnix + '&lutc=' + stopUnix;
   }
 
   playHls(url) {
     try {
+      const isCatchup = url && url.indexOf('utc=') !== -1;
       const prof = this.getBufferProfile();
 
       this.hls = new window.Hls({
         enableWorker: false,
+        // For Start-Over / Catch-up, begin playback from the start of the event
+        startPosition: isCatchup ? 0 : -1,
         // Progressive Quality Ramp-Up: start on level 0 for instant channel start, then ramp up as buffer fills
         startLevel: prof.progressiveQuality ? 0 : -1,
         capLevelToPlayerSize: false,
@@ -437,6 +434,11 @@ class VideoPlayer {
       });
 
       this.hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+        if (isCatchup && this.video) {
+          try {
+            this.video.currentTime = 0;
+          } catch (e) {}
+        }
         // Initialize progressive quality cap based on initial empty buffer so first segments load fast
         this.updateProgressiveQualityByBuffer();
 
