@@ -86,10 +86,10 @@ async function main() {
   const targetChannelMap = new Map(); // chId -> Set of display names
   const progsByChannel = new Map(); // chId -> Array of { start, stop, title, desc }
 
-  // Time window: 24h past to 48h future
+  // Time window: 7 days past to 7 days future (enables full 7-day catchup / start-over & 7-day future guide)
   const now = new Date();
-  const minDate = new Date(now.getTime() - 24 * 3600000);
-  const maxDate = new Date(now.getTime() + 48 * 3600000);
+  const minDate = new Date(now.getTime() - 7 * 24 * 3600000);
+  const maxDate = new Date(now.getTime() + 7 * 24 * 3600000);
   const fmtUtc = (d) =>
     d.getUTCFullYear().toString() +
     ('0' + (d.getUTCMonth() + 1)).slice(-2) +

@@ -596,8 +596,17 @@ class EPGService {
   getChannelProgrammes(channel) {
     if (!channel) return [];
     const xmlList = this.findXmlProgrammesForChannel(channel);
+    const nowMs = Date.now();
     if (xmlList && xmlList.length > 0) {
-      return xmlList;
+      const lastProg = xmlList[xmlList.length - 1];
+      if (lastProg && lastProg.stopMs && lastProg.stopMs >= nowMs) {
+        return xmlList;
+      }
+      // If XML feed has expired past programmes, keep the past history for Start-Over / Catch-up
+      // and seamlessly append generated future programmes so current & next are always populated
+      const generated = this.generateSevenDaySchedule(channel);
+      const futureGen = generated.filter((p) => p.startMs >= (lastProg ? lastProg.stopMs : nowMs));
+      return xmlList.concat(futureGen);
     }
 
     const cacheKey = 'gen_' + channel.id;
@@ -687,13 +696,23 @@ class EPGService {
   getMiniTimeline(channel) {
     if (!channel) return [];
     const nowMs = Date.now();
-    const list = this.getChannelProgrammes(channel);
+    let list = this.getChannelProgrammes(channel);
     let currentIdx = -1;
 
     for (let i = 0; i < list.length; i++) {
       if (list[i].startMs <= nowMs && list[i].stopMs > nowMs) {
         currentIdx = i;
         break;
+      }
+    }
+
+    if (currentIdx === -1) {
+      list = this.generateSevenDaySchedule(channel);
+      for (let i = 0; i < list.length; i++) {
+        if (list[i].startMs <= nowMs && list[i].stopMs > nowMs) {
+          currentIdx = i;
+          break;
+        }
       }
     }
 
