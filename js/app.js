@@ -161,11 +161,11 @@ class IPTVApp {
       });
     }
 
-    // Always include the real-time Cloud Israeli XMLTV EPG feed so channels match live schedules even if M3U lacks url-tvg
-    const defaultLiveEpg =
-      (this.epg && this.epg.DEFAULT_LIVE_EPG_URL) ||
-      'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/epg-il.xml';
-    if (urls.indexOf(defaultLiveEpg) === -1) {
+    // If no EPG URLs were discovered from playlists or custom settings, supply default fallback feed
+    if (urls.length === 0) {
+      const defaultLiveEpg =
+        (this.epg && this.epg.DEFAULT_LIVE_EPG_URL) ||
+        'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/epg-il.xml';
       urls.push(defaultLiveEpg);
     }
 
@@ -174,11 +174,15 @@ class IPTVApp {
       if (savedEpgUrl && savedEpgUrl.trim()) {
         epgInput.value = savedEpgUrl.trim();
       } else if (urls.length > 0 && !epgInput.value) {
-        epgInput.placeholder = 'לוח שידורים חי פעיל אוטומטית (XMLTV)';
+        epgInput.placeholder = 'לוח שידורים פעיל אוטומטית (XMLTV)';
       }
     }
 
-    // Safety guard: rewrite monolithic global EPG feeds (like epg.team/3.1.xml) to safe defaultLiveEpg
+    // Safety guard: rewrite monolithic global EPG feeds (like epg.team/3.1.xml which is 307MB)
+    // to lightweight curated XMLTV feed to prevent WebKit OOM crash on Smart TV hardware
+    const defaultLiveEpg =
+      (this.epg && this.epg.DEFAULT_LIVE_EPG_URL) ||
+      'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/epg-il.xml';
     const safeUrls = urls.map((u) => {
       if (u && (u.indexOf('epg.team') !== -1 || u.indexOf('epg_ripper_ALL') !== -1)) {
         return defaultLiveEpg;
@@ -193,7 +197,8 @@ class IPTVApp {
         () => {
           this.refreshVisibleEPGLabels();
         },
-        Boolean(forceRefresh)
+        Boolean(forceRefresh),
+        this.allChannels
       );
     }
   }
@@ -2358,7 +2363,7 @@ class IPTVApp {
           .then((summary) => {
             if (summary.epgUrl) {
               localStorage.setItem(STORAGE_KEYS.EPG_URL, summary.epgUrl);
-              this.epg.loadEPG(summary.epgUrl, () => this.refreshVisibleEPGLabels());
+              this.epg.loadEPG(summary.epgUrl, () => this.refreshVisibleEPGLabels(), false, this.allChannels);
             }
             this.allChannels = this.store.compiledChannels;
             this.applyChannelFilter();
@@ -2468,7 +2473,7 @@ class IPTVApp {
           : '';
         if (epgUrl) {
           localStorage.setItem(STORAGE_KEYS.EPG_URL, epgUrl);
-          this.epg.loadEPG(epgUrl, () => this.refreshVisibleEPGLabels());
+          this.epg.loadEPG(epgUrl, () => this.refreshVisibleEPGLabels(), true, this.allChannels);
         } else {
           localStorage.removeItem(STORAGE_KEYS.EPG_URL);
         }
