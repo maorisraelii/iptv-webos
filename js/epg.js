@@ -141,9 +141,11 @@ class EPGService {
 
       const ttlHours = this.getCacheTtlHours();
       const ageMs = Date.now() - (data.updatedAt || 0);
-      if (ttlHours > 0 && ageMs > ttlHours * 3600000) {
-        return false;
-      }
+      const isExpired = ttlHours > 0 && ageMs > ttlHours * 3600000;
+
+      // Stale data is infinitely better than an empty screen.
+      // Load into memory regardless of expiration, but trigger immediate background refresh if expired.
+      this.lastUpdatedMs = isExpired ? 0 : (data.updatedAt || 0);
 
       this.programmesByChannel.clear();
       this.channelAliasMap.clear();
@@ -173,7 +175,6 @@ class EPGService {
         }
       }
 
-      this.lastUpdatedMs = data.updatedAt || Date.now();
       return true;
     } catch (e) {
       return false;
@@ -358,14 +359,14 @@ class EPGService {
       url = this.DEFAULT_LIVE_EPG_URL;
     }
 
-    const MAX_SAFE_EPG_BYTES = 15 * 1024 * 1024; // 15MB limit to prevent Smart TV memory crashes
+    const MAX_SAFE_EPG_BYTES = 35 * 1024 * 1024; // 35MB safety limit to prevent OOM on giant 300MB global feeds
 
     return fetch(url)
       .then((res) => {
         if (!res.ok) throw new Error('EPG HTTP ' + res.status);
         const cl = res.headers.get('content-length');
         if (cl && parseInt(cl, 10) > MAX_SAFE_EPG_BYTES) {
-          console.warn('EPG feed exceeds TV memory safety limit (>15MB), aborting:', url);
+          console.warn('EPG feed exceeds TV memory safety limit (>35MB), aborting:', url);
           return null;
         }
         return res.arrayBuffer();
@@ -373,7 +374,7 @@ class EPGService {
       .then((buffer) => {
         if (!buffer) return '';
         if (buffer.byteLength > MAX_SAFE_EPG_BYTES) {
-          console.warn('EPG feed buffer exceeded 15MB safe limit, skipped:', url);
+          console.warn('EPG feed buffer exceeded 35MB safe limit, skipped:', url);
           return '';
         }
         const bytes = new Uint8Array(buffer);
@@ -625,7 +626,7 @@ class EPGService {
   getNowNext(channel) {
     if (!channel) return null;
     const nowMs = Date.now();
-    const list = this.findXmlProgrammesForChannel(channel) || this.getChannelProgrammes(channel);
+    const list = this.getChannelProgrammes(channel);
 
     if (list && list.length > 0) {
       let currentIdx = -1;
