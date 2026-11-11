@@ -69,6 +69,20 @@ function getUserPlaylistChannels() {
       } catch (e) {}
     }
   }
+  // 2. Fallback to scripts/user-channels.json (always committed in repository for GitHub Actions!)
+  const jsonPath = path.join(process.cwd(), 'scripts', 'user-channels.json');
+  if (fs.existsSync(jsonPath)) {
+    try {
+      const arr = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+      arr.forEach((item) => {
+        if (item.id) {
+          userChannelMap.set(item.id, new Set(item.names || []));
+        }
+      });
+      console.log(`[EPG Builder] Loaded ${userChannelMap.size} user channels from scripts/user-channels.json`);
+    } catch (e) {}
+  }
+
   return userChannelMap;
 }
 
@@ -86,10 +100,10 @@ async function main() {
   const targetChannelMap = new Map(); // chId -> Set of display names
   const progsByChannel = new Map(); // chId -> Array of { start, stop, title, desc }
 
-  // Time window: 7 days past to 7 days future (enables full 7-day catchup / start-over & 7-day future guide)
+  // Time window: 7 days past (for 100% Start-Over) + 4 days future
   const now = new Date();
   const minDate = new Date(now.getTime() - 7 * 24 * 3600000);
-  const maxDate = new Date(now.getTime() + 7 * 24 * 3600000);
+  const maxDate = new Date(now.getTime() + 4 * 24 * 3600000);
   const fmtUtc = (d) =>
     d.getUTCFullYear().toString() +
     ('0' + (d.getUTCMonth() + 1)).slice(-2) +
@@ -110,7 +124,7 @@ async function main() {
       const body = chM[2];
       const dispMatches = [...body.matchAll(/<display-name[^>]*>([^<]+)<\/display-name>/g)].map((m) => m[1].trim());
       const isUserCh = userChannels.has(id);
-      const isIsrael = dispMatches.some((n) => n.startsWith('IL:') || n.includes('Israel'));
+      const isIsrael = dispMatches.some((n) => n.startsWith('IL:') || n.includes('Israel') || /[\u0590-\u05FF]/.test(n));
 
       if (isUserCh || isIsrael) {
         if (!targetChannelMap.has(id)) targetChannelMap.set(id, new Set());
@@ -148,7 +162,7 @@ async function main() {
 
       const descMatch = body.match(/<desc\b[^>]*>([\s\S]*?)<\/desc>/);
       const title = titleMatch[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').trim();
-      const desc = descMatch ? descMatch[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').trim().slice(0, 220) : '';
+      const desc = descMatch ? descMatch[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').trim().slice(0, 100) : '';
 
       if (!progsByChannel.has(chId)) progsByChannel.set(chId, []);
       progsByChannel.get(chId).push({
@@ -187,6 +201,16 @@ async function main() {
       if (!chMatch) continue;
       const chId = chMatch[1];
 
+      // ONLY process channels that are already in targetChannelMap (curated Israeli / user channels)
+      // or if feed explicitly marks it as Israeli
+      const isTarget = targetChannelMap.has(chId);
+      const feedNames = feedChannels.get(chId) || [];
+      const isIsraelName = feedNames.some((n) => n.startsWith('IL:') || n.includes('Israel') || /[\u0590-\u05FF]/.test(n));
+
+      if (!isTarget && !isIsraelName) {
+        continue;
+      }
+
       const startMatch = attrs.match(/\bstart="([^"]+)"/);
       const stopMatch = attrs.match(/\bstop="([^"]+)"/);
       if (!startMatch) continue;
@@ -200,16 +224,24 @@ async function main() {
       if (!titleMatch) continue;
       const descMatch = body.match(/<desc\b[^>]*>([\s\S]*?)<\/desc>/);
       const title = titleMatch[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').trim();
-      const desc = descMatch ? descMatch[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').trim().slice(0, 220) : '';
+      const desc = descMatch ? descMatch[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').trim().slice(0, 100) : '';
 
-      // Check if we already have this channel or if it's an Israeli channel
       if (!targetChannelMap.has(chId)) {
-        const names = feedChannels.get(chId) || [chId];
-        targetChannelMap.set(chId, new Set(names));
+        targetChannelMap.set(chId, new Set(feedNames.length > 0 ? feedNames : [chId]));
       }
 
-      if (!progsByChannel.has(chId)) progsByChannel.set(chId, []);
-      progsByChannel.get(chId).push({
+      if (!progsByChannel.has(chId)) {
+        progsByChannel.set(chId, []);
+      }
+
+      const existing = progsByChannel.get(chId);
+      // Deduplicate: avoid adding if a programme starting within 10 minutes already exists
+      const startPrefix = startStr.slice(0, 12);
+      if (existing.some((p) => p.start.slice(0, 12) === startPrefix)) {
+        continue;
+      }
+
+      existing.push({
         start: startMatch[1],
         stop: stopMatch ? stopMatch[1] : '',
         title,

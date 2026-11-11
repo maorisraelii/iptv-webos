@@ -1,0 +1,723 @@
+[
+  {
+    "id": "ch1126",
+    "names": [
+      "IL: Nat Geo HD",
+      "נשיונל ג'יאוגרפיק"
+    ]
+  },
+  {
+    "id": "ch1138",
+    "names": [
+      "IL: Nat Geo Wild HD",
+      "נשיונל ג'יאוגרפיק Wild"
+    ]
+  },
+  {
+    "id": "ch2087",
+    "names": [
+      "IL: Free Tv Teva HD",
+      "Free Tv טבע"
+    ]
+  },
+  {
+    "id": "ch1120",
+    "names": [
+      "IL: Discovery Channel HD",
+      "Discovery Channel"
+    ]
+  },
+  {
+    "id": "ch4054",
+    "names": [
+      "IL: Arutz Pesha Amiti HD",
+      "ערוץ פשע אמיתי"
+    ]
+  },
+  {
+    "id": "ch2624",
+    "names": [
+      "IL: Animal Planet HD",
+      "Animal Planet"
+    ]
+  },
+  {
+    "id": "ch1143",
+    "names": [
+      "IL: History HD",
+      "ערוץ ההיסטוריה"
+    ]
+  },
+  {
+    "id": "ch1137",
+    "names": [
+      "IL: YES Docu HD",
+      "YES Docu"
+    ]
+  },
+  {
+    "id": "ch1144",
+    "names": [
+      "IL: HOT 8 HD",
+      "HOT 8"
+    ]
+  },
+  {
+    "id": "ch2640",
+    "names": [
+      "IL: Cellcom Doco HD",
+      "Cellcom Doco"
+    ]
+  },
+  {
+    "id": "ch2543",
+    "names": [
+      "IL: Free Tv Doco HD",
+      "Free Tv Doco"
+    ]
+  },
+  {
+    "id": "ch428",
+    "names": [
+      "IL: Channel 11 HD",
+      "כאן 11"
+    ]
+  },
+  {
+    "id": "ch429",
+    "names": [
+      "IL: Channel 12 HD",
+      "קשת 12"
+    ]
+  },
+  {
+    "id": "ch430",
+    "names": [
+      "IL: Channel 13 HD",
+      "רשת 13"
+    ]
+  },
+  {
+    "id": "ch1142",
+    "names": [
+      "IL: Channel 24",
+      "ערוץ 24"
+    ]
+  },
+  {
+    "id": "ch1171",
+    "names": [
+      "IL: Kan Chinuchit 23",
+      "כאן חינוכית"
+    ]
+  },
+  {
+    "id": "ch1132",
+    "names": [
+      "IL: Sport 5 HD",
+      "ספורט 5"
+    ]
+  },
+  {
+    "id": "ch2211",
+    "names": [
+      "IL: Sport 5 4K",
+      "ספורט 5 4K"
+    ]
+  },
+  {
+    "id": "ch1155",
+    "names": [
+      "IL: Sport 5 Livе",
+      "ספורט 5 Livе"
+    ]
+  },
+  {
+    "id": "ch1134",
+    "names": [
+      "IL: Sport 5 Plus",
+      "ספורט 5 Plus"
+    ]
+  },
+  {
+    "id": "ch1135",
+    "names": [
+      "IL: Sport 5 Gold",
+      "ספורט 5 Gold"
+    ]
+  },
+  {
+    "id": "ch1156",
+    "names": [
+      "IL: Sport 5 Stars",
+      "ספורט 5 Stars"
+    ]
+  },
+  {
+    "id": "ch2623",
+    "names": [
+      "IL: Sport 5 MAX",
+      "ספורט 5 Max"
+    ]
+  },
+  {
+    "id": "ch1128",
+    "names": [
+      "IL: Sport 1 HD",
+      "ספורט 1"
+    ]
+  },
+  {
+    "id": "ch1129",
+    "names": [
+      "IL: Sport 2 HD",
+      "ספורט 2"
+    ]
+  },
+  {
+    "id": "ch1130",
+    "names": [
+      "IL: Sport 3 HD",
+      "ספורט 3"
+    ]
+  },
+  {
+    "id": "ch1131",
+    "names": [
+      "IL: Sport 4 HD",
+      "ספורט 4"
+    ]
+  },
+  {
+    "id": "ch2628",
+    "names": [
+      "IL: Sport 6 HD",
+      "ספורט 6"
+    ]
+  },
+  {
+    "id": "ch2496",
+    "names": [
+      "IL: Eurosport 1 HD",
+      "Eurosport 1"
+    ]
+  },
+  {
+    "id": "ch2497",
+    "names": [
+      "IL: Eurosport 2 HD",
+      "Eurosport 2"
+    ]
+  },
+  {
+    "id": "ch1186",
+    "names": [
+      "IL: ONE 1 HD",
+      "ONE 1"
+    ]
+  },
+  {
+    "id": "ch1145",
+    "names": [
+      "IL: ONE 2 HD",
+      "ONE 2"
+    ]
+  },
+  {
+    "id": "ch1195",
+    "names": [
+      "IL: ONE Doco",
+      "ONE Doco"
+    ]
+  },
+  {
+    "id": "ch2629",
+    "names": [
+      "IL: Edge Sport HD",
+      "Edge Sport"
+    ]
+  },
+  {
+    "id": "ch2544",
+    "names": [
+      "IL: Erez Nehederet HD",
+      "ארץ נהדרת"
+    ]
+  },
+  {
+    "id": "ch2545",
+    "names": [
+      "IL: Savri HD",
+      "סברי מרנן"
+    ]
+  },
+  {
+    "id": "ch2540",
+    "names": [
+      "IL: Free Tv Comedy HD",
+      "Free Tv Comedy"
+    ]
+  },
+  {
+    "id": "ch1183",
+    "names": [
+      "IL: Free Tv Сomedy 2 HD",
+      "Free Tv Сomedy 2"
+    ]
+  },
+  {
+    "id": "ch1178",
+    "names": [
+      "IL: Humor Channel",
+      "ערוץ ההומור"
+    ]
+  },
+  {
+    "id": "ch2539",
+    "names": [
+      "IL: Free Tv Drama HD",
+      "Free Tv Drama"
+    ]
+  },
+  {
+    "id": "ch1193",
+    "names": [
+      "IL: Free Movies Comedy HD",
+      "Free Movies Comedy"
+    ]
+  },
+  {
+    "id": "ch1149",
+    "names": [
+      "IL: YES Movies Comedy HD",
+      "YES Movies Comedy"
+    ]
+  },
+  {
+    "id": "ch1159",
+    "names": [
+      "IL: YES TV Comedy HD",
+      "YES TV Comedy"
+    ]
+  },
+  {
+    "id": "ch1174",
+    "names": [
+      "IL: HOT Comedy Central HD",
+      "HOT Comedy Central"
+    ]
+  },
+  {
+    "id": "ch2499",
+    "names": [
+      "IL: Cellcom Israel",
+      "Cellcom Israel"
+    ]
+  },
+  {
+    "id": "ch2538",
+    "names": [
+      "IL: Free Israeli Movies HD",
+      "Free Israeli Movies"
+    ]
+  },
+  {
+    "id": "ch2030",
+    "names": [
+      "IL: YES Israeli Cinema HD",
+      "YES Israeli Cinema"
+    ]
+  },
+  {
+    "id": "ch1173",
+    "names": [
+      "IL: HOT Real HD",
+      "HOT Real"
+    ]
+  },
+  {
+    "id": "ch1163",
+    "names": [
+      "IL: HOT Bidur HD",
+      "HOT בידור"
+    ]
+  },
+  {
+    "id": "ch1182",
+    "names": [
+      "IL: Reality HD",
+      "ערוץ הריאלטי"
+    ]
+  },
+  {
+    "id": "ch1161",
+    "names": [
+      "IL: HOT Cinema 1 HD",
+      "HOT Cinema 1"
+    ]
+  },
+  {
+    "id": "ch1172",
+    "names": [
+      "IL: HOT Cinema 2 HD",
+      "HOT Cinema 2"
+    ]
+  },
+  {
+    "id": "ch1140",
+    "names": [
+      "IL: HOT Cinema 3 HD",
+      "HOT Cinema 3"
+    ]
+  },
+  {
+    "id": "ch1192",
+    "names": [
+      "IL: HOT Cinema 4 HD",
+      "HOT Cinema 4"
+    ]
+  },
+  {
+    "id": "ch1148",
+    "names": [
+      "IL: YES Movies Action HD",
+      "YES Movies Action"
+    ]
+  },
+  {
+    "id": "ch2495",
+    "names": [
+      "IL: Cellcom Movies Action HD",
+      "Cellcom Movies Action"
+    ]
+  },
+  {
+    "id": "ch2537",
+    "names": [
+      "IL: Free Movies Action HD",
+      "Free Movies Action"
+    ]
+  },
+  {
+    "id": "ch2535",
+    "names": [
+      "IL: Free Movies Horror HD",
+      "Free Movies Horror"
+    ]
+  },
+  {
+    "id": "ch1150",
+    "names": [
+      "IL: YES Movies Drama HD",
+      "YES Movies Drama"
+    ]
+  },
+  {
+    "id": "ch2494",
+    "names": [
+      "IL: Channel 16 HD",
+      "Cellcom Movies Drama"
+    ]
+  },
+  {
+    "id": "ch2534",
+    "names": [
+      "IL: Free Movies Drama HD",
+      "Free Movies Drama"
+    ]
+  },
+  {
+    "id": "ch2536",
+    "names": [
+      "IL: Free Movies Romantic HD",
+      "Free Movies Romantic"
+    ]
+  },
+  {
+    "id": "ch1915",
+    "names": [
+      "IL: YES Plus Cinema HD",
+      "YES Plus Cinema"
+    ]
+  },
+  {
+    "id": "ch3030",
+    "names": [
+      "IL: YES Plus Diamonds HD",
+      "YES Plus Diamonds"
+    ]
+  },
+  {
+    "id": "ch3224",
+    "names": [
+      "IL: Free Movies 10 Stars HD",
+      "Free Movies 10 Stars"
+    ]
+  },
+  {
+    "id": "ch1147",
+    "names": [
+      "IL: HOT 3 HD",
+      "HOT 3"
+    ]
+  },
+  {
+    "id": "ch1175",
+    "names": [
+      "IL: HOT HBO HD",
+      "HOT HBO"
+    ]
+  },
+  {
+    "id": "ch1139",
+    "names": [
+      "IL: HOT Zone HD",
+      "HOT Zone"
+    ]
+  },
+  {
+    "id": "ch1160",
+    "names": [
+      "IL: YES TV Drama HD",
+      "YES TV Drama"
+    ]
+  },
+  {
+    "id": "ch2639",
+    "names": [
+      "IL: Cellcom TV Shows HD",
+      "Cellcom TV Shows"
+    ]
+  },
+  {
+    "id": "ch2533",
+    "names": [
+      "IL: Free Series Global HD",
+      "Free Series Global"
+    ]
+  },
+  {
+    "id": "ch1158",
+    "names": [
+      "IL: YES TV Action HD",
+      "YES TV Action"
+    ]
+  },
+  {
+    "id": "ch1121",
+    "names": [
+      "IL: Disney Channel HD",
+      "דיסני"
+    ]
+  },
+  {
+    "id": "ch1162",
+    "names": [
+      "IL: Disney Jr.",
+      "דיסני ג'וניור"
+    ]
+  },
+  {
+    "id": "ch1185",
+    "names": [
+      "IL: Nick HD",
+      "ניקולודיאון"
+    ]
+  },
+  {
+    "id": "ch2637",
+    "names": [
+      "IL: Nick Jr HD",
+      "ניק ג'וניור"
+    ]
+  },
+  {
+    "id": "ch2500",
+    "names": [
+      "IL: TeenNick",
+      "טין ניק"
+    ]
+  },
+  {
+    "id": "ch2643",
+    "names": [
+      "IL: Zoom",
+      "זום"
+    ]
+  },
+  {
+    "id": "ch2644",
+    "names": [
+      "IL: Zoom Toon HD",
+      "זום טון"
+    ]
+  },
+  {
+    "id": "ch1184",
+    "names": [
+      "IL: Junior",
+      "ג'וניור"
+    ]
+  },
+  {
+    "id": "ch2614",
+    "names": [
+      "IL: HOT Buzz HD",
+      "HOT Buzz"
+    ]
+  },
+  {
+    "id": "ch2627",
+    "names": [
+      "IL: Fomo",
+      "Fomo"
+    ]
+  },
+  {
+    "id": "ch2626",
+    "names": [
+      "IL: Logi",
+      "לוגי"
+    ]
+  },
+  {
+    "id": "ch1151",
+    "names": [
+      "IL: YES Movies Kids HD",
+      "YES Movies Kids"
+    ]
+  },
+  {
+    "id": "ch1194",
+    "names": [
+      "IL: Cellcom Movies Kids HD",
+      "Cellcom Movies Kids"
+    ]
+  },
+  {
+    "id": "ch2617",
+    "names": [
+      "IL: Free Movies Family HD",
+      "Free Movies Family"
+    ]
+  },
+  {
+    "id": "ch1153",
+    "names": [
+      "IL: HOT Cinema Family HD",
+      "HOT Cinema Family"
+    ]
+  },
+  {
+    "id": "ch1124",
+    "names": [
+      "IL: Food Channel HD",
+      "ערוץ האוכל"
+    ]
+  },
+  {
+    "id": "ch2630",
+    "names": [
+      "IL: Foody HD",
+      "Foody"
+    ]
+  },
+  {
+    "id": "ch2542",
+    "names": [
+      "IL: Free Tv Cooking HD",
+      "Free Tv Cooking"
+    ]
+  },
+  {
+    "id": "ch1141",
+    "names": [
+      "IL: Good Life TV HD",
+      "החיים הטובים"
+    ]
+  },
+  {
+    "id": "ch1176",
+    "names": [
+      "IL: Health Channel HD",
+      "ערוץ הבריאות"
+    ]
+  },
+  {
+    "id": "ch1136",
+    "names": [
+      "IL: Travel Channel HD",
+      "ערוץ הטיולים"
+    ]
+  },
+  {
+    "id": "ch2631",
+    "names": [
+      "IL: Home Plus",
+      "בית פלוס"
+    ]
+  },
+  {
+    "id": "ch2642",
+    "names": [
+      "IL: Fashion",
+      "ערוץ האופנה הישראלי"
+    ]
+  },
+  {
+    "id": "ch1122",
+    "names": [
+      "IL: E!",
+      "E!"
+    ]
+  },
+  {
+    "id": "ch2541",
+    "names": [
+      "IL: Free Tv Lifestyle HD",
+      "Free Tv Lifestyle"
+    ]
+  },
+  {
+    "id": "ch2632",
+    "names": [
+      "IL: TLC HD",
+      "TLC"
+    ]
+  },
+  {
+    "id": "ch2498",
+    "names": [
+      "IL: Ego Total",
+      "אגו טוטאל"
+    ]
+  },
+  {
+    "id": "ch3036",
+    "names": [
+      "IL: Free Tv Feel Good",
+      "Free Tv Feel Good"
+    ]
+  },
+  {
+    "id": "ch2613",
+    "names": [
+      "IL: HOT Senior HD",
+      "HOT Senior"
+    ]
+  },
+  {
+    "id": "ch4033",
+    "names": [
+      "IL: YES Plus Love HD",
+      "YES Plus Love"
+    ]
+  },
+  {
+    "id": "ch4034",
+    "names": [
+      "IL: YES Plus Dark HD",
+      "YES Plus Dark"
+    ]
+  }
+]

@@ -2,15 +2,15 @@
   <img src="largeIcon.png" alt="Live TV Logo" width="130" height="130" style="border-radius: 28px; box-shadow: 0 12px 36px rgba(56, 189, 248, 0.3);" />
 </p>
 
-<h1 align="center">📺 Live TV for LG webOS (v4.9.3)</h1>
+<h1 align="center">📺 Live TV for LG webOS (v4.9.4)</h1>
 
 <p align="center">
   An ultra-fast, hardware-accelerated, remote-first <strong>IPTV Live TV &amp; Catch-Up Player</strong> engineered specifically for <strong>LG Smart TVs (webOS 4.0 – 24+)</strong>.<br />
-  Features <strong>Full IPTV Start-Over &amp; 7-Day Catch-Up Engine</strong>, <strong>7-Day Rolling Live Israeli XMLTV EPG (`epg-il.xml`)</strong>, <strong>Hardware Audio Pipeline &amp; Auto-Unmute Guard</strong>, <strong>Zero EPG Truncation &amp; Stale-While-Revalidate Sync</strong>, <strong>Direct Fullscreen Boot on Launch</strong>, <strong>TV Hardware Memory Crash Guard</strong>, <strong>Numeric Jump Target Channel Preview (0–9)</strong>, <strong>Live Channel-Row Mini Progress Bars</strong>, <strong>Progressive Quality Ramp-Up (Smart ABR by Buffer)</strong>, <strong>True 16:9 (960×540 qHD) Live Preview Workspace</strong>, and <strong>Full-Runtime Over-The-Air (OTA) Cloud Updates</strong>.
+  Features <strong>Permanent EPG Feed Architecture &amp; Auto-Sync</strong>, <strong>Full IPTV Start-Over &amp; 7-Day Catch-Up Engine</strong>, <strong>7-Day Rolling Live Israeli XMLTV EPG (`epg-il.xml`)</strong>, <strong>Hardware Audio Pipeline &amp; Auto-Unmute Guard</strong>, <strong>Zero EPG Truncation &amp; Stale-While-Revalidate Sync</strong>, <strong>Direct Fullscreen Boot on Launch</strong>, <strong>TV Hardware Memory Crash Guard</strong>, <strong>Numeric Jump Target Channel Preview (0–9)</strong>, <strong>Live Channel-Row Mini Progress Bars</strong>, <strong>Progressive Quality Ramp-Up (Smart ABR by Buffer)</strong>, <strong>True 16:9 (960×540 qHD) Live Preview Workspace</strong>, and <strong>Full-Runtime Over-The-Air (OTA) Cloud Updates</strong>.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-4.9.3%20Production-0284c7?style=for-the-badge" alt="Version 4.9.3" />
+  <img src="https://img.shields.io/badge/Version-4.9.4%20Production-0284c7?style=for-the-badge" alt="Version 4.9.4" />
   <a href="https://github.com/maorisraelii/iptv-webos/actions/workflows/build_ipk.yml"><img src="https://img.shields.io/github/actions/workflow/status/maorisraelii/iptv-webos/build_ipk.yml?branch=main&style=for-the-badge&label=Build%20%26%20Release&logo=githubactions" alt="Build Status" /></a>
   <img src="https://img.shields.io/badge/Platform-LG%20webOS%204.64%20|%205.0%2B-a50034?style=for-the-badge&logo=lg" alt="LG webOS 4.64+" />
   <img src="https://img.shields.io/badge/Start--Over-7--Day%20Timeshift%20Catchup-059669?style=for-the-badge" alt="7-Day Catch-Up" />
@@ -21,12 +21,12 @@
 
 ---
 
-## 📸 Screenshots (v4.9.3)
+## 📸 Screenshots (v4.9.4)
 
 <p align="center">
   <img src="screenshots/1-browse-live.png" alt="Live TV Main Workspace with Real-Time Israeli EPG, Channel List Mini Progress Bars, True 16:9 960x540 Live Preview, Prev/Now/Next EPG and 5-Show Strip" width="100%" />
   <br />
-  <em>Main Split Workspace (v4.9.3): Right-side Wide O(1) Channel List (892px wide) with Real-Time Israeli XMLTV Programmes, Live Mini Progress Bars, Start/End Times &amp; Remaining Minutes per Channel + Left-side True 16:9 (960×540) Live Stream Preview, Previous/Current/Next EPG, and 5-Program Start-Over Strip.</em>
+  <em>Main Split Workspace (v4.9.4): Right-side Wide O(1) Channel List (892px wide) with Real-Time Israeli XMLTV Programmes, Live Mini Progress Bars, Start/End Times &amp; Remaining Minutes per Channel + Left-side True 16:9 (960×540) Live Stream Preview, Previous/Current/Next EPG, and 5-Program Start-Over Strip.</em>
 </p>
 
 <table>
@@ -50,9 +50,22 @@
 
 ---
 
-## 🚀 What's New in v4.9.3
+## 🚀 What's New in v4.9.4
 
-1. **Full IPTV Start-Over &amp; 7-Day Timeshift Engine (`js/m3u-parser.js`, `js/player.js`)**:
+1. **Permanent EPG Feed Architecture &amp; TV Safety Guard Fix (`scripts/build-live-epg.js`, `js/epg.js`, `scripts/user-channels.json`)**:
+   - **Root Cause &amp; Solution for Daily EPG Disappearance**:
+     1. Unfiltered supplementary feeds and duplicate programme merging in GitHub Actions caused `epg-il.xml` to swell to 20.46MB.
+     2. On the TV, `MAX_SAFE_EPG_BYTES` was set to 15MB, causing the app to abort the download whenever the file exceeded 15MB.
+     3. Concurrently, `loadFromLocalCache` discarded expired local data on cold boot after 24h, wiping all schedules to blank.
+   - **The Permanent Fix**:
+     - **Curated Israeli Feed &amp; Deduplication**: Enforced strict channel filtering and programme deduplication. `epg-il.xml` is now an ultra-compact **7.52MB** (63% size reduction) containing 31,800+ programmes across all 103 user channels and 263 Israeli channels.
+     - **Committed User Channels Baseline (`scripts/user-channels.json`)**: Guaranteed that GitHub Actions on remote runners always recognizes all user channels.
+     - **Safety Limit Raised to 35MB**: The TV's network fetch will never reject legitimate Israeli feeds.
+     - **True Stale-While-Revalidate**: Cached schedules and channel aliases are never dumped on cold boot; they are immediately loaded into memory while background network revalidation refreshes the data.
+     - **`getNowNext()` Resiliency**: Routed through `getChannelProgrammes()` so that any gap is seamlessly bridged with deterministic schedules.
+
+2. **Full IPTV Start-Over &amp; 7-Day Timeshift Engine (`v4.9.3`)**:
+   - Parses `tvg-rec="7"`, dynamically builds `&utc=...&lutc=...` query parameters, and resets playback to `0:00` of the show.
    - Fixed an issue where clicking Start-Over or selecting past programmes did not play the recorded show.
    - **Root Cause &amp; Solution**: Many modern IPTV providers use `tvg-rec="7"` rather than legacy `catchup="flussonic"`. `M3UParser` now parses `tvg-rec` and accurately maps it to 7 days of timeshift catch-up.
    - In `Player.buildCatchupUrl()`, the timeshift URL is dynamically formatted with precise UTC start and stop bounds (`&utc=${startUnix}&lutc=${stopUnix}`), and HLS playback initializes at `startPosition: 0`, guaranteeing playback begins immediately at minute 0:00 of the broadcast.
@@ -111,9 +124,9 @@
 
 ### Method 1: Direct Download via GitHub Releases (Recommended)
 1. Download the latest pre-built package from Releases:
-   👉 **[Download `com.iptv.livetv_4.9.3_all.ipk` / `IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest)**
+   👉 **[Download `com.iptv.livetv_4.9.4_all.ipk` / `IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest)**
 2. Open [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop) on your PC with your TV connected.
-3. Click **Install App** and select `com.iptv.livetv_4.9.3_all.ipk` (or `IPTV-Live-webOS.ipk`).
+3. Click **Install App** and select `com.iptv.livetv_4.9.4_all.ipk` (or `IPTV-Live-webOS.ipk`).
 4. Subsequent updates are delivered automatically via **Over-The-Air (OTA) Cloud Updates** directly inside the app!
 
 ### Method 2: 1-Click Local Build &amp; Direct TV Install (PowerShell)
