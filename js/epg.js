@@ -257,12 +257,33 @@ class EPGService {
     } catch (e) {}
   }
 
+  setTargetChannels(channels) {
+    if (!Array.isArray(channels) || channels.length === 0) {
+      this.targetChannelKeys = null;
+      return;
+    }
+    this.targetChannelKeys = new Set();
+    for (let i = 0; i < channels.length; i++) {
+      const ch = channels[i];
+      if (!ch) continue;
+      if (ch.epgId) this.targetChannelKeys.add(ch.epgId.trim().toLowerCase());
+      if (ch.tvgName) this.targetChannelKeys.add(ch.tvgName.trim().toLowerCase());
+      if (ch.name) this.targetChannelKeys.add(ch.name.trim().toLowerCase());
+      if (ch.rawName) this.targetChannelKeys.add(ch.rawName.trim().toLowerCase());
+      const norm = this.normalizeChannelKey(ch.name || ch.tvgName || '');
+      if (norm) this.targetChannelKeys.add(norm);
+    }
+  }
+
   /**
    * Loads one or more XMLTV URLs (supports comma-separated strings, arrays, .xml and .xml.gz).
    * Implements Stale-While-Revalidate: serves instant cached schedule for 0-ms cold boot,
    * while continuing background network fetch to guarantee 100% freshness across all channels.
    */
-  loadEPG(urlOrUrls, onComplete, forceRefresh) {
+  loadEPG(urlOrUrls, onComplete, forceRefresh, activeChannels) {
+    if (activeChannels) {
+      this.setTargetChannels(activeChannels);
+    }
     let urls = [];
     if (Array.isArray(urlOrUrls)) {
       for (let i = 0; i < urlOrUrls.length; i++) {
@@ -428,7 +449,7 @@ class EPGService {
     try {
       const now = Date.now();
       const minAllowedTime = now - (this.MAX_PAST_DAYS * this.DAY_MS);
-      const maxAllowedTime = now + (2 * this.DAY_MS);
+      const maxAllowedTime = now + (7 * this.DAY_MS);
 
       if (!appendMode) {
         this.programmesByChannel.clear();
@@ -440,6 +461,9 @@ class EPGService {
       }
       this.dayBucketsCache.clear();
 
+      const matchedChannelIds = new Set();
+      const hasFilter = Boolean(this.targetChannelKeys && this.targetChannelKeys.size > 0);
+
       // 1. Parse <channel id="..."> and its <display-name> tags
       const channelBlockRegex = /<channel\b[^>]*\bid\s*=\s*(?:"([^"]+)"|'([^']+)')[^>]*>([\s\S]*?)<\/channel>/gi;
       let chMatch;
@@ -447,14 +471,32 @@ class EPGService {
         const chId = this.decodeXmlEntities(chMatch[1] || chMatch[2] || '');
         const chBody = chMatch[3] || '';
         if (!chId) continue;
-        this.registerChannelAlias(chId, chId);
+        const lowerId = chId.toLowerCase();
+
+        let isMatch = !hasFilter || this.targetChannelKeys.has(lowerId);
 
         const dispRegex = /<display-name\b[^>]*>([\s\S]*?)<\/display-name>/gi;
         let dMatch;
+        const displayNames = [];
         while ((dMatch = dispRegex.exec(chBody)) !== null) {
           const dispName = this.decodeXmlEntities(dMatch[1] || '');
           if (dispName) {
-            this.registerChannelAlias(dispName, chId);
+            displayNames.push(dispName);
+            if (!isMatch && hasFilter) {
+              const lowerDisp = dispName.toLowerCase();
+              const normDisp = this.normalizeChannelKey(dispName);
+              if (this.targetChannelKeys.has(lowerDisp) || (normDisp && this.targetChannelKeys.has(normDisp))) {
+                isMatch = true;
+              }
+            }
+          }
+        }
+
+        if (isMatch) {
+          matchedChannelIds.add(chId);
+          this.registerChannelAlias(chId, chId);
+          for (let d = 0; d < displayNames.length; d++) {
+            this.registerChannelAlias(displayNames[d], chId);
           }
         }
       }
@@ -464,7 +506,6 @@ class EPGService {
       let pMatch;
       while ((pMatch = progBlockRegex.exec(xmlString)) !== null) {
         const attrs = pMatch[1] || '';
-        const body = pMatch[2] || '';
 
         const chAttr = attrs.match(/\bchannel\s*=\s*(?:"([^"]+)"|'([^']+)')/i);
         const startAttr = attrs.match(/\bstart\s*=\s*(?:"([^"]+)"|'([^']+)')/i);
@@ -474,6 +515,12 @@ class EPGService {
         const startStr = startAttr[1] || startAttr[2] || '';
         if (!channelId || !startStr) continue;
 
+        // SYSTEMIC FILTER: Only parse programmes for channels present in user's active playlist!
+        if (hasFilter && matchedChannelIds.size > 0 && !matchedChannelIds.has(channelId)) {
+          continue;
+        }
+
+        const body = pMatch[2] || '';
         const start = this.parseDate(startStr);
         const startMs = start.getTime();
         if (isNaN(startMs) || startMs < minAllowedTime || startMs > maxAllowedTime) continue;

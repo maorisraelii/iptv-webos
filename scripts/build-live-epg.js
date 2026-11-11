@@ -34,61 +34,18 @@ async function fetchGzXml(url) {
   }
 }
 
-// Read any local test playlist if present to guarantee 100% match on user channels
-function getUserPlaylistChannels() {
-  const userChannelMap = new Map();
-  const possiblePaths = ['temp_user_playlist.m3u', 'playlist.m3u8', 'playlist.m3u'];
-  for (const p of possiblePaths) {
-    const full = path.join(process.cwd(), p);
-    if (fs.existsSync(full)) {
-      try {
-        const text = fs.readFileSync(full, 'utf8');
-        const lines = text.split('\n');
-        for (const line of lines) {
-          if (line.startsWith('#EXTINF')) {
-            const idMatch = line.match(/tvg-id="([^"]+)"/);
-            const nameMatch = line.match(/tvg-name="([^"]+)"/);
-            const commaIdx = line.lastIndexOf(',');
-            const rawName = commaIdx !== -1 ? line.substring(commaIdx + 1).trim() : '';
-            if (idMatch) {
-              const chId = idMatch[1].trim();
-              if (!userChannelMap.has(chId)) {
-                userChannelMap.set(chId, new Set());
-              }
-              if (nameMatch && nameMatch[1].trim()) {
-                userChannelMap.get(chId).add(nameMatch[1].trim());
-              }
-              if (rawName) {
-                userChannelMap.get(chId).add(rawName);
-              }
-            }
-          }
-        }
-        console.log(`[EPG Builder] Loaded ${userChannelMap.size} user channels from ${p}`);
-        break;
-      } catch (e) {}
-    }
-  }
-  // 2. Fallback to scripts/user-channels.json (always committed in repository for GitHub Actions!)
-  const jsonPath = path.join(process.cwd(), 'scripts', 'user-channels.json');
-  if (fs.existsSync(jsonPath)) {
-    try {
-      const arr = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-      arr.forEach((item) => {
-        if (item.id) {
-          userChannelMap.set(item.id, new Set(item.names || []));
-        }
-      });
-      console.log(`[EPG Builder] Loaded ${userChannelMap.size} user channels from scripts/user-channels.json`);
-    } catch (e) {}
-  }
-
-  return userChannelMap;
+function isIsraeliChannel(id, displayNames) {
+  if (!displayNames) displayNames = [];
+  if (id && (id.startsWith('IL:') || id.endsWith('.il') || id.toLowerCase().includes('israel'))) return true;
+  return displayNames.some((n) =>
+    n.startsWith('IL:') ||
+    n.toLowerCase().includes('israel') ||
+    /[\u0590-\u05FF]/.test(n)
+  );
 }
 
 async function main() {
-  console.log('[EPG Builder] Starting live XMLTV generation...');
-  const userChannels = getUserPlaylistChannels();
+  console.log('[EPG Builder] Starting generic Israeli XMLTV compilation...');
 
   // Fetch epg.team (largest & most accurate for Israeli chXXXX IDs) and backup feeds
   const [xmlTeam, xmlShare, xmlOpen] = await Promise.all([
@@ -123,15 +80,11 @@ async function main() {
       const id = chM[1].trim();
       const body = chM[2];
       const dispMatches = [...body.matchAll(/<display-name[^>]*>([^<]+)<\/display-name>/g)].map((m) => m[1].trim());
-      const isUserCh = userChannels.has(id);
-      const isIsrael = dispMatches.some((n) => n.startsWith('IL:') || n.includes('Israel') || /[\u0590-\u05FF]/.test(n));
+      const isIsrael = isIsraeliChannel(id, dispMatches);
 
-      if (isUserCh || isIsrael) {
+      if (isIsrael) {
         if (!targetChannelMap.has(id)) targetChannelMap.set(id, new Set());
         dispMatches.forEach((n) => targetChannelMap.get(id).add(n));
-        if (userChannels.has(id)) {
-          userChannels.get(id).forEach((n) => targetChannelMap.get(id).add(n));
-        }
       }
     }
     console.log(`[EPG Builder] Found ${targetChannelMap.size} Israeli channels in epg.team.`);

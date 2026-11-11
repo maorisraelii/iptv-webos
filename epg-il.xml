@@ -2,60 +2,48 @@
 <tv generator-info-name="ZenPlay-EPG-Engine">
   <channel id="ch2639">
     <display-name>IL: Cellcom TV Shows HD</display-name>
-    <display-name>Cellcom TV Shows</display-name>
   </channel>
   <channel id="ch2497">
     <display-name>IL: Eurosport 2 HD</display-name>
-    <display-name>Eurosport 2</display-name>
   </channel>
   <channel id="ch1153">
     <display-name>IL: HOT Cinema Family HD</display-name>
-    <display-name>HOT Cinema Family</display-name>
   </channel>
   <channel id="ch1191">
     <display-name>IL: Yam Tihoni HD</display-name>
   </channel>
   <channel id="ch2500">
     <display-name>IL: TeenNick</display-name>
-    <display-name>טין ניק</display-name>
   </channel>
   <channel id="ch2536">
     <display-name>IL: Free Movies Romantic HD</display-name>
-    <display-name>Free Movies Romantic</display-name>
   </channel>
   <channel id="ch1183">
     <display-name>IL: Free Tv Сomedy 2 HD</display-name>
-    <display-name>Free Tv Сomedy 2</display-name>
   </channel>
   <channel id="ch1154">
     <display-name>IL: Hop</display-name>
   </channel>
   <channel id="ch1195">
     <display-name>IL: ONE Doco</display-name>
-    <display-name>ONE Doco</display-name>
   </channel>
   <channel id="ch1138">
     <display-name>IL: Nat Geo Wild HD</display-name>
-    <display-name>נשיונל ג'יאוגרפיק Wild</display-name>
   </channel>
   <channel id="ch2632">
     <display-name>IL: TLC HD</display-name>
-    <display-name>TLC</display-name>
   </channel>
   <channel id="ch1135">
     <display-name>IL: Sport 5 Gold</display-name>
-    <display-name>ספורט 5 Gold</display-name>
   </channel>
   <channel id="ch1167">
     <display-name>IL: Star Channel</display-name>
   </channel>
   <channel id="ch2538">
     <display-name>IL: Free Israeli Movies HD</display-name>
-    <display-name>Free Israeli Movies</display-name>
   </channel>
   <channel id="ch429">
     <display-name>IL: Channel 12 HD</display-name>
-    <display-name>קשת 12</display-name>
   </channel>
   <channel id="ch2031">
     <display-name>IL: Wiz</display-name>
@@ -71,80 +59,63 @@
   </channel>
   <channel id="ch2627">
     <display-name>IL: Fomo</display-name>
-    <display-name>Fomo</display-name>
   </channel>
   <channel id="ch428">
     <display-name>IL: Channel 11 HD</display-name>
-    <display-name>כאן 11</display-name>
   </channel>
   <channel id="ch2211">
     <display-name>IL: Sport 5 4K</display-name>
-    <display-name>ספורט 5 4K</display-name>
   </channel>
   <channel id="ch3134">
     <display-name>IL: Kalkala 10 HD</display-name>
   </channel>
   <channel id="ch2617">
     <display-name>IL: Free Movies Family HD</display-name>
-    <display-name>Free Movies Family</display-name>
   </channel>
   <channel id="ch2086">
     <display-name>IL: Free Tv Karaoke HD</display-name>
   </channel>
   <channel id="ch2544">
     <display-name>IL: Erez Nehederet HD</display-name>
-    <display-name>ארץ נהדרת</display-name>
   </channel>
   <channel id="ch2642">
     <display-name>IL: Fashion</display-name>
-    <display-name>ערוץ האופנה הישראלי</display-name>
   </channel>
   <channel id="ch1186">
     <display-name>IL: ONE 1 HD</display-name>
-    <display-name>ONE 1</display-name>
   </channel>
   <channel id="ch2535">
     <display-name>IL: Free Movies Horror HD</display-name>
-    <display-name>Free Movies Horror</display-name>
   </channel>
   <channel id="ch1156">
     <display-name>IL: Sport 5 Stars</display-name>
-    <display-name>ספורט 5 Stars</display-name>
   </channel>
   <channel id="ch2613">
     <display-name>IL: HOT Senior HD</display-name>
-    <display-name>HOT Senior</display-name>
   </channel>
   <channel id="ch1184">
     <display-name>IL: Junior</display-name>
-    <display-name>ג'וניור</display-name>
   </channel>
   <channel id="ch2541">
     <display-name>IL: Free Tv Lifestyle HD</display-name>
-    <display-name>Free Tv Lifestyle</display-name>
   </channel>
   <channel id="ch1194">
     <display-name>IL: Cellcom Movies Kids HD</display-name>
-    <display-name>Cellcom Movies Kids</display-name>
   </channel>
   <channel id="ch4051">
     <display-name>IL: Arutz Hagiborim HD</display-name>
   </channel>
   <channel id="ch2644">
     <display-name>IL: Zoom Toon HD</display-name>
-    <display-name>זום טון</display-name>
   </channel>
   <channel id="ch1142">
     <display-name>IL: Channel 24</display-name>
-    <display-name>ערוץ 24</display-name>
   </channel>
   <channel id="ch1159">
     <display-name>IL: YES TV Comedy HD</display-name>
-    <display-name>YES TV Comedy</display-name>
   </channel>
   <channel id="ch1126">
     <display-name>IL: Nat Geo HD</display-name>
-    <display-name>נשיונל ג'יאוגרפיק</display-name>
   </channel>
   <channel id="ch1152">
     <display-name>IL: Yam Tihoni Plus</display-name>
@@ -157,123 +128,99 @@
   </channel>
   <channel id="ch2629">
     <display-name>IL: Edge Sport HD</display-name>
-    <display-name>Edge Sport</display-name>
   </channel>
   <channel id="ch1173">
     <display-name>IL: HOT Real HD</display-name>
-    <display-name>HOT Real</display-name>
   </channel>
   <channel id="ch2934">
     <display-name>IL: Aruch Sdarot Hahodiot</display-name>
   </channel>
   <channel id="ch1160">
     <display-name>IL: YES TV Drama HD</display-name>
-    <display-name>YES TV Drama</display-name>
   </channel>
   <channel id="ch2638">
     <display-name>IL: HOT Zone HD (ru)</display-name>
   </channel>
   <channel id="ch1176">
     <display-name>IL: Health Channel HD</display-name>
-    <display-name>ערוץ הבריאות</display-name>
   </channel>
   <channel id="ch1128">
     <display-name>IL: Sport 1 HD</display-name>
-    <display-name>ספורט 1</display-name>
   </channel>
   <channel id="ch1164">
     <display-name>IL: Yam Tihoni 2</display-name>
   </channel>
   <channel id="ch2628">
     <display-name>IL: Sport 6 HD</display-name>
-    <display-name>ספורט 6</display-name>
   </channel>
   <channel id="ch2618">
     <display-name>IL: MTV HD</display-name>
   </channel>
   <channel id="ch1151">
     <display-name>IL: YES Movies Kids HD</display-name>
-    <display-name>YES Movies Kids</display-name>
   </channel>
   <channel id="ch1137">
     <display-name>IL: YES Docu HD</display-name>
-    <display-name>YES Docu</display-name>
   </channel>
   <channel id="ch2611">
     <display-name>IL: Turkish Drama 3</display-name>
   </channel>
   <channel id="ch2624">
     <display-name>IL: Animal Planet HD</display-name>
-    <display-name>Animal Planet</display-name>
   </channel>
   <channel id="ch1119">
     <display-name>IL: Channel 14 HD</display-name>
   </channel>
   <channel id="ch1192">
     <display-name>IL: HOT Cinema 4 HD</display-name>
-    <display-name>HOT Cinema 4</display-name>
   </channel>
   <channel id="ch2643">
     <display-name>IL: Zoom</display-name>
-    <display-name>זום</display-name>
   </channel>
   <channel id="ch3036">
     <display-name>IL: Free Tv Feel Good</display-name>
-    <display-name>Free Tv Feel Good</display-name>
   </channel>
   <channel id="ch1175">
     <display-name>IL: HOT HBO HD</display-name>
-    <display-name>HOT HBO</display-name>
   </channel>
   <channel id="ch1147">
     <display-name>IL: HOT 3 HD</display-name>
-    <display-name>HOT 3</display-name>
   </channel>
   <channel id="ch1121">
     <display-name>IL: Disney Channel HD</display-name>
-    <display-name>דיסני</display-name>
   </channel>
   <channel id="ch2534">
     <display-name>IL: Free Movies Drama HD</display-name>
-    <display-name>Free Movies Drama</display-name>
   </channel>
   <channel id="ch1171">
     <display-name>IL: Kan Chinuchit 23</display-name>
-    <display-name>כאן חינוכית</display-name>
   </channel>
   <channel id="ch1131">
     <display-name>IL: Sport 4 HD</display-name>
-    <display-name>ספורט 4</display-name>
   </channel>
   <channel id="ch1124">
     <display-name>IL: Food Channel HD</display-name>
-    <display-name>ערוץ האוכל</display-name>
   </channel>
   <channel id="ch2633">
     <display-name>IL: HOT Cinema 1 HD (ru)</display-name>
   </channel>
   <channel id="ch1182">
     <display-name>IL: Reality HD</display-name>
-    <display-name>ערוץ הריאלטי</display-name>
   </channel>
   <channel id="ch1193">
     <display-name>IL: Free Movies Comedy HD</display-name>
-    <display-name>Free Movies Comedy</display-name>
   </channel>
   <channel id="ch2637">
     <display-name>IL: Nick Jr HD</display-name>
-    <display-name>ניק ג'וניור</display-name>
   </channel>
   <channel id="ch3908">
     <display-name>IL: Dramot Youmiyout HD</display-name>
   </channel>
   <channel id="ch1136">
     <display-name>IL: Travel Channel HD</display-name>
-    <display-name>ערוץ הטיולים</display-name>
   </channel>
   <channel id="ch1155">
     <display-name>IL: Sport 5 Livе</display-name>
-    <display-name>ספורט 5 Livе</display-name>
   </channel>
   <channel id="ch1146">
     <display-name>IL: Viva Vintage</display-name>
@@ -283,19 +230,15 @@
   </channel>
   <channel id="ch1145">
     <display-name>IL: ONE 2 HD</display-name>
-    <display-name>ONE 2</display-name>
   </channel>
   <channel id="ch4033">
     <display-name>IL: YES Plus Love HD</display-name>
-    <display-name>YES Plus Love</display-name>
   </channel>
   <channel id="ch1129">
     <display-name>IL: Sport 2 HD</display-name>
-    <display-name>ספורט 2</display-name>
   </channel>
   <channel id="ch1172">
     <display-name>IL: HOT Cinema 2 HD</display-name>
-    <display-name>HOT Cinema 2</display-name>
   </channel>
   <channel id="ch2138">
     <display-name>IL: Hop Israeli Childhood</display-name>
@@ -308,15 +251,12 @@
   </channel>
   <channel id="ch2498">
     <display-name>IL: Ego Total</display-name>
-    <display-name>אגו טוטאל</display-name>
   </channel>
   <channel id="ch1150">
     <display-name>IL: YES Movies Drama HD</display-name>
-    <display-name>YES Movies Drama</display-name>
   </channel>
   <channel id="ch1132">
     <display-name>IL: Sport 5 HD</display-name>
-    <display-name>ספורט 5</display-name>
   </channel>
   <channel id="ch1118">
     <display-name>IL: Baby TV</display-name>
@@ -329,15 +269,12 @@
   </channel>
   <channel id="ch2030">
     <display-name>IL: YES Israeli Cinema HD</display-name>
-    <display-name>YES Israeli Cinema</display-name>
   </channel>
   <channel id="ch1139">
     <display-name>IL: HOT Zone HD</display-name>
-    <display-name>HOT Zone</display-name>
   </channel>
   <channel id="ch1148">
     <display-name>IL: YES Movies Action HD</display-name>
-    <display-name>YES Movies Action</display-name>
   </channel>
   <channel id="ch2635">
     <display-name>IL: HOT Cinema 3 HD (ru)</display-name>
@@ -347,61 +284,48 @@
   </channel>
   <channel id="ch1149">
     <display-name>IL: YES Movies Comedy HD</display-name>
-    <display-name>YES Movies Comedy</display-name>
   </channel>
   <channel id="ch2495">
     <display-name>IL: Cellcom Movies Action HD</display-name>
-    <display-name>Cellcom Movies Action</display-name>
   </channel>
   <channel id="ch1162">
     <display-name>IL: Disney Jr.</display-name>
-    <display-name>דיסני ג'וניור</display-name>
   </channel>
   <channel id="ch2494">
     <display-name>IL: Channel 16 HD</display-name>
-    <display-name>Cellcom Movies Drama</display-name>
   </channel>
   <channel id="ch2543">
     <display-name>IL: Free Tv Doco HD</display-name>
-    <display-name>Free Tv Doco</display-name>
   </channel>
   <channel id="ch1143">
     <display-name>IL: History HD</display-name>
-    <display-name>ערוץ ההיסטוריה</display-name>
   </channel>
   <channel id="ch1134">
     <display-name>IL: Sport 5 Plus</display-name>
-    <display-name>ספורט 5 Plus</display-name>
   </channel>
   <channel id="ch1188">
     <display-name>IL: Viva Premium HD</display-name>
   </channel>
   <channel id="ch1174">
     <display-name>IL: HOT Comedy Central HD</display-name>
-    <display-name>HOT Comedy Central</display-name>
   </channel>
   <channel id="ch1130">
     <display-name>IL: Sport 3 HD</display-name>
-    <display-name>ספורט 3</display-name>
   </channel>
   <channel id="ch1178">
     <display-name>IL: Humor Channel</display-name>
-    <display-name>ערוץ ההומור</display-name>
   </channel>
   <channel id="ch2614">
     <display-name>IL: HOT Buzz HD</display-name>
-    <display-name>HOT Buzz</display-name>
   </channel>
   <channel id="ch4035">
     <display-name>IL: Beautyz HD</display-name>
   </channel>
   <channel id="ch2630">
     <display-name>IL: Foody HD</display-name>
-    <display-name>Foody</display-name>
   </channel>
   <channel id="ch2542">
     <display-name>IL: Free Tv Cooking HD</display-name>
-    <display-name>Free Tv Cooking</display-name>
   </channel>
   <channel id="ch2935">
     <display-name>IL: Aruch Sdarot Hahodiot 2</display-name>
@@ -411,30 +335,24 @@
   </channel>
   <channel id="ch2533">
     <display-name>IL: Free Series Global HD</display-name>
-    <display-name>Free Series Global</display-name>
   </channel>
   <channel id="ch3133">
     <display-name>IL: Spanish Drama Channel 2 HD</display-name>
   </channel>
   <channel id="ch2499">
     <display-name>IL: Cellcom Israel</display-name>
-    <display-name>Cellcom Israel</display-name>
   </channel>
   <channel id="ch2626">
     <display-name>IL: Logi</display-name>
-    <display-name>לוגי</display-name>
   </channel>
   <channel id="ch1141">
     <display-name>IL: Good Life TV HD</display-name>
-    <display-name>החיים הטובים</display-name>
   </channel>
   <channel id="ch1120">
     <display-name>IL: Discovery Channel HD</display-name>
-    <display-name>Discovery Channel</display-name>
   </channel>
   <channel id="ch1915">
     <display-name>IL: YES Plus Cinema HD</display-name>
-    <display-name>YES Plus Cinema</display-name>
   </channel>
   <channel id="ch2646">
     <display-name>IL: Yalduti</display-name>
@@ -444,101 +362,81 @@
   </channel>
   <channel id="ch2631">
     <display-name>IL: Home Plus</display-name>
-    <display-name>בית פלוס</display-name>
   </channel>
   <channel id="ch2623">
     <display-name>IL: Sport 5 MAX</display-name>
-    <display-name>ספורט 5 Max</display-name>
   </channel>
   <channel id="ch2087">
     <display-name>IL: Free Tv Teva HD</display-name>
-    <display-name>Free Tv טבע</display-name>
   </channel>
   <channel id="ch1163">
     <display-name>IL: HOT Bidur HD</display-name>
-    <display-name>HOT בידור</display-name>
   </channel>
   <channel id="ch2645">
     <display-name>IL: Jim Jam</display-name>
   </channel>
   <channel id="ch1122">
     <display-name>IL: E!</display-name>
-    <display-name>E!</display-name>
   </channel>
   <channel id="ch2634">
     <display-name>IL: HOT Cinema 2 HD (ru)</display-name>
   </channel>
   <channel id="ch2640">
     <display-name>IL: Cellcom Doco HD</display-name>
-    <display-name>Cellcom Doco</display-name>
   </channel>
   <channel id="ch2545">
     <display-name>IL: Savri HD</display-name>
-    <display-name>סברי מרנן</display-name>
   </channel>
   <channel id="ch1140">
     <display-name>IL: HOT Cinema 3 HD</display-name>
-    <display-name>HOT Cinema 3</display-name>
   </channel>
   <channel id="ch4034">
     <display-name>IL: YES Plus Dark HD</display-name>
-    <display-name>YES Plus Dark</display-name>
   </channel>
   <channel id="ch1185">
     <display-name>IL: Nick HD</display-name>
-    <display-name>ניקולודיאון</display-name>
   </channel>
   <channel id="ch2539">
     <display-name>IL: Free Tv Drama HD</display-name>
-    <display-name>Free Tv Drama</display-name>
   </channel>
   <channel id="ch1161">
     <display-name>IL: HOT Cinema 1 HD</display-name>
-    <display-name>HOT Cinema 1</display-name>
   </channel>
   <channel id="ch3224">
     <display-name>IL: Free Movies 10 Stars HD</display-name>
-    <display-name>Free Movies 10 Stars</display-name>
   </channel>
   <channel id="ch3030">
     <display-name>IL: YES Plus Diamonds HD</display-name>
-    <display-name>YES Plus Diamonds</display-name>
   </channel>
   <channel id="ch4036">
     <display-name>IL: Bama Israelit HD</display-name>
   </channel>
   <channel id="ch1158">
     <display-name>IL: YES TV Action HD</display-name>
-    <display-name>YES TV Action</display-name>
   </channel>
   <channel id="ch2029">
     <display-name>IL: Turkish Drama 2</display-name>
   </channel>
   <channel id="ch2496">
     <display-name>IL: Eurosport 1 HD</display-name>
-    <display-name>Eurosport 1</display-name>
   </channel>
   <channel id="ch1181">
     <display-name>IL: Makan 33 HD</display-name>
   </channel>
   <channel id="ch2540">
     <display-name>IL: Free Tv Comedy HD</display-name>
-    <display-name>Free Tv Comedy</display-name>
   </channel>
   <channel id="ch1170">
     <display-name>IL: Luli</display-name>
   </channel>
   <channel id="ch2537">
     <display-name>IL: Free Movies Action HD</display-name>
-    <display-name>Free Movies Action</display-name>
   </channel>
   <channel id="ch430">
     <display-name>IL: Channel 13 HD</display-name>
-    <display-name>רשת 13</display-name>
   </channel>
   <channel id="ch1144">
     <display-name>IL: HOT 8 HD</display-name>
-    <display-name>HOT 8</display-name>
   </channel>
   <channel id="ch3174">
     <display-name>IL: YES World Action HD</display-name>
@@ -548,7 +446,6 @@
   </channel>
   <channel id="ch4054">
     <display-name>IL: Arutz Pesha Amiti HD</display-name>
-    <display-name>ערוץ פשע אמיתי</display-name>
   </channel>
   <channel id="DW.רוסית.il">
     <display-name>DW רוסית</display-name>
@@ -17382,50 +17279,6 @@
   <programme channel="ch2535" start="20261109013636 +0000" stop="20261109030148 +0000">
     <title>שובו של הג׳יפרס קריפרס</title>
     <desc>זוג צעיר ומאוהב זוכה בסיור VIP לחדר בריחה בנושא קריפרים בפסטיבל חובבי אימה. אבל כשהשניים נכנסים לחדר</desc>
-  </programme>
-  <programme channel="ch1186" start="20261115125400 +0000" stop="20261115150900 +0000">
-    <title>ישיר! אלצ&#39;ה - ר. בטיס</title>
-    <desc>שידור ישיר: ליגה ספרדית 2026/27, מחזור 12: אלצ&#39;ה מארחת את ריאל בטיס.</desc>
-  </programme>
-  <programme channel="ch1186" start="20261115150900 +0000" stop="20261115172400 +0000">
-    <title>ישיר! ר. סוסיאדד - ר. וייקאנו</title>
-    <desc>שידור ישיר: ליגה ספרדית 2026/27, מחזור 12: ריאל סוסיאדד מארחת את ראיו וייקאנו.</desc>
-  </programme>
-  <programme channel="ch1186" start="20261115172400 +0000" stop="20261115193500 +0000">
-    <title>ישיר! ס. ויגו - לבאנטה</title>
-    <desc>שידור ישיר: ליגה ספרדית 2026/27, מחזור 12: סלטה ויגו מארחת את לבאנטה.</desc>
-  </programme>
-  <programme channel="ch1186" start="20261115193500 +0000" stop="20261115195500 +0000">
-    <title>ישיר! אולפן ל. ספרדית</title>
-    <desc>שידור ישיר: משדר מיוחד לקראת המשחק המסקרן בין אתלטיקו מדריד לברצלונה.</desc>
-  </programme>
-  <programme channel="ch1186" start="20261115195500 +0000" stop="20261115215000 +0000">
-    <title>ישיר! את. מדריד - ברצלונה</title>
-    <desc>שידור ישיר: ליגה ספרדית 2026/27, מחזור 12: אתלטיקו מדריד מארחת את ברצלונה.</desc>
-  </programme>
-  <programme channel="ch1186" start="20261115215000 +0000" stop="20261115220000 +0000">
-    <title>ישיר! אולפן ל. ספרדית</title>
-    <desc>שידור ישיר: משדר מיוחד המסכם את המשחק המסקרן בין אתלטיקו מדריד לברצלונה.</desc>
-  </programme>
-  <programme channel="ch2535" start="20261108193000 +0000" stop="20261108210011 +0000">
-    <title>בגמן</title>
-    <desc>אב צעיר מנסה לחיות חיים נורמליים עם אשתו ועם בנו הקטן. איום מרושע מילדותו חוזר לרדוף אותו ולהטיל אימה על משפחתו.</desc>
-  </programme>
-  <programme channel="ch2535" start="20261108210011 +0000" stop="20261108224308 +0000">
-    <title>X</title>
-    <desc>צעירים יוצאים לצלם סרט פורנו באזור מבודד. הזוג שמארח אותם אינו יודע אודות הסרט, אך כשהוא מגלה הצעירים מוצאים את עצמם בסכנה.</desc>
-  </programme>
-  <programme channel="ch2535" start="20261108224308 +0000" stop="20261109000917 +0000">
-    <title>אימה בשעת אפס</title>
-    <desc>חבורת תלמידי תיכון פורצת לבית הספר בלילה כדי לערוך בו מסיבה חשאית. החברות ביניהם עומדת כעת במבחן, כשרוצח אכזרי בתחפושת ממתין רק להם.</desc>
-  </programme>
-  <programme channel="ch2535" start="20261109000917 +0000" stop="20261109013636 +0000">
-    <title>עיר המתים 2</title>
-    <desc>בעולם הנשלט בידי זומבים, זואי, סטודנטית לרפואה, נרדפת על ידי דמות מסתורית מעברה, הבעיה שאותה הדמות היא חצי אדם חצי זומבי.</desc>
-  </programme>
-  <programme channel="ch2535" start="20261109013636 +0000" stop="20261109030148 +0000">
-    <title>שובו של הג׳יפרס קריפרס</title>
-    <desc>זוג צעיר ומאוהב זוכה בסיור VIP לחדר בריחה בנושא קריפרים בפסטיבל חובבי אימה. אבל כשהשניים נכנסים לחדר הם מבינים שנתקלו בדבר האמיתי.</desc>
   </programme>
   <programme channel="ch2535" start="20261109030148 +0000" stop="20261109193000 +0000">
     <title>ערוץ האימה</title>
@@ -125271,1059 +125124,1059 @@
     <title>הרעשנים 10 פרק 11</title>
     <desc>לאחר שמתקשה להשתלב ביום הראשון שלו בתיכון רויאל וודס, שיין פונה ללני, לונה ולואן לעזרה. ‏כשליסה מגלה</desc>
   </programme>
-  <programme channel="ch2632" start="20261104142600 +0000" stop="20261104152600 +0000">
+  <programme channel="ch2632" start="20261104143700 +0000" stop="20261104153700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261104152600 +0000" stop="20261104162600 +0000">
+  <programme channel="ch2632" start="20261104153700 +0000" stop="20261104163700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261104162600 +0000" stop="20261104172600 +0000">
+  <programme channel="ch2632" start="20261104163700 +0000" stop="20261104173700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261104172600 +0000" stop="20261104182600 +0000">
+  <programme channel="ch2632" start="20261104173700 +0000" stop="20261104183700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261104182600 +0000" stop="20261104192600 +0000">
+  <programme channel="ch2632" start="20261104183700 +0000" stop="20261104193700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261104192600 +0000" stop="20261104202600 +0000">
+  <programme channel="ch2632" start="20261104193700 +0000" stop="20261104203700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261104202600 +0000" stop="20261104212600 +0000">
+  <programme channel="ch2632" start="20261104203700 +0000" stop="20261104213700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261104212600 +0000" stop="20261104222600 +0000">
+  <programme channel="ch2632" start="20261104213700 +0000" stop="20261104223700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261104222600 +0000" stop="20261104232600 +0000">
+  <programme channel="ch2632" start="20261104223700 +0000" stop="20261104233700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261104232600 +0000" stop="20261105002600 +0000">
+  <programme channel="ch2632" start="20261104233700 +0000" stop="20261105003700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105002600 +0000" stop="20261105012600 +0000">
+  <programme channel="ch2632" start="20261105003700 +0000" stop="20261105013700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105012600 +0000" stop="20261105022600 +0000">
+  <programme channel="ch2632" start="20261105013700 +0000" stop="20261105023700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105022600 +0000" stop="20261105032600 +0000">
+  <programme channel="ch2632" start="20261105023700 +0000" stop="20261105033700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105032600 +0000" stop="20261105042600 +0000">
+  <programme channel="ch2632" start="20261105033700 +0000" stop="20261105043700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105042600 +0000" stop="20261105052600 +0000">
+  <programme channel="ch2632" start="20261105043700 +0000" stop="20261105053700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105052600 +0000" stop="20261105062600 +0000">
+  <programme channel="ch2632" start="20261105053700 +0000" stop="20261105063700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105062600 +0000" stop="20261105072600 +0000">
+  <programme channel="ch2632" start="20261105063700 +0000" stop="20261105073700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105072600 +0000" stop="20261105082600 +0000">
+  <programme channel="ch2632" start="20261105073700 +0000" stop="20261105083700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105082600 +0000" stop="20261105092600 +0000">
+  <programme channel="ch2632" start="20261105083700 +0000" stop="20261105093700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105092600 +0000" stop="20261105102600 +0000">
+  <programme channel="ch2632" start="20261105093700 +0000" stop="20261105103700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105102600 +0000" stop="20261105112600 +0000">
+  <programme channel="ch2632" start="20261105103700 +0000" stop="20261105113700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105112600 +0000" stop="20261105122600 +0000">
+  <programme channel="ch2632" start="20261105113700 +0000" stop="20261105123700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105122600 +0000" stop="20261105132600 +0000">
+  <programme channel="ch2632" start="20261105123700 +0000" stop="20261105133700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105132600 +0000" stop="20261105142600 +0000">
+  <programme channel="ch2632" start="20261105133700 +0000" stop="20261105143700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105142600 +0000" stop="20261105152600 +0000">
+  <programme channel="ch2632" start="20261105143700 +0000" stop="20261105153700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105152600 +0000" stop="20261105162600 +0000">
+  <programme channel="ch2632" start="20261105153700 +0000" stop="20261105163700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105162600 +0000" stop="20261105172600 +0000">
+  <programme channel="ch2632" start="20261105163700 +0000" stop="20261105173700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105172600 +0000" stop="20261105182600 +0000">
+  <programme channel="ch2632" start="20261105173700 +0000" stop="20261105183700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105182600 +0000" stop="20261105192600 +0000">
+  <programme channel="ch2632" start="20261105183700 +0000" stop="20261105193700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105192600 +0000" stop="20261105202600 +0000">
+  <programme channel="ch2632" start="20261105193700 +0000" stop="20261105203700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105202600 +0000" stop="20261105212600 +0000">
+  <programme channel="ch2632" start="20261105203700 +0000" stop="20261105213700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105212600 +0000" stop="20261105222600 +0000">
+  <programme channel="ch2632" start="20261105213700 +0000" stop="20261105223700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105222600 +0000" stop="20261105232600 +0000">
+  <programme channel="ch2632" start="20261105223700 +0000" stop="20261105233700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261105232600 +0000" stop="20261106002600 +0000">
+  <programme channel="ch2632" start="20261105233700 +0000" stop="20261106003700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106002600 +0000" stop="20261106012600 +0000">
+  <programme channel="ch2632" start="20261106003700 +0000" stop="20261106013700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106012600 +0000" stop="20261106022600 +0000">
+  <programme channel="ch2632" start="20261106013700 +0000" stop="20261106023700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106022600 +0000" stop="20261106032600 +0000">
+  <programme channel="ch2632" start="20261106023700 +0000" stop="20261106033700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106032600 +0000" stop="20261106042600 +0000">
+  <programme channel="ch2632" start="20261106033700 +0000" stop="20261106043700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106042600 +0000" stop="20261106052600 +0000">
+  <programme channel="ch2632" start="20261106043700 +0000" stop="20261106053700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106052600 +0000" stop="20261106062600 +0000">
+  <programme channel="ch2632" start="20261106053700 +0000" stop="20261106063700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106062600 +0000" stop="20261106072600 +0000">
+  <programme channel="ch2632" start="20261106063700 +0000" stop="20261106073700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106072600 +0000" stop="20261106082600 +0000">
+  <programme channel="ch2632" start="20261106073700 +0000" stop="20261106083700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106082600 +0000" stop="20261106092600 +0000">
+  <programme channel="ch2632" start="20261106083700 +0000" stop="20261106093700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106092600 +0000" stop="20261106102600 +0000">
+  <programme channel="ch2632" start="20261106093700 +0000" stop="20261106103700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106102600 +0000" stop="20261106112600 +0000">
+  <programme channel="ch2632" start="20261106103700 +0000" stop="20261106113700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106112600 +0000" stop="20261106122600 +0000">
+  <programme channel="ch2632" start="20261106113700 +0000" stop="20261106123700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106122600 +0000" stop="20261106132600 +0000">
+  <programme channel="ch2632" start="20261106123700 +0000" stop="20261106133700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106132600 +0000" stop="20261106142600 +0000">
+  <programme channel="ch2632" start="20261106133700 +0000" stop="20261106143700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106142600 +0000" stop="20261106152600 +0000">
+  <programme channel="ch2632" start="20261106143700 +0000" stop="20261106153700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106152600 +0000" stop="20261106162600 +0000">
+  <programme channel="ch2632" start="20261106153700 +0000" stop="20261106163700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106162600 +0000" stop="20261106172600 +0000">
+  <programme channel="ch2632" start="20261106163700 +0000" stop="20261106173700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106172600 +0000" stop="20261106182600 +0000">
+  <programme channel="ch2632" start="20261106173700 +0000" stop="20261106183700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106182600 +0000" stop="20261106192600 +0000">
+  <programme channel="ch2632" start="20261106183700 +0000" stop="20261106193700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106192600 +0000" stop="20261106202600 +0000">
+  <programme channel="ch2632" start="20261106193700 +0000" stop="20261106203700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106202600 +0000" stop="20261106212600 +0000">
+  <programme channel="ch2632" start="20261106203700 +0000" stop="20261106213700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106212600 +0000" stop="20261106222600 +0000">
+  <programme channel="ch2632" start="20261106213700 +0000" stop="20261106223700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106222600 +0000" stop="20261106232600 +0000">
+  <programme channel="ch2632" start="20261106223700 +0000" stop="20261106233700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261106232600 +0000" stop="20261107002600 +0000">
+  <programme channel="ch2632" start="20261106233700 +0000" stop="20261107003700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107002600 +0000" stop="20261107012600 +0000">
+  <programme channel="ch2632" start="20261107003700 +0000" stop="20261107013700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107012600 +0000" stop="20261107022600 +0000">
+  <programme channel="ch2632" start="20261107013700 +0000" stop="20261107023700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107022600 +0000" stop="20261107032600 +0000">
+  <programme channel="ch2632" start="20261107023700 +0000" stop="20261107033700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107032600 +0000" stop="20261107042600 +0000">
+  <programme channel="ch2632" start="20261107033700 +0000" stop="20261107043700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107042600 +0000" stop="20261107052600 +0000">
+  <programme channel="ch2632" start="20261107043700 +0000" stop="20261107053700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107052600 +0000" stop="20261107062600 +0000">
+  <programme channel="ch2632" start="20261107053700 +0000" stop="20261107063700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107062600 +0000" stop="20261107072600 +0000">
+  <programme channel="ch2632" start="20261107063700 +0000" stop="20261107073700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107072600 +0000" stop="20261107082600 +0000">
+  <programme channel="ch2632" start="20261107073700 +0000" stop="20261107083700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107082600 +0000" stop="20261107092600 +0000">
+  <programme channel="ch2632" start="20261107083700 +0000" stop="20261107093700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107092600 +0000" stop="20261107102600 +0000">
+  <programme channel="ch2632" start="20261107093700 +0000" stop="20261107103700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107102600 +0000" stop="20261107112600 +0000">
+  <programme channel="ch2632" start="20261107103700 +0000" stop="20261107113700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107112600 +0000" stop="20261107122600 +0000">
+  <programme channel="ch2632" start="20261107113700 +0000" stop="20261107123700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107122600 +0000" stop="20261107132600 +0000">
+  <programme channel="ch2632" start="20261107123700 +0000" stop="20261107133700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107132600 +0000" stop="20261107142600 +0000">
+  <programme channel="ch2632" start="20261107133700 +0000" stop="20261107143700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107142600 +0000" stop="20261107152600 +0000">
+  <programme channel="ch2632" start="20261107143700 +0000" stop="20261107153700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107152600 +0000" stop="20261107162600 +0000">
+  <programme channel="ch2632" start="20261107153700 +0000" stop="20261107163700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107162600 +0000" stop="20261107172600 +0000">
+  <programme channel="ch2632" start="20261107163700 +0000" stop="20261107173700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107172600 +0000" stop="20261107182600 +0000">
+  <programme channel="ch2632" start="20261107173700 +0000" stop="20261107183700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107182600 +0000" stop="20261107192600 +0000">
+  <programme channel="ch2632" start="20261107183700 +0000" stop="20261107193700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107192600 +0000" stop="20261107202600 +0000">
+  <programme channel="ch2632" start="20261107193700 +0000" stop="20261107203700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107202600 +0000" stop="20261107212600 +0000">
+  <programme channel="ch2632" start="20261107203700 +0000" stop="20261107213700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107212600 +0000" stop="20261107222600 +0000">
+  <programme channel="ch2632" start="20261107213700 +0000" stop="20261107223700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107222600 +0000" stop="20261107232600 +0000">
+  <programme channel="ch2632" start="20261107223700 +0000" stop="20261107233700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261107232600 +0000" stop="20261108002600 +0000">
+  <programme channel="ch2632" start="20261107233700 +0000" stop="20261108003700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108002600 +0000" stop="20261108012600 +0000">
+  <programme channel="ch2632" start="20261108003700 +0000" stop="20261108013700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108012600 +0000" stop="20261108022600 +0000">
+  <programme channel="ch2632" start="20261108013700 +0000" stop="20261108023700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108022600 +0000" stop="20261108032600 +0000">
+  <programme channel="ch2632" start="20261108023700 +0000" stop="20261108033700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108032600 +0000" stop="20261108042600 +0000">
+  <programme channel="ch2632" start="20261108033700 +0000" stop="20261108043700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108042600 +0000" stop="20261108052600 +0000">
+  <programme channel="ch2632" start="20261108043700 +0000" stop="20261108053700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108052600 +0000" stop="20261108062600 +0000">
+  <programme channel="ch2632" start="20261108053700 +0000" stop="20261108063700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108062600 +0000" stop="20261108072600 +0000">
+  <programme channel="ch2632" start="20261108063700 +0000" stop="20261108073700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108072600 +0000" stop="20261108082600 +0000">
+  <programme channel="ch2632" start="20261108073700 +0000" stop="20261108083700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108082600 +0000" stop="20261108092600 +0000">
+  <programme channel="ch2632" start="20261108083700 +0000" stop="20261108093700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108092600 +0000" stop="20261108102600 +0000">
+  <programme channel="ch2632" start="20261108093700 +0000" stop="20261108103700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108102600 +0000" stop="20261108112600 +0000">
+  <programme channel="ch2632" start="20261108103700 +0000" stop="20261108113700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108112600 +0000" stop="20261108122600 +0000">
+  <programme channel="ch2632" start="20261108113700 +0000" stop="20261108123700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108122600 +0000" stop="20261108132600 +0000">
+  <programme channel="ch2632" start="20261108123700 +0000" stop="20261108133700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108132600 +0000" stop="20261108142600 +0000">
+  <programme channel="ch2632" start="20261108133700 +0000" stop="20261108143700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108142600 +0000" stop="20261108152600 +0000">
+  <programme channel="ch2632" start="20261108143700 +0000" stop="20261108153700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108152600 +0000" stop="20261108162600 +0000">
+  <programme channel="ch2632" start="20261108153700 +0000" stop="20261108163700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108162600 +0000" stop="20261108172600 +0000">
+  <programme channel="ch2632" start="20261108163700 +0000" stop="20261108173700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108172600 +0000" stop="20261108182600 +0000">
+  <programme channel="ch2632" start="20261108173700 +0000" stop="20261108183700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108182600 +0000" stop="20261108192600 +0000">
+  <programme channel="ch2632" start="20261108183700 +0000" stop="20261108193700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108192600 +0000" stop="20261108202600 +0000">
+  <programme channel="ch2632" start="20261108193700 +0000" stop="20261108203700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108202600 +0000" stop="20261108212600 +0000">
+  <programme channel="ch2632" start="20261108203700 +0000" stop="20261108213700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108212600 +0000" stop="20261108222600 +0000">
+  <programme channel="ch2632" start="20261108213700 +0000" stop="20261108223700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108222600 +0000" stop="20261108232600 +0000">
+  <programme channel="ch2632" start="20261108223700 +0000" stop="20261108233700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261108232600 +0000" stop="20261109002600 +0000">
+  <programme channel="ch2632" start="20261108233700 +0000" stop="20261109003700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109002600 +0000" stop="20261109012600 +0000">
+  <programme channel="ch2632" start="20261109003700 +0000" stop="20261109013700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109012600 +0000" stop="20261109022600 +0000">
+  <programme channel="ch2632" start="20261109013700 +0000" stop="20261109023700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109022600 +0000" stop="20261109032600 +0000">
+  <programme channel="ch2632" start="20261109023700 +0000" stop="20261109033700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109032600 +0000" stop="20261109042600 +0000">
+  <programme channel="ch2632" start="20261109033700 +0000" stop="20261109043700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109042600 +0000" stop="20261109052600 +0000">
+  <programme channel="ch2632" start="20261109043700 +0000" stop="20261109053700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109052600 +0000" stop="20261109062600 +0000">
+  <programme channel="ch2632" start="20261109053700 +0000" stop="20261109063700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109062600 +0000" stop="20261109072600 +0000">
+  <programme channel="ch2632" start="20261109063700 +0000" stop="20261109073700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109072600 +0000" stop="20261109082600 +0000">
+  <programme channel="ch2632" start="20261109073700 +0000" stop="20261109083700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109082600 +0000" stop="20261109092600 +0000">
+  <programme channel="ch2632" start="20261109083700 +0000" stop="20261109093700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109092600 +0000" stop="20261109102600 +0000">
+  <programme channel="ch2632" start="20261109093700 +0000" stop="20261109103700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109102600 +0000" stop="20261109112600 +0000">
+  <programme channel="ch2632" start="20261109103700 +0000" stop="20261109113700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109112600 +0000" stop="20261109122600 +0000">
+  <programme channel="ch2632" start="20261109113700 +0000" stop="20261109123700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109122600 +0000" stop="20261109132600 +0000">
+  <programme channel="ch2632" start="20261109123700 +0000" stop="20261109133700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109132600 +0000" stop="20261109142600 +0000">
+  <programme channel="ch2632" start="20261109133700 +0000" stop="20261109143700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109142600 +0000" stop="20261109152600 +0000">
+  <programme channel="ch2632" start="20261109143700 +0000" stop="20261109153700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109152600 +0000" stop="20261109162600 +0000">
+  <programme channel="ch2632" start="20261109153700 +0000" stop="20261109163700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109162600 +0000" stop="20261109172600 +0000">
+  <programme channel="ch2632" start="20261109163700 +0000" stop="20261109173700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109172600 +0000" stop="20261109182600 +0000">
+  <programme channel="ch2632" start="20261109173700 +0000" stop="20261109183700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109182600 +0000" stop="20261109192600 +0000">
+  <programme channel="ch2632" start="20261109183700 +0000" stop="20261109193700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109192600 +0000" stop="20261109202600 +0000">
+  <programme channel="ch2632" start="20261109193700 +0000" stop="20261109203700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109202600 +0000" stop="20261109212600 +0000">
+  <programme channel="ch2632" start="20261109203700 +0000" stop="20261109213700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109212600 +0000" stop="20261109222600 +0000">
+  <programme channel="ch2632" start="20261109213700 +0000" stop="20261109223700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109222600 +0000" stop="20261109232600 +0000">
+  <programme channel="ch2632" start="20261109223700 +0000" stop="20261109233700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261109232600 +0000" stop="20261110002600 +0000">
+  <programme channel="ch2632" start="20261109233700 +0000" stop="20261110003700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110002600 +0000" stop="20261110012600 +0000">
+  <programme channel="ch2632" start="20261110003700 +0000" stop="20261110013700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110012600 +0000" stop="20261110022600 +0000">
+  <programme channel="ch2632" start="20261110013700 +0000" stop="20261110023700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110022600 +0000" stop="20261110032600 +0000">
+  <programme channel="ch2632" start="20261110023700 +0000" stop="20261110033700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110032600 +0000" stop="20261110042600 +0000">
+  <programme channel="ch2632" start="20261110033700 +0000" stop="20261110043700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110042600 +0000" stop="20261110052600 +0000">
+  <programme channel="ch2632" start="20261110043700 +0000" stop="20261110053700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110052600 +0000" stop="20261110062600 +0000">
+  <programme channel="ch2632" start="20261110053700 +0000" stop="20261110063700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110062600 +0000" stop="20261110072600 +0000">
+  <programme channel="ch2632" start="20261110063700 +0000" stop="20261110073700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110072600 +0000" stop="20261110082600 +0000">
+  <programme channel="ch2632" start="20261110073700 +0000" stop="20261110083700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110082600 +0000" stop="20261110092600 +0000">
+  <programme channel="ch2632" start="20261110083700 +0000" stop="20261110093700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110092600 +0000" stop="20261110102600 +0000">
+  <programme channel="ch2632" start="20261110093700 +0000" stop="20261110103700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110102600 +0000" stop="20261110112600 +0000">
+  <programme channel="ch2632" start="20261110103700 +0000" stop="20261110113700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110112600 +0000" stop="20261110122600 +0000">
+  <programme channel="ch2632" start="20261110113700 +0000" stop="20261110123700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110122600 +0000" stop="20261110132600 +0000">
+  <programme channel="ch2632" start="20261110123700 +0000" stop="20261110133700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110132600 +0000" stop="20261110142600 +0000">
+  <programme channel="ch2632" start="20261110133700 +0000" stop="20261110143700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110142600 +0000" stop="20261110152600 +0000">
+  <programme channel="ch2632" start="20261110143700 +0000" stop="20261110153700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110152600 +0000" stop="20261110162600 +0000">
+  <programme channel="ch2632" start="20261110153700 +0000" stop="20261110163700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110162600 +0000" stop="20261110172600 +0000">
+  <programme channel="ch2632" start="20261110163700 +0000" stop="20261110173700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110172600 +0000" stop="20261110182600 +0000">
+  <programme channel="ch2632" start="20261110173700 +0000" stop="20261110183700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110182600 +0000" stop="20261110192600 +0000">
+  <programme channel="ch2632" start="20261110183700 +0000" stop="20261110193700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110192600 +0000" stop="20261110202600 +0000">
+  <programme channel="ch2632" start="20261110193700 +0000" stop="20261110203700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110202600 +0000" stop="20261110212600 +0000">
+  <programme channel="ch2632" start="20261110203700 +0000" stop="20261110213700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110212600 +0000" stop="20261110222600 +0000">
+  <programme channel="ch2632" start="20261110213700 +0000" stop="20261110223700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110222600 +0000" stop="20261110232600 +0000">
+  <programme channel="ch2632" start="20261110223700 +0000" stop="20261110233700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261110232600 +0000" stop="20261111002600 +0000">
+  <programme channel="ch2632" start="20261110233700 +0000" stop="20261111003700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111002600 +0000" stop="20261111012600 +0000">
+  <programme channel="ch2632" start="20261111003700 +0000" stop="20261111013700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111012600 +0000" stop="20261111022600 +0000">
+  <programme channel="ch2632" start="20261111013700 +0000" stop="20261111023700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111022600 +0000" stop="20261111032600 +0000">
+  <programme channel="ch2632" start="20261111023700 +0000" stop="20261111033700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111032600 +0000" stop="20261111042600 +0000">
+  <programme channel="ch2632" start="20261111033700 +0000" stop="20261111043700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111042600 +0000" stop="20261111052600 +0000">
+  <programme channel="ch2632" start="20261111043700 +0000" stop="20261111053700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111052600 +0000" stop="20261111062600 +0000">
+  <programme channel="ch2632" start="20261111053700 +0000" stop="20261111063700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111062600 +0000" stop="20261111072600 +0000">
+  <programme channel="ch2632" start="20261111063700 +0000" stop="20261111073700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111072600 +0000" stop="20261111082600 +0000">
+  <programme channel="ch2632" start="20261111073700 +0000" stop="20261111083700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111082600 +0000" stop="20261111092600 +0000">
+  <programme channel="ch2632" start="20261111083700 +0000" stop="20261111093700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111092600 +0000" stop="20261111102600 +0000">
+  <programme channel="ch2632" start="20261111093700 +0000" stop="20261111103700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111102600 +0000" stop="20261111112600 +0000">
+  <programme channel="ch2632" start="20261111103700 +0000" stop="20261111113700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111112600 +0000" stop="20261111122600 +0000">
+  <programme channel="ch2632" start="20261111113700 +0000" stop="20261111123700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111122600 +0000" stop="20261111132600 +0000">
+  <programme channel="ch2632" start="20261111123700 +0000" stop="20261111133700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111132600 +0000" stop="20261111142600 +0000">
+  <programme channel="ch2632" start="20261111133700 +0000" stop="20261111143700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111142600 +0000" stop="20261111152600 +0000">
+  <programme channel="ch2632" start="20261111143700 +0000" stop="20261111153700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111152600 +0000" stop="20261111162600 +0000">
+  <programme channel="ch2632" start="20261111153700 +0000" stop="20261111163700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111162600 +0000" stop="20261111172600 +0000">
+  <programme channel="ch2632" start="20261111163700 +0000" stop="20261111173700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111172600 +0000" stop="20261111182600 +0000">
+  <programme channel="ch2632" start="20261111173700 +0000" stop="20261111183700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111182600 +0000" stop="20261111192600 +0000">
+  <programme channel="ch2632" start="20261111183700 +0000" stop="20261111193700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111192600 +0000" stop="20261111202600 +0000">
+  <programme channel="ch2632" start="20261111193700 +0000" stop="20261111203700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111202600 +0000" stop="20261111212600 +0000">
+  <programme channel="ch2632" start="20261111203700 +0000" stop="20261111213700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111212600 +0000" stop="20261111222600 +0000">
+  <programme channel="ch2632" start="20261111213700 +0000" stop="20261111223700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111222600 +0000" stop="20261111232600 +0000">
+  <programme channel="ch2632" start="20261111223700 +0000" stop="20261111233700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261111232600 +0000" stop="20261112002600 +0000">
+  <programme channel="ch2632" start="20261111233700 +0000" stop="20261112003700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112002600 +0000" stop="20261112012600 +0000">
+  <programme channel="ch2632" start="20261112003700 +0000" stop="20261112013700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112012600 +0000" stop="20261112022600 +0000">
+  <programme channel="ch2632" start="20261112013700 +0000" stop="20261112023700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112022600 +0000" stop="20261112032600 +0000">
+  <programme channel="ch2632" start="20261112023700 +0000" stop="20261112033700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112032600 +0000" stop="20261112042600 +0000">
+  <programme channel="ch2632" start="20261112033700 +0000" stop="20261112043700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112042600 +0000" stop="20261112052600 +0000">
+  <programme channel="ch2632" start="20261112043700 +0000" stop="20261112053700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112052600 +0000" stop="20261112062600 +0000">
+  <programme channel="ch2632" start="20261112053700 +0000" stop="20261112063700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112062600 +0000" stop="20261112072600 +0000">
+  <programme channel="ch2632" start="20261112063700 +0000" stop="20261112073700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112072600 +0000" stop="20261112082600 +0000">
+  <programme channel="ch2632" start="20261112073700 +0000" stop="20261112083700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112082600 +0000" stop="20261112092600 +0000">
+  <programme channel="ch2632" start="20261112083700 +0000" stop="20261112093700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112092600 +0000" stop="20261112102600 +0000">
+  <programme channel="ch2632" start="20261112093700 +0000" stop="20261112103700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112102600 +0000" stop="20261112112600 +0000">
+  <programme channel="ch2632" start="20261112103700 +0000" stop="20261112113700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112112600 +0000" stop="20261112122600 +0000">
+  <programme channel="ch2632" start="20261112113700 +0000" stop="20261112123700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112122600 +0000" stop="20261112132600 +0000">
+  <programme channel="ch2632" start="20261112123700 +0000" stop="20261112133700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112132600 +0000" stop="20261112142600 +0000">
+  <programme channel="ch2632" start="20261112133700 +0000" stop="20261112143700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112142600 +0000" stop="20261112152600 +0000">
+  <programme channel="ch2632" start="20261112143700 +0000" stop="20261112153700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112152600 +0000" stop="20261112162600 +0000">
+  <programme channel="ch2632" start="20261112153700 +0000" stop="20261112163700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112162600 +0000" stop="20261112172600 +0000">
+  <programme channel="ch2632" start="20261112163700 +0000" stop="20261112173700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112172600 +0000" stop="20261112182600 +0000">
+  <programme channel="ch2632" start="20261112173700 +0000" stop="20261112183700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112182600 +0000" stop="20261112192600 +0000">
+  <programme channel="ch2632" start="20261112183700 +0000" stop="20261112193700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112192600 +0000" stop="20261112202600 +0000">
+  <programme channel="ch2632" start="20261112193700 +0000" stop="20261112203700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112202600 +0000" stop="20261112212600 +0000">
+  <programme channel="ch2632" start="20261112203700 +0000" stop="20261112213700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112212600 +0000" stop="20261112222600 +0000">
+  <programme channel="ch2632" start="20261112213700 +0000" stop="20261112223700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112222600 +0000" stop="20261112232600 +0000">
+  <programme channel="ch2632" start="20261112223700 +0000" stop="20261112233700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261112232600 +0000" stop="20261113002600 +0000">
+  <programme channel="ch2632" start="20261112233700 +0000" stop="20261113003700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113002600 +0000" stop="20261113012600 +0000">
+  <programme channel="ch2632" start="20261113003700 +0000" stop="20261113013700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113012600 +0000" stop="20261113022600 +0000">
+  <programme channel="ch2632" start="20261113013700 +0000" stop="20261113023700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113022600 +0000" stop="20261113032600 +0000">
+  <programme channel="ch2632" start="20261113023700 +0000" stop="20261113033700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113032600 +0000" stop="20261113042600 +0000">
+  <programme channel="ch2632" start="20261113033700 +0000" stop="20261113043700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113042600 +0000" stop="20261113052600 +0000">
+  <programme channel="ch2632" start="20261113043700 +0000" stop="20261113053700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113052600 +0000" stop="20261113062600 +0000">
+  <programme channel="ch2632" start="20261113053700 +0000" stop="20261113063700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113062600 +0000" stop="20261113072600 +0000">
+  <programme channel="ch2632" start="20261113063700 +0000" stop="20261113073700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113072600 +0000" stop="20261113082600 +0000">
+  <programme channel="ch2632" start="20261113073700 +0000" stop="20261113083700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113082600 +0000" stop="20261113092600 +0000">
+  <programme channel="ch2632" start="20261113083700 +0000" stop="20261113093700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113092600 +0000" stop="20261113102600 +0000">
+  <programme channel="ch2632" start="20261113093700 +0000" stop="20261113103700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113102600 +0000" stop="20261113112600 +0000">
+  <programme channel="ch2632" start="20261113103700 +0000" stop="20261113113700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113112600 +0000" stop="20261113122600 +0000">
+  <programme channel="ch2632" start="20261113113700 +0000" stop="20261113123700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113122600 +0000" stop="20261113132600 +0000">
+  <programme channel="ch2632" start="20261113123700 +0000" stop="20261113133700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113132600 +0000" stop="20261113142600 +0000">
+  <programme channel="ch2632" start="20261113133700 +0000" stop="20261113143700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113142600 +0000" stop="20261113152600 +0000">
+  <programme channel="ch2632" start="20261113143700 +0000" stop="20261113153700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113152600 +0000" stop="20261113162600 +0000">
+  <programme channel="ch2632" start="20261113153700 +0000" stop="20261113163700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113162600 +0000" stop="20261113172600 +0000">
+  <programme channel="ch2632" start="20261113163700 +0000" stop="20261113173700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113172600 +0000" stop="20261113182600 +0000">
+  <programme channel="ch2632" start="20261113173700 +0000" stop="20261113183700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113182600 +0000" stop="20261113192600 +0000">
+  <programme channel="ch2632" start="20261113183700 +0000" stop="20261113193700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113192600 +0000" stop="20261113202600 +0000">
+  <programme channel="ch2632" start="20261113193700 +0000" stop="20261113203700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113202600 +0000" stop="20261113212600 +0000">
+  <programme channel="ch2632" start="20261113203700 +0000" stop="20261113213700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113212600 +0000" stop="20261113222600 +0000">
+  <programme channel="ch2632" start="20261113213700 +0000" stop="20261113223700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113222600 +0000" stop="20261113232600 +0000">
+  <programme channel="ch2632" start="20261113223700 +0000" stop="20261113233700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261113232600 +0000" stop="20261114002600 +0000">
+  <programme channel="ch2632" start="20261113233700 +0000" stop="20261114003700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114002600 +0000" stop="20261114012600 +0000">
+  <programme channel="ch2632" start="20261114003700 +0000" stop="20261114013700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114012600 +0000" stop="20261114022600 +0000">
+  <programme channel="ch2632" start="20261114013700 +0000" stop="20261114023700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114022600 +0000" stop="20261114032600 +0000">
+  <programme channel="ch2632" start="20261114023700 +0000" stop="20261114033700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114032600 +0000" stop="20261114042600 +0000">
+  <programme channel="ch2632" start="20261114033700 +0000" stop="20261114043700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114042600 +0000" stop="20261114052600 +0000">
+  <programme channel="ch2632" start="20261114043700 +0000" stop="20261114053700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114052600 +0000" stop="20261114062600 +0000">
+  <programme channel="ch2632" start="20261114053700 +0000" stop="20261114063700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114062600 +0000" stop="20261114072600 +0000">
+  <programme channel="ch2632" start="20261114063700 +0000" stop="20261114073700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114072600 +0000" stop="20261114082600 +0000">
+  <programme channel="ch2632" start="20261114073700 +0000" stop="20261114083700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114082600 +0000" stop="20261114092600 +0000">
+  <programme channel="ch2632" start="20261114083700 +0000" stop="20261114093700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114092600 +0000" stop="20261114102600 +0000">
+  <programme channel="ch2632" start="20261114093700 +0000" stop="20261114103700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114102600 +0000" stop="20261114112600 +0000">
+  <programme channel="ch2632" start="20261114103700 +0000" stop="20261114113700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114112600 +0000" stop="20261114122600 +0000">
+  <programme channel="ch2632" start="20261114113700 +0000" stop="20261114123700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114122600 +0000" stop="20261114132600 +0000">
+  <programme channel="ch2632" start="20261114123700 +0000" stop="20261114133700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114132600 +0000" stop="20261114142600 +0000">
+  <programme channel="ch2632" start="20261114133700 +0000" stop="20261114143700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114142600 +0000" stop="20261114152600 +0000">
+  <programme channel="ch2632" start="20261114143700 +0000" stop="20261114153700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114152600 +0000" stop="20261114162600 +0000">
+  <programme channel="ch2632" start="20261114153700 +0000" stop="20261114163700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114162600 +0000" stop="20261114172600 +0000">
+  <programme channel="ch2632" start="20261114163700 +0000" stop="20261114173700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114172600 +0000" stop="20261114182600 +0000">
+  <programme channel="ch2632" start="20261114173700 +0000" stop="20261114183700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114182600 +0000" stop="20261114192600 +0000">
+  <programme channel="ch2632" start="20261114183700 +0000" stop="20261114193700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114192600 +0000" stop="20261114202600 +0000">
+  <programme channel="ch2632" start="20261114193700 +0000" stop="20261114203700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114202600 +0000" stop="20261114212600 +0000">
+  <programme channel="ch2632" start="20261114203700 +0000" stop="20261114213700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114212600 +0000" stop="20261114222600 +0000">
+  <programme channel="ch2632" start="20261114213700 +0000" stop="20261114223700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114222600 +0000" stop="20261114232600 +0000">
+  <programme channel="ch2632" start="20261114223700 +0000" stop="20261114233700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261114232600 +0000" stop="20261115002600 +0000">
+  <programme channel="ch2632" start="20261114233700 +0000" stop="20261115003700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261115002600 +0000" stop="20261115012600 +0000">
+  <programme channel="ch2632" start="20261115003700 +0000" stop="20261115013700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261115012600 +0000" stop="20261115022600 +0000">
+  <programme channel="ch2632" start="20261115013700 +0000" stop="20261115023700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261115022600 +0000" stop="20261115032600 +0000">
+  <programme channel="ch2632" start="20261115023700 +0000" stop="20261115033700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261115032600 +0000" stop="20261115042600 +0000">
+  <programme channel="ch2632" start="20261115033700 +0000" stop="20261115043700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261115042600 +0000" stop="20261115052600 +0000">
+  <programme channel="ch2632" start="20261115043700 +0000" stop="20261115053700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261115052600 +0000" stop="20261115062600 +0000">
+  <programme channel="ch2632" start="20261115053700 +0000" stop="20261115063700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261115062600 +0000" stop="20261115072600 +0000">
+  <programme channel="ch2632" start="20261115063700 +0000" stop="20261115073700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261115072600 +0000" stop="20261115082600 +0000">
+  <programme channel="ch2632" start="20261115073700 +0000" stop="20261115083700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261115082600 +0000" stop="20261115092600 +0000">
+  <programme channel="ch2632" start="20261115083700 +0000" stop="20261115093700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261115092600 +0000" stop="20261115102600 +0000">
+  <programme channel="ch2632" start="20261115093700 +0000" stop="20261115103700 +0000">
     <title>Extreme Couponing</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261115102600 +0000" stop="20261115112600 +0000">
+  <programme channel="ch2632" start="20261115103700 +0000" stop="20261115113700 +0000">
     <title>TLC Life &amp; Style</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261115112600 +0000" stop="20261115122600 +0000">
+  <programme channel="ch2632" start="20261115113700 +0000" stop="20261115123700 +0000">
     <title>Say Yes to the Dress</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261115122600 +0000" stop="20261115132600 +0000">
+  <programme channel="ch2632" start="20261115123700 +0000" stop="20261115133700 +0000">
     <title>90 Day Fiance</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
-  <programme channel="ch2632" start="20261115132600 +0000" stop="20261115142600 +0000">
+  <programme channel="ch2632" start="20261115133700 +0000" stop="20261115143700 +0000">
     <title>Cake Boss</title>
     <desc>TLC Entertainment &amp; Lifestyle Series</desc>
   </programme>
