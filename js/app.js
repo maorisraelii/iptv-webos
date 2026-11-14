@@ -98,22 +98,27 @@ class IPTVApp {
 
     // INSTANT COLD BOOT: Render immediately from cached lineup if available (< 20ms)
     const cached = this.store.loadCachedLineup();
-    // Load saved EPG URL + any M3U-discovered EPG URLs immediately (even on cached boot)
-    this.loadActiveEPGSources(false);
 
     if (cached && cached.length > 0) {
       this.allChannels = cached;
       this.applyChannelFilter();
       this.restoreLastWatchedChannel(true);
       this.updateVideoSurfacePosition(true);
+      this.hideBootSplash();
 
-      // Only refresh in background if the cache TTL (24h / 3d / 7d) has expired!
+      // Load EPG after channels & video start, with full channel list filter populated
+      setTimeout(() => this.loadActiveEPGSources(false), 120);
+
+      // Only refresh M3U in background if the cache TTL (24h / 3d / 7d) has expired!
       const ttlHours = this.epg.getCacheTtlHours();
       if (!this.store.isLineupCacheFresh(ttlHours)) {
-        setTimeout(() => this.refreshAllSources(true), 1500);
+        setTimeout(() => this.refreshAllSources(true), 1800);
       }
     } else {
+      const splashText = document.getElementById('boot-splash-text');
+      if (splashText) splashText.textContent = 'טוען רשימת ערוצים ראשונית...';
       this.refreshAllSources(false);
+      setTimeout(() => this.hideBootSplash(), 4500);
     }
 
     this.updateVideoSurfacePosition(true);
@@ -135,6 +140,17 @@ class IPTVApp {
     if (this.otaManager && typeof this.otaManager.applySavedOTABundle === 'function') {
       this.otaManager.applySavedOTABundle();
     }
+  }
+
+  hideBootSplash() {
+    if (this._bootSplashHidden) return;
+    this._bootSplashHidden = true;
+    const splash = document.getElementById('boot-splash');
+    if (!splash) return;
+    splash.classList.add('fade-out');
+    setTimeout(() => {
+      splash.classList.add('hidden');
+    }, 260);
   }
 
   /**
@@ -349,6 +365,7 @@ class IPTVApp {
           const shouldFullscreen = !this.selectedChannel;
           this.restoreLastWatchedChannel(shouldFullscreen);
           this.updateVideoSurfacePosition();
+          this.hideBootSplash();
         } else {
           // Silent background update: preserve current channel & focus index
           const curId = this.selectedChannel ? this.selectedChannel.id : null;
@@ -365,6 +382,7 @@ class IPTVApp {
       .catch((err) => {
         console.warn('refreshAllSources error:', err);
         if (!silentBackground) {
+          this.hideBootSplash();
           this.showToast('שגיאה בטעינת מקורות M3U. בדוק את ההגדרות.');
           if (statusText) statusText.textContent = 'שגיאה: ' + err.message;
         }
@@ -493,9 +511,63 @@ class IPTVApp {
     };
   }
 
+  createChannelRowElement(ch, idx) {
+    const item = document.createElement('div');
+    const isSelected = this.selectedChannel && this.selectedChannel.id === ch.id;
+    item.className = 'channel-item focusable' + (isSelected ? ' active' : '');
+    item.dataset.index = idx;
+    item.dataset.channelId = ch.id;
+    if (isSelected) this.currentActiveRowEl = item;
+
+    const isFav = this.favorites.has(ch.id);
+    const epgMetrics = this.getChannelRowEPGMetrics(ch);
+    const monogram = this.getChannelMonogram(ch);
+    const pillLabel = isSelected ? 'מתנגן • OK למסך מלא ▶' : 'לחץ OK למעבר';
+
+    item.innerHTML =
+      '<span class="channel-number">' + ch.number + '</span>' +
+      '<div class="channel-logo-thumb">' +
+        (ch.logo
+          ? '<img src="' + ch.logo + '" alt="" loading="lazy" decoding="async" style="display:none;" onload="if(this.naturalWidth>2){this.style.display=\'block\';if(this.nextElementSibling)this.nextElementSibling.style.display=\'none\';}" onerror="this.style.display=\'none\';if(this.nextElementSibling)this.nextElementSibling.style.display=\'block\';">'
+          : '') +
+        '<span class="channel-thumb-placeholder">' + monogram + '</span>' +
+      '</div>' +
+      '<div class="channel-text-col">' +
+        '<div class="channel-row-top">' +
+          '<span class="channel-title">' + ch.name + '</span>' +
+          '<span class="channel-epg-sub">' + epgMetrics.title + '</span>' +
+        '</div>' +
+        '<div class="channel-mini-bar-row">' +
+          '<span class="channel-mini-time">' + epgMetrics.timeRange + '</span>' +
+          '<div class="channel-mini-progress-track">' +
+            '<div class="channel-mini-progress-fill' + (epgMetrics.isEndingSoon ? ' ending-soon' : '') + '" style="width:' + epgMetrics.pct + '%"></div>' +
+          '</div>' +
+          '<span class="channel-mini-rem-badge' + (epgMetrics.isEndingSoon ? ' ending-soon' : '') + '">' + epgMetrics.remText + '</span>' +
+        '</div>' +
+      '</div>' +
+      (isFav ? '<span class="channel-fav-star">★</span>' : '') +
+      '<span class="channel-playing-badge">מתנגן ▶</span>' +
+      '<span class="channel-ok-pill">' + pillLabel + '</span>';
+
+    item.addEventListener('click', () => {
+      this.focusArea = 'channels';
+      this.focusedChannelIndex = idx;
+      this.updateChannelFocusFast();
+      if (this.selectedChannel && this.selectedChannel.id === ch.id) {
+        this.enterFullscreen();
+      } else {
+        this.highlightChannel(ch, true);
+      }
+    });
+
+    return item;
+  }
+
   renderChannelList() {
     const listEl = document.getElementById('channel-list');
     if (!listEl) return;
+    this._renderJobId = (this._renderJobId || 0) + 1;
+    const jobId = this._renderJobId;
     listEl.innerHTML = '';
     this.channelRowNodes = [];
     this.currentActiveRowEl = null;
@@ -510,62 +582,49 @@ class IPTVApp {
       return;
     }
 
-    const fragment = document.createDocumentFragment();
-    for (let idx = 0; idx < this.visibleChannels.length; idx++) {
-      const ch = this.visibleChannels[idx];
-      const item = document.createElement('div');
-      const isSelected = this.selectedChannel && this.selectedChannel.id === ch.id;
-      item.className = 'channel-item focusable' + (isSelected ? ' active' : '');
-      item.dataset.index = idx;
-      item.dataset.channelId = ch.id;
-      if (isSelected) this.currentActiveRowEl = item;
+    const total = this.visibleChannels.length;
+    const INITIAL_BATCH = 16;
+    const CHUNK_SIZE = 40;
+    const firstEnd = Math.min(total, INITIAL_BATCH);
 
-      const isFav = this.favorites.has(ch.id);
-      const epgMetrics = this.getChannelRowEPGMetrics(ch);
-      const monogram = this.getChannelMonogram(ch);
-      const pillLabel = isSelected ? 'מתנגן • OK למסך מלא ▶' : 'לחץ OK למעבר';
-
-      item.innerHTML =
-        '<span class="channel-number">' + ch.number + '</span>' +
-        '<div class="channel-logo-thumb">' +
-          (ch.logo
-            ? '<img src="' + ch.logo + '" alt="" loading="lazy" decoding="async" style="display:none;" onload="if(this.naturalWidth>2){this.style.display=\'block\';if(this.nextElementSibling)this.nextElementSibling.style.display=\'none\';}" onerror="this.style.display=\'none\';if(this.nextElementSibling)this.nextElementSibling.style.display=\'block\';">'
-            : '') +
-          '<span class="channel-thumb-placeholder">' + monogram + '</span>' +
-        '</div>' +
-        '<div class="channel-text-col">' +
-          '<div class="channel-row-top">' +
-            '<span class="channel-title">' + ch.name + '</span>' +
-            '<span class="channel-epg-sub">' + epgMetrics.title + '</span>' +
-          '</div>' +
-          '<div class="channel-mini-bar-row">' +
-            '<span class="channel-mini-time">' + epgMetrics.timeRange + '</span>' +
-            '<div class="channel-mini-progress-track">' +
-              '<div class="channel-mini-progress-fill' + (epgMetrics.isEndingSoon ? ' ending-soon' : '') + '" style="width:' + epgMetrics.pct + '%"></div>' +
-            '</div>' +
-            '<span class="channel-mini-rem-badge' + (epgMetrics.isEndingSoon ? ' ending-soon' : '') + '">' + epgMetrics.remText + '</span>' +
-          '</div>' +
-        '</div>' +
-        (isFav ? '<span class="channel-fav-star">★</span>' : '') +
-        '<span class="channel-playing-badge">מתנגן ▶</span>' +
-        '<span class="channel-ok-pill">' + pillLabel + '</span>';
-
-      item.addEventListener('click', () => {
-        this.focusArea = 'channels';
-        this.focusedChannelIndex = idx;
-        this.updateChannelFocusFast();
-        if (this.selectedChannel && this.selectedChannel.id === ch.id) {
-          this.enterFullscreen();
-        } else {
-          this.highlightChannel(ch, true);
-        }
-      });
-
+    const firstFrag = document.createDocumentFragment();
+    for (let idx = 0; idx < firstEnd; idx++) {
+      const item = this.createChannelRowElement(this.visibleChannels[idx], idx);
       this.channelRowNodes.push(item);
-      fragment.appendChild(item);
+      firstFrag.appendChild(item);
     }
+    listEl.appendChild(firstFrag);
 
-    listEl.appendChild(fragment);
+    if (firstEnd >= total) return;
+
+    let cursor = firstEnd;
+    const renderNextChunk = () => {
+      if (this._renderJobId !== jobId) return;
+      const end = Math.min(total, cursor + CHUNK_SIZE);
+      const frag = document.createDocumentFragment();
+      for (let idx = cursor; idx < end; idx++) {
+        const item = this.createChannelRowElement(this.visibleChannels[idx], idx);
+        this.channelRowNodes.push(item);
+        frag.appendChild(item);
+      }
+      listEl.appendChild(frag);
+      cursor = end;
+      if (cursor < total) {
+        if (typeof window.requestAnimationFrame === 'function') {
+          window.requestAnimationFrame(renderNextChunk);
+        } else {
+          setTimeout(renderNextChunk, 0);
+        }
+      } else if (this.focusArea === 'channels' && this.focusedChannelIndex >= firstEnd) {
+        this.updateChannelFocusFast();
+      }
+    };
+
+    if (typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(renderNextChunk);
+    } else {
+      setTimeout(renderNextChunk, 0);
+    }
   }
 
   refreshVisibleEPGLabels() {

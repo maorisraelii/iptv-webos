@@ -4,17 +4,63 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Live TV - IPTV</title>
+  <style>
+    html, body { background: #070b14; margin: 0; padding: 0; }
+    .boot-splash {
+      position: fixed; inset: 0; z-index: 9999;
+      background: radial-gradient(circle at 50% 40%, #0f1f3d 0%, #070b14 70%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      transition: opacity 0.24s ease-out;
+    }
+    .boot-splash.fade-out { opacity: 0; pointer-events: none; }
+    .boot-splash.hidden { display: none !important; }
+    .splash-ring {
+      width: 84px; height: 84px; border-radius: 50%;
+      border: 4px solid rgba(56, 189, 248, 0.18);
+      border-top-color: #38bdf8;
+      animation: splashSpin 0.85s linear infinite;
+      margin-bottom: 24px;
+    }
+    .splash-logo {
+      display: flex; align-items: center; gap: 14px;
+      font-family: sans-serif; font-size: 52px; font-weight: 900; color: #ffffff;
+      letter-spacing: 0.5px;
+      animation: splashPulse 1.6s ease-in-out infinite;
+    }
+    .splash-dot {
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #ef4444;
+    }
+    .splash-status {
+      margin-top: 14px; font-family: sans-serif; font-size: 24px;
+      font-weight: 600; color: #94a3b8;
+    }
+    .splash-bar {
+      width: 280px; height: 4px; margin-top: 22px; border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1); overflow: hidden;
+    }
+    .splash-bar-fill {
+      width: 45%; height: 100%; border-radius: 999px;
+      background: linear-gradient(90deg, #0284c7, #38bdf8);
+      animation: splashBar 1.1s ease-in-out infinite alternate;
+    }
+    @keyframes splashSpin { to { transform: rotate(360deg); } }
+    @keyframes splashPulse { 0%, 100% { opacity: 0.88; transform: scale(0.99); } 50% { opacity: 1; transform: scale(1.02); } }
+    @keyframes splashBar { from { transform: translateX(-30%); } to { transform: translateX(150%); } }
+  </style>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body tabindex="0">
 
-  <!-- Ultra-Fast Boot Splash Screen -->
-  <div id="boot-splash" class="boot-splash hidden">
+  <!-- Ultra-Fast Boot Splash Screen (visible at 0ms before scripts load) -->
+  <div id="boot-splash" class="boot-splash">
+    <div class="splash-ring"></div>
     <div class="splash-logo">
       <span class="splash-dot"></span>
       <span>Live TV</span>
     </div>
-    <div id="boot-splash-text" class="splash-status">טוען שידורים חיים...</div>
+    <div id="boot-splash-text" class="splash-status">מתחבר לשידורים חיים...</div>
+    <div class="splash-bar"><div class="splash-bar-fill"></div></div>
   </div>
 
   <!-- Shared Video Player Surface (Floats inside #preview-frame in Browse Mode, expands 100% in Fullscreen) -->
@@ -61,7 +107,7 @@
         </div>
         <span id="active-category-title" class="header-view-label">כל הערוצים</span>
         <span id="channel-list-count" class="header-count-pill">0 ערוצים</span>
-        <span id="header-version-badge" class="header-version-pill">v4.9.6</span>
+        <span id="header-version-badge" class="header-version-pill">v4.9.7</span>
       </div>
 
       <div class="header-left">
@@ -213,7 +259,7 @@
             <h2 id="osd-channel-name" class="osd-channel-title">שם הערוץ</h2>
             <span id="osd-live-badge" class="osd-live-tag">שידור חי</span>
             <span id="osd-channel-category" class="osd-quality-tag">HD</span>
-            <span id="osd-version-badge" class="osd-version-tag">v4.9.6</span>
+            <span id="osd-version-badge" class="osd-version-tag">v4.9.7</span>
           </div>
 
           <!-- OSD EPG Current Programme with Start & End Time -->
@@ -249,7 +295,7 @@
           <!-- OSD Remote Legend Line & Active Version Info -->
           <div class="osd-sub-line">
             <span class="osd-hint">▲▼ זפזופ בפס המידע • <strong>OK (כשפס המידע פתוח)</strong> פאוז / נגן (▶/❚❚) • <strong>צהוב</strong> מדריך 7 ימים • <strong>אדום</strong> סטארט אובר • <strong>BACK</strong> לרשימה</span>
-            <span id="osd-footer-version" class="osd-footer-ver">גרסה v4.9.6</span>
+            <span id="osd-footer-version" class="osd-footer-ver">גרסה v4.9.7</span>
           </div>
         </div>
 
@@ -577,7 +623,7 @@
             <div class="about-app-icon">TV</div>
             <div class="about-title-col" style="flex:1;">
               <div class="about-app-name">Live TV — LG webOS Broadcast Player</div>
-              <div id="about-version-text" class="about-app-version">גרסה v4.9.6 Production • מנגנון עדכוני OTA פעיל (LG webOS 4.0 - 24+)</div>
+              <div id="about-version-text" class="about-app-version">גרסה v4.9.7 Production • מנגנון עדכוני OTA פעיל (LG webOS 4.0 - 24+)</div>
             </div>
             <button id="btn-check-ota-now" class="btn-tv-primary focusable">בדוק עדכוני OTA כעת</button>
           </div>
@@ -680,15 +726,15 @@
     <span id="toast-message"></span>
   </div>
 
-  <!-- Scripts -->
-  <script src="js/loader.js"></script>
-  <script src="js/hls.min.js"></script>
-  <script src="js/m3u-parser.js"></script>
-  <script src="js/lineup-store.js"></script>
-  <script src="js/epg.js"></script>
-  <script src="js/player.js"></script>
-  <script src="js/remote.js"></script>
-  <script src="js/qr-ota.js"></script>
-  <script src="js/app.js"></script>
+  <!-- Scripts (deferred so #boot-splash renders at 0ms) -->
+  <script defer src="js/loader.js"></script>
+  <script defer src="js/hls.min.js"></script>
+  <script defer src="js/m3u-parser.js"></script>
+  <script defer src="js/lineup-store.js"></script>
+  <script defer src="js/epg.js"></script>
+  <script defer src="js/player.js"></script>
+  <script defer src="js/remote.js"></script>
+  <script defer src="js/qr-ota.js"></script>
+  <script defer src="js/app.js"></script>
 </body>
 </html>

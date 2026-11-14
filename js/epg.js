@@ -150,20 +150,29 @@ class EPGService {
       this.programmesByChannel.clear();
       this.channelAliasMap.clear();
 
+      let latestStopMs = 0;
       for (let i = 0; i < data.entries.length; i++) {
         const entry = data.entries[i];
         const chId = entry[0];
-        const progs = entry[1].map((p) => ({
-          id: chId + '_' + p.s,
-          title: p.t,
-          desc: p.d,
-          startMs: p.s,
-          stopMs: p.e,
-          start: new Date(p.s),
-          stop: new Date(p.e)
-        }));
+        const progs = entry[1].map((p) => {
+          if (p.e > latestStopMs) latestStopMs = p.e;
+          return {
+            id: chId + '_' + p.s,
+            title: p.t,
+            desc: p.d,
+            startMs: p.s,
+            stopMs: p.e,
+            start: new Date(p.s),
+            stop: new Date(p.e)
+          };
+        });
         this.programmesByChannel.set(chId, progs);
         this.registerChannelAlias(chId, chId);
+      }
+
+      // If all cached programmes have already ended more than 3h ago, force immediate network refresh
+      if (latestStopMs < Date.now() - 3 * 3600000) {
+        this.lastUpdatedMs = 0;
       }
 
       if (Array.isArray(data.aliases)) {
@@ -335,27 +344,26 @@ class EPGService {
     }
 
     this.isLoading = true;
-    let ClearFirst = !hasCachedData; // Don't wipe memory during background revalidation!
 
     const fetchPromises = urls.map((u) =>
       this.fetchAndDecodeXMLTV(u)
-        .then((xmlText) => {
-          if (xmlText && xmlText.length > 50) {
-            this.parseXMLTV(xmlText, !ClearFirst);
-            ClearFirst = false;
-            return true;
-          }
-          return false;
-        })
+        .then((xmlText) => (xmlText && xmlText.length > 50 ? xmlText : null))
         .catch((err) => {
           console.warn('EPG source warning (' + u + '):', err);
-          return false;
+          return null;
         })
     );
 
     Promise.all(fetchPromises)
-      .then((results) => {
-        const anySuccess = results.some(Boolean) && this.programmesByChannel.size > 0;
+      .then((xmlList) => {
+        const validXmls = xmlList.filter(Boolean);
+        let parsedAny = false;
+        for (let i = 0; i < validXmls.length; i++) {
+          // First valid XML replaces stale cached data cleanly; subsequent feeds append
+          this.parseXMLTV(validXmls[i], i > 0);
+          parsedAny = true;
+        }
+        const anySuccess = parsedAny && this.programmesByChannel.size > 0;
         if (anySuccess) {
           this.saveToLocalCache(cacheKeyUrl);
           this.dayBucketsCache.clear();
@@ -517,7 +525,11 @@ class EPGService {
 
         // SYSTEMIC FILTER: Only parse programmes for channels present in user's active playlist!
         if (hasFilter && matchedChannelIds.size > 0 && !matchedChannelIds.has(channelId)) {
-          continue;
+          const lowerChId = channelId.toLowerCase();
+          const normChId = this.normalizeChannelKey(channelId);
+          if (!this.targetChannelKeys.has(lowerChId) && !(normChId && this.targetChannelKeys.has(normChId))) {
+            continue;
+          }
         }
 
         const body = pMatch[2] || '';
@@ -556,9 +568,24 @@ class EPGService {
         });
       }
 
-      // Sort each channel's schedule chronologically once
-      this.programmesByChannel.forEach((list) => {
+      // Sort each channel's schedule chronologically and deduplicate identical start times
+      this.programmesByChannel.forEach((list, chKey) => {
         list.sort((a, b) => a.startMs - b.startMs);
+        if (list.length > 1) {
+          const deduped = [list[0]];
+          for (let i = 1; i < list.length; i++) {
+            if (list[i].startMs !== list[i - 1].startMs) {
+              deduped.push(list[i]);
+            } else {
+              // Prefer the entry with longer description/title
+              const prev = deduped[deduped.length - 1];
+              if ((list[i].desc || '').length > (prev.desc || '').length) {
+                deduped[deduped.length - 1] = list[i];
+              }
+            }
+          }
+          this.programmesByChannel.set(chKey, deduped);
+        }
       });
     } catch (e) {
       console.warn('XMLTV parse error:', e);
