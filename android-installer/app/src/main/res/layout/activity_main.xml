@@ -436,7 +436,6 @@
                     app:boxStrokeColor="#334155"
                     app:counterEnabled="true"
                     app:counterMaxLength="6"
-                    app:counterTextColor="#94A3B8"
                     app:helperText="6 תווים כפי שמופיעים בטלוויזיה (רגיש לאותיות)"
                     app:helperTextTextColor="#94A3B8"
                     app:hintTextColor="#38BDF8">
