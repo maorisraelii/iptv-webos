@@ -736,7 +736,7 @@ html, body {
   line-height: 1.32;
   color: #f1f5f9;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
   margin-bottom: 6px;
@@ -1310,14 +1310,14 @@ html, body {
 }
 
 .osd-epg-desc {
-  font-size: 24px;
+  font-size: 23px;
   font-weight: 500;
-  line-height: 1.38;
+  line-height: 1.35;
   color: #f1f5f9;
   max-width: 1250px;
   margin-bottom: 10px;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

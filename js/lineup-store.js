@@ -97,24 +97,38 @@ class LineupStore {
 
       // Compact v2 format: stores only rawChannels (omitting empty fields) and compiles in-memory
       if (Array.isArray(data.rawChannels) && data.rawChannels.length > 0 && !Array.isArray(data.compiledChannels)) {
-        this.rawChannels = data.rawChannels.map((c) => ({
-          id: c.id || c.uid,
-          uid: c.uid || c.id,
-          sourceId: c.sourceId || 'src_default',
-          sourceName: c.sourceName || '',
-          originalNumber: c.originalNumber || c.defaultSeqNumber || 1,
-          defaultSeqNumber: c.defaultSeqNumber || c.originalNumber || 1,
-          number: c.number || c.defaultSeqNumber || 1,
-          name: c.name || '',
-          tvgName: c.tvgName || c.name || '',
-          logo: c.logo || '',
-          group: c.group || 'טלוויזיה חיה',
-          epgId: c.epgId || '',
-          url: c.url || '',
-          catchupType: c.catchupType || '',
-          catchupSource: c.catchupSource || '',
-          catchupDays: typeof c.catchupDays === 'number' ? c.catchupDays : 7
-        }));
+        this.rawChannels = data.rawChannels.map((c, idx) => {
+          const seqFallback = idx + 1;
+          const num = (typeof c.number === 'number' && c.number > 0) ? c.number : seqFallback;
+          const defSeq = (typeof c.defaultSeqNumber === 'number' && c.defaultSeqNumber > 0) ? c.defaultSeqNumber : num;
+          const origNum = (typeof c.originalNumber === 'number' && c.originalNumber > 0) ? c.originalNumber : defSeq;
+          return {
+            id: c.id || c.uid,
+            uid: c.uid || c.id,
+            sourceId: c.sourceId || 'src_default',
+            sourceName: c.sourceName || '',
+            originalNumber: origNum,
+            defaultSeqNumber: defSeq,
+            number: num,
+            name: c.name || '',
+            tvgName: c.tvgName || c.name || '',
+            logo: c.logo || '',
+            group: c.group || 'טלוויזיה חיה',
+            epgId: c.epgId || '',
+            url: c.url || '',
+            catchupType: c.catchupType || '',
+            catchupSource: c.catchupSource || '',
+            catchupDays: typeof c.catchupDays === 'number' ? c.catchupDays : 7
+          };
+        });
+        // Auto-heal if a previous cache write collapsed all channels to #1
+        if (this.rawChannels.length > 2 && this.rawChannels.every((ch) => ch.number === 1)) {
+          for (let i = 0; i < this.rawChannels.length; i++) {
+            this.rawChannels[i].number = i + 1;
+            this.rawChannels[i].defaultSeqNumber = i + 1;
+            this.rawChannels[i].originalNumber = i + 1;
+          }
+        }
         return this.recompileLineup(true);
       }
 
@@ -122,6 +136,11 @@ class LineupStore {
       if (Array.isArray(data.compiledChannels) && data.compiledChannels.length > 0) {
         this.rawChannels = data.rawChannels || data.compiledChannels;
         this.compiledChannels = data.compiledChannels;
+        if (this.compiledChannels.length > 2 && this.compiledChannels.every((ch) => ch.number === 1)) {
+          for (let i = 0; i < this.compiledChannels.length; i++) {
+            this.compiledChannels[i].number = i + 1;
+          }
+        }
         return this.compiledChannels;
       }
     } catch (e) {}
