@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/maorisraelii/iptv-webos/main/largeIcon.png" alt="IPTV Live TV App Icon" width="128" height="128" />
 </div>
 
-<h1 align="center">📺 Live TV for LG webOS (v4.9.8)</h1>
+<h1 align="center">📺 Live TV for LG webOS (v4.9.9)</h1>
 
 <p align="center">
   <strong>Smart, ultra-fast, native-feeling Live TV &amp; Catch-Up IPTV player built specifically for LG webOS Smart TVs (webOS 4.0 – webOS 24+), with an Android One-Click Installer Wizard!</strong>
@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-4.9.8%20Production-0284c7?style=for-the-badge" alt="Version 4.9.8" />
+  <img src="https://img.shields.io/badge/Version-4.9.9%20Production-0284c7?style=for-the-badge" alt="Version 4.9.9" />
   <img src="https://img.shields.io/badge/Platform-LG%20webOS%20TV-a50034?style=for-the-badge&logo=lg" alt="LG webOS" />
   <img src="https://img.shields.io/badge/Installer-Android%20APK-16a34a?style=for-the-badge&logo=android" alt="Android Installer APK" />
   <img src="https://img.shields.io/badge/Language-RTL%20Hebrew%20%2F%20All%20Feeds-0284c7?style=for-the-badge" alt="RTL Hebrew" />
@@ -23,7 +23,7 @@
 
 ---
 
-## 📸 Screenshots (v4.9.8)
+## 📸 Screenshots (v4.9.9)
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/maorisraelii/iptv-webos/main/docs/screenshots/browse-workspace.png" alt="Live TV LG webOS Main Split Workspace" width="90%" />
@@ -42,7 +42,7 @@
 <a id="-english-documentation"></a>
 ## 🇬🇧 English Documentation
 
-### 🚀 What's New in v4.9.8
+### 🚀 What's New in v4.9.9
 
 1. **Animated Boot Splash &amp; Instant Cold Boot (`index.html`, `appinfo.json`, `js/app.js`)**:
    - Eliminated the gray webOS default splash and blank startup screen by configuring `splashBackground` and an inline `0ms` animated dark splash screen (`#boot-splash`) with `defer` script loading.
@@ -80,7 +80,7 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 
 1. Install **Developer Mode** on your LG TV from the LG Apps Store and turn ON **Dev Mode Status** + **Key Server**.
 2. Download the latest `.ipk` from GitHub Releases:
-   👉 **[Download `com.iptv.livetv_4.9.8_all.ipk` / `IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest)**
+   👉 **[Download `com.iptv.livetv_4.9.9_all.ipk` / `IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest)**
 3. Open **webOS Dev Manager**, connect to your TV, click **Install App**, and select the downloaded `.ipk`.
 
 ---
@@ -88,7 +88,7 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 <a id="-תיעוד-והתקנה-בעברית"></a>
 ## 🇮🇱 תיעוד והתקנה בעברית
 
-### מה חדש בגרסה v4.9.8?
+### מה חדש בגרסה v4.9.9?
 
 1. **עלייה מהירה ומסך פתיחה מונפש (`#boot-splash`)**:
    - ביטול המסך האפור של LG webOS והמסך הריק בעלייה באמצעות `splashBackground`, סגנון מוטמע שמופיע תוך `0ms`, טעינת סקריפטים עם `defer` ואנימציית פתיחה חלקה.
