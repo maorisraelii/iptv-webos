@@ -17,6 +17,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnCheckDevMode: MaterialButton
     private lateinit var btnCreateAccount: MaterialButton
     private lateinit var btnInstall: MaterialButton
+    private lateinit var btnExtendDevMode: MaterialButton
     private lateinit var etTvIp: TextInputEditText
     private lateinit var etPassphrase: TextInputEditText
     private lateinit var tvListContainer: LinearLayout
@@ -29,15 +30,20 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         ssapClient = SsapClient(this)
+        val prefs = getSharedPreferences("installer_prefs", MODE_PRIVATE)
 
         btnDiscover = findViewById(R.id.btnDiscover)
         btnCheckDevMode = findViewById(R.id.btnCheckDevMode)
         btnCreateAccount = findViewById(R.id.btnCreateAccount)
         btnInstall = findViewById(R.id.btnInstall)
+        btnExtendDevMode = findViewById(R.id.btnExtendDevMode)
         etTvIp = findViewById(R.id.etTvIp)
         etPassphrase = findViewById(R.id.etPassphrase)
         tvListContainer = findViewById(R.id.tvListContainer)
         tvStatus = findViewById(R.id.tvStatus)
+
+        prefs.getString("last_ip", null)?.let { if (it.isNotBlank()) etTvIp.setText(it) }
+        prefs.getString("last_pass", null)?.let { if (it.isNotBlank()) etPassphrase.setText(it) }
 
         btnDiscover.setOnClickListener {
             runDiscovery()
@@ -71,7 +77,21 @@ class MainActivity : AppCompatActivity() {
                 setStatus("נא להזין את ה-Passphrase (6 תווים מאפליקציית Developer Mode בטלוויזיה).")
                 return@setOnClickListener
             }
+            getSharedPreferences("installer_prefs", MODE_PRIVATE).edit()
+                .putString("last_ip", ip)
+                .putString("last_pass", pass)
+                .apply()
             installApp(ip, pass)
+        }
+
+        btnExtendDevMode.setOnClickListener {
+            val ip = etTvIp.text?.toString()?.trim().orEmpty()
+            val pass = etPassphrase.text?.toString()?.trim().orEmpty()
+            if (ip.isEmpty() || pass.isEmpty()) {
+                setStatus("נא למלא IP ו-Passphrase כדי להאריך את Developer Mode.")
+                return@setOnClickListener
+            }
+            extendDevMode(ip, pass)
         }
     }
 
@@ -134,10 +154,24 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun extendDevMode(ip: String, pass: String) {
+        setBusy(true)
+        setStatus("מאריך טיימר Developer Mode...")
+        lifecycleScope.launch {
+            val res = WebosSshInstaller.extendDevModeSession(ip, pass) { progress ->
+                runOnUiThread { setStatus(progress) }
+            }
+            setBusy(false)
+            res.onSuccess { msg -> setStatus("✅ $msg") }
+                .onFailure { err -> setStatus("❌ ${err.message}") }
+        }
+    }
+
     private fun setBusy(busy: Boolean) {
         btnDiscover.isEnabled = !busy
         btnCheckDevMode.isEnabled = !busy
         btnInstall.isEnabled = !busy
+        btnExtendDevMode.isEnabled = !busy
     }
 
     private fun setStatus(msg: String) {

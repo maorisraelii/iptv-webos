@@ -1,6 +1,6 @@
 {
   "id": "com.iptv.livetv",
-  "version": "4.9.7",
+  "version": "4.9.8",
   "vendor": "IPTV",
   "type": "web",
   "main": "index.html",
