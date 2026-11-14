@@ -121,15 +121,28 @@ const jsPatch = `
 })();
 `.trim();
 
+let releaseMeta = {
+  title: 'עדכון גרסה ' + version,
+  releaseNotes: ['שיפורי ביצועים, יציבות ועדכוני ממשק']
+};
+try {
+  const notesPath = path.join(process.cwd(), 'ota-release-notes.json');
+  if (fs.existsSync(notesPath)) {
+    const parsedNotes = JSON.parse(fs.readFileSync(notesPath, 'utf8'));
+    if (parsedNotes && parsedNotes.title) releaseMeta.title = parsedNotes.title;
+    if (parsedNotes && Array.isArray(parsedNotes.releaseNotes) && parsedNotes.releaseNotes.length > 0) {
+      releaseMeta.releaseNotes = parsedNotes.releaseNotes;
+    }
+  }
+} catch (e) {
+  console.warn('[OTA Builder] Warning reading ota-release-notes.json:', e.message);
+}
+
 const manifest = {
   version: version,
   releaseDate: new Date().toISOString().slice(0, 10),
-  title: 'עדכון גרסה ' + version + ' - הגנה מלאה על ערוצי השמע ומניעת איבוד סאונד (Hardware Audio Pipeline)',
-  releaseNotes: [
-    'הגנה על פענוח שמע בחומרה (Hardware Audio Pipeline): שחרור ואיפוס מוחלט של מפענח השמע בחומרה של LG webOS במעבר בין ערוצים וביציאה למניעת השתקת סאונד או נעילת דרייבר שמע',
-    'שחזור שמע אוטומטי בהתעוררות מהמתנה (Resume from Standby / HDMI Switch): זיהוי אוטומטי של חזרת המסך מהמתנה וחיבור מיידי של מפענח השמע ללא צורך ביציאה וכניסה מחדש',
-    'ביטול נעילות Autoplay והשתקה שקטה: הבטחת ניגון בעוצמת שמע מלאה (Unmuted) בכל לחיצה בשלט או מעבר ערוץ'
-  ],
+  title: releaseMeta.title,
+  releaseNotes: releaseMeta.releaseNotes,
   cssPatch: cssContent,
   jsPatch: jsPatch
 };
