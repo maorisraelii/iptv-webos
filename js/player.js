@@ -75,9 +75,15 @@ class VideoPlayer {
     this.retryCount = 0;
     this.maxRetries = 3;
     this.retryTimer = null;
+    this._networkRetryTimer = null;
+    this._unmuteTimer = null;
     this.usedNativeFallback = false;
     this.userPaused = false;
     this.lastMediaRecoveryMs = 0;
+    this._mediaRecoveryAttempts = 0;
+    this._hlsIsCatchup = false;
+    this._hlsReused = false;
+    this._currentUrl = '';
     this.currentQualityTier = 'auto';
 
     // Watchdog & Progressive Quality Ramp-Up timer
@@ -206,6 +212,7 @@ class VideoPlayer {
 
     this.video.addEventListener('playing', () => {
       this.retryCount = 0;
+      this._mediaRecoveryAttempts = 0;
       this.stallTicks = 0;
       this.userPaused = false;
       this.triggerState('playing');
@@ -260,7 +267,7 @@ class VideoPlayer {
       }
 
       const ct = this.video.currentTime || 0;
-      if (ct > 0 && Math.abs(ct - this.lastWatchdogTime) < 0.01) {
+      if (Math.abs(ct - this.lastWatchdogTime) < 0.01) {
         this.stallTicks++;
         if (this.stallTicks >= 3) {
           this.nudgeIfBufferedAhead();
@@ -290,6 +297,8 @@ class VideoPlayer {
           // Only jump if there is an actual unbuffered hole directly ahead of currentTime
           if (start > cur + 0.1 && start - cur < 4.5 && end > start + 0.5) {
             this.video.currentTime = start + 0.15;
+            this.video.muted = false;
+            this.video.volume = 1.0;
             const p = this.video.play();
             if (p && typeof p.catch === 'function') p.catch(() => {});
             return;
@@ -305,6 +314,39 @@ class VideoPlayer {
     }
   }
 
+  clearTimers() {
+    clearTimeout(this.retryTimer);
+    this.retryTimer = null;
+    clearTimeout(this._networkRetryTimer);
+    this._networkRetryTimer = null;
+    clearTimeout(this._unmuteTimer);
+    this._unmuteTimer = null;
+  }
+
+  safePlayWithUnmute() {
+    if (!this.video) return;
+    const playPromise = this.video.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch(() => {
+        if (!this.video || this.userPaused) return;
+        this.video.muted = true;
+        this.video
+          .play()
+          .then(() => {
+            clearTimeout(this._unmuteTimer);
+            this._unmuteTimer = setTimeout(() => {
+              this._unmuteTimer = null;
+              if (this.video && !this.userPaused) {
+                this.video.muted = false;
+                this.video.volume = 1.0;
+              }
+            }, 100);
+          })
+          .catch(() => {});
+      });
+    }
+  }
+
   play(channel, customStreamUrl) {
     if (!channel || !channel.url) return;
     this.currentChannel = channel;
@@ -313,8 +355,29 @@ class VideoPlayer {
     }
     this.usedNativeFallback = false;
     this.userPaused = false;
+    this.retryCount = 0;
+    this._mediaRecoveryAttempts = 0;
     this.stallTicks = 0;
-    this.cleanUp();
+    this.lastWatchdogTime = -1;
+
+    const url = (customStreamUrl || channel.url).trim();
+    this._currentUrl = url;
+    const isHls = url.indexOf('.m3u8') !== -1 || url.indexOf('m3u8') !== -1;
+    const isCatchup = url.indexOf('utc=') !== -1;
+    const canReuseHls = Boolean(
+      isHls &&
+      window.Hls &&
+      window.Hls.isSupported() &&
+      this.hls &&
+      this._hlsIsCatchup === isCatchup
+    );
+
+    if (canReuseHls) {
+      // Fast zap: reuse existing Hls + MediaSource instance without tearing down ALSA/MSE
+      this.clearTimers();
+    } else {
+      this.cleanUp();
+    }
 
     if (this.video) {
       this.video.muted = false;
@@ -323,11 +386,8 @@ class VideoPlayer {
 
     this.triggerState('loading');
 
-    const url = (customStreamUrl || channel.url).trim();
-    const isHls = url.indexOf('.m3u8') !== -1 || url.indexOf('m3u8') !== -1;
-
     if (window.Hls && window.Hls.isSupported() && isHls) {
-      this.playHls(url);
+      this.playHls(url, canReuseHls);
     } else {
       this.playNative(url);
     }
@@ -383,11 +443,24 @@ class VideoPlayer {
     return channel.url + sep + 'utc=' + startUnix + '&lutc=' + stopUnix;
   }
 
-  playHls(url) {
+  playHls(url, reuseExisting) {
     try {
-      const isCatchup = url && url.indexOf('utc=') !== -1;
+      const isCatchup = Boolean(url && url.indexOf('utc=') !== -1);
       const prof = this.getBufferProfile();
+      this._hlsIsCatchup = isCatchup;
 
+      if (reuseExisting && this.hls) {
+        this._hlsReused = true;
+        this.hls.stopLoad();
+        if (this.hls.config) {
+          this.hls.config.startLevel = prof.progressiveQuality ? 0 : -1;
+        }
+        this.hls.autoLevelCapping = prof.progressiveQuality ? 0 : -1;
+        this.hls.loadSource(url);
+        return;
+      }
+
+      this._hlsReused = false;
       this.hls = new window.Hls({
         enableWorker: false,
         // For Start-Over / Catch-up, begin playback from the start of the event
@@ -430,35 +503,20 @@ class VideoPlayer {
 
       this.hls.attachMedia(this.video);
       this.hls.on(window.Hls.Events.MEDIA_ATTACHED, () => {
-        if (this.hls) this.hls.loadSource(url);
+        if (this.hls && this._currentUrl) {
+          this.hls.loadSource(this._currentUrl);
+        }
       });
 
       this.hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
-        if (isCatchup && this.video) {
+        if (this._hlsIsCatchup && this.video) {
           try {
             this.video.currentTime = 0;
           } catch (e) {}
         }
         // Initialize progressive quality cap based on initial empty buffer so first segments load fast
         this.updateProgressiveQualityByBuffer();
-
-        const playPromise = this.video.play();
-        if (playPromise && typeof playPromise.catch === 'function') {
-          playPromise.catch(() => {
-            this.video.muted = true;
-            this.video
-              .play()
-              .then(() => {
-                setTimeout(() => {
-                  if (this.video && !this.userPaused) {
-                    this.video.muted = false;
-                    this.video.volume = 1.0;
-                  }
-                }, 100);
-              })
-              .catch(() => {});
-          });
-        }
+        this.safePlayWithUnmute();
       });
 
       // Ensure audio track is always active and unmuted
@@ -477,6 +535,7 @@ class VideoPlayer {
       });
 
       this.hls.on(window.Hls.Events.FRAG_BUFFERED, () => {
+        this.retryCount = 0;
         // Every time a segment finishes buffering, re-evaluate if we have enough buffer to step up quality!
         this.updateProgressiveQualityByBuffer();
       });
@@ -501,20 +560,38 @@ class VideoPlayer {
           return;
         }
 
+        const activeUrl = this._currentUrl || url;
+
         // Fatal error recovery pipeline
         if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
           if (this.retryCount < this.maxRetries && this.hls) {
-            this.retryCount++;
-            this.hls.startLoad();
+            const attempt = this.retryCount++;
+            const delay = attempt === 0 ? 0 : attempt * 600;
+            clearTimeout(this._networkRetryTimer);
+            if (delay === 0) {
+              this.hls.startLoad();
+            } else {
+              this._networkRetryTimer = setTimeout(() => {
+                if (this.hls) this.hls.startLoad();
+              }, delay);
+            }
             return;
           }
         } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
           const now = Date.now();
-          if (now - this.lastMediaRecoveryMs > 2000 && this.hls) {
+          if (this.hls && this._mediaRecoveryAttempts < 2) {
+            if (now - this.lastMediaRecoveryMs < 1500) {
+              // Recovery was just triggered; avoid tearing down HLS prematurely
+              return;
+            }
             this.lastMediaRecoveryMs = now;
-            console.warn('Media/Audio decode error, recovering media pipeline...');
+            this._mediaRecoveryAttempts++;
+            console.warn('Media/Audio decode error, recovering media pipeline (attempt ' + this._mediaRecoveryAttempts + ')...');
+            if (this._mediaRecoveryAttempts === 2 && typeof this.hls.swapAudioCodec === 'function') {
+              this.hls.swapAudioCodec();
+            }
             this.hls.recoverMediaError();
-            if (this.video) {
+            if (this.video && !this.userPaused) {
               this.video.muted = false;
               this.video.volume = 1.0;
             }
@@ -522,16 +599,26 @@ class VideoPlayer {
           }
         }
 
+        // If a reused HLS instance hit an unrecoverable codec/MSE error, retry once with a fresh Hls instance
+        if (this._hlsReused) {
+          this._hlsReused = false;
+          this.retryCount = 0;
+          this._mediaRecoveryAttempts = 0;
+          this.cleanUp();
+          this.playHls(activeUrl, false);
+          return;
+        }
+
         if (!this.usedNativeFallback) {
           this.usedNativeFallback = true;
           this.cleanUp();
-          this.playNative(url);
+          this.playNative(activeUrl);
         } else {
           this.handlePlaybackError('שגיאה בטעינת השידור');
         }
       });
     } catch (err) {
-      this.playNative(url);
+      this.playNative(this._currentUrl || url);
     }
   }
 
@@ -541,23 +628,7 @@ class VideoPlayer {
       this.video.load();
       this.video.muted = false;
       this.video.volume = 1.0;
-      const playPromise = this.video.play();
-      if (playPromise && typeof playPromise.catch === 'function') {
-        playPromise.catch(() => {
-          this.video.muted = true;
-          this.video
-            .play()
-            .then(() => {
-              setTimeout(() => {
-                if (this.video && !this.userPaused) {
-                  this.video.muted = false;
-                  this.video.volume = 1.0;
-                }
-              }, 100);
-            })
-            .catch(() => {});
-        });
-      }
+      this.safePlayWithUnmute();
     } catch (e) {
       this.handlePlaybackError('שגיאה בהפעלת הנגן');
     }
@@ -570,7 +641,14 @@ class VideoPlayer {
       clearTimeout(this.retryTimer);
       this.retryTimer = setTimeout(() => {
         if (this.currentChannel) {
-          this.playNative(this.currentChannel.url.trim());
+          const targetUrl = (this._currentUrl || this.currentChannel.url || '').trim();
+          const isHls = targetUrl.indexOf('.m3u8') !== -1 || targetUrl.indexOf('m3u8') !== -1;
+          if (isHls && window.Hls && window.Hls.isSupported() && !this.usedNativeFallback) {
+            this.cleanUp();
+            this.playHls(targetUrl, false);
+          } else {
+            this.playNative(targetUrl);
+          }
         }
       }, 1500);
     } else {
@@ -668,7 +746,9 @@ class VideoPlayer {
   }
 
   cleanUp() {
-    clearTimeout(this.retryTimer);
+    this.clearTimers();
+    this._hlsReused = false;
+    this._hlsIsCatchup = false;
     if (this.hls) {
       try {
         this.hls.stopLoad();
@@ -689,6 +769,14 @@ class VideoPlayer {
     }
   }
 
+  destroy() {
+    clearInterval(this.watchdogInterval);
+    this.watchdogInterval = null;
+    this.cleanUp();
+    this.currentChannel = null;
+    this.currentProgramme = null;
+  }
+
   /**
    * Recovers audio pipeline on webOS if audio was dropped by sleep, standby,
    * HDMI input switch, or browser autoplay policy lock.
@@ -698,15 +786,18 @@ class VideoPlayer {
     try {
       this.video.muted = false;
       this.video.volume = 1.0;
-      if (this.hls) {
+      // Only trigger HLS media recovery when the pipeline is actually errored or stalled,
+      // avoiding unnecessary MSE SourceBuffer flushes on normal focus/visibility changes.
+      if (this.hls && (this.video.error || this.video.readyState < 2 || this.stallTicks >= 2)) {
         try {
           this.hls.recoverMediaError();
         } catch (e) {}
       }
-      if (!this.userPaused && this.currentChannel) {
+      if (!this.userPaused && this.currentChannel && this.video.paused) {
         const p = this.video.play();
         if (p && typeof p.catch === 'function') {
           p.catch(() => {
+            if (!this.video || this.userPaused) return;
             this.video.muted = false;
             this.video.volume = 1.0;
             this.video.play().catch(() => {});
