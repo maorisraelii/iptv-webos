@@ -2,7 +2,7 @@
   <img src="largeIcon.png" alt="Live TV Logo" width="130" height="130" style="border-radius: 28px; box-shadow: 0 12px 36px rgba(56, 189, 248, 0.3);" />
 </p>
 
-<h1 align="center">📺 Live TV for LG webOS (v4.9.5)</h1>
+<h1 align="center">📺 Live TV for LG webOS (v4.9.6)</h1>
 
 <p align="center">
   An ultra-fast, hardware-accelerated, remote-first <strong>IPTV Live TV &amp; Catch-Up Player</strong> engineered specifically for <strong>LG Smart TVs (webOS 4.0 – 24+)</strong>.<br />
@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-4.9.5%20Production-0284c7?style=for-the-badge" alt="Version 4.9.5" />
+  <img src="https://img.shields.io/badge/Version-4.9.6%20Production-0284c7?style=for-the-badge" alt="Version 4.9.6" />
   <a href="https://github.com/maorisraelii/iptv-webos/actions/workflows/build_ipk.yml"><img src="https://img.shields.io/github/actions/workflow/status/maorisraelii/iptv-webos/build_ipk.yml?branch=main&style=for-the-badge&label=Build%20%26%20Release&logo=githubactions" alt="Build Status" /></a>
   <img src="https://img.shields.io/badge/Platform-LG%20webOS%204.64%20|%205.0%2B-a50034?style=for-the-badge&logo=lg" alt="LG webOS 4.64+" />
   <img src="https://img.shields.io/badge/Start--Over-Universal%20Timeshift%20Catchup-059669?style=for-the-badge" alt="Universal Catch-Up" />
@@ -21,12 +21,12 @@
 
 ---
 
-## 📸 Screenshots (v4.9.5)
+## 📸 Screenshots (v4.9.6)
 
 <p align="center">
   <img src="screenshots/1-browse-live.png" alt="Live TV Main Workspace with Real-Time Israeli EPG, Channel List Mini Progress Bars, True 16:9 960x540 Live Preview, Prev/Now/Next EPG and 5-Show Strip" width="100%" />
   <br />
-  <em>Main Split Workspace (v4.9.5): Right-side Wide O(1) Channel List (892px wide) with Real-Time Israeli XMLTV Programmes, Live Mini Progress Bars, Start/End Times &amp; Remaining Minutes per Channel + Left-side True 16:9 (960×540) Live Stream Preview, Previous/Current/Next EPG, and 5-Program Start-Over Strip.</em>
+  <em>Main Split Workspace (v4.9.6): Right-side Wide O(1) Channel List (892px wide) with Real-Time Israeli XMLTV Programmes, Live Mini Progress Bars, Start/End Times &amp; Remaining Minutes per Channel + Left-side True 16:9 (960×540) Live Stream Preview, Previous/Current/Next EPG, and 5-Program Start-Over Strip.</em>
 </p>
 
 <table>
@@ -50,7 +50,19 @@
 
 ---
 
-## 🚀 What's New in v4.9.5
+## 🚀 What's New in v4.9.6
+
+1. **Live Start-Over & Full Info-Bar Integration (`js/app.js`, `js/player.js`)**:
+   - **Start-Over on Currently Airing Programmes**: Pressing the Red button 🔴 in fullscreen (or selecting the live show in the guide/strip) now restarts the currently airing show from `00:00` via catch-up `EVENT` stream (`liveSyncDurationCount: 99999` prevents jumping back to live edge).
+   - **Unified Info Bar (`#fullscreen-osd`)**: Removed the corner catch-up badge and seek toasts. Start-Over title, time range, synopsis, live elapsed/total duration (`MM:SS / MM:SS`), and progress bar now update dynamically inside the Info Bar every second, with a dedicated `סטארט אובר` badge. Rewind/Fast-Forward (`◀`/`▶` 15s, Green/Blue 30s) and Pause/Play also update and display the Info Bar directly.
+
+2. **Intuitive Info-Bar Navigation (`▲`/`▼` First-Press)**:
+   - Pressing `▲` or `▼` while the Info Bar is hidden now reveals the Info Bar for the **current channel** first; subsequent presses surf to the next/previous channel.
+
+3. **UI Performance & Rendering Optimization (`js/app.js`, `css/style.css`)**:
+   - Added `loading="lazy" decoding="async"` to channel row logos, debounced rapid D-pad `previewChannelInfo` updates (`85ms`) for smooth 60fps scrolling, added CSS `contain: layout style paint` & `will-change: transform`, and removed heavy `box-shadow` blur layers for snappier LG webOS WebKit performance.
+
+### Previous Releases (v4.9.5 & Earlier)
 
 1. **Systemic In-App Dynamic EPG Engine (`js/epg.js`, `js/app.js`)**:
    - **Eliminated Hardcoded Playlist Dependencies**: Removed all hardcoded channel IDs and playlist-specific JSON lists (`user-channels.json`, `temp_user_playlist.m3u`).
@@ -134,9 +146,9 @@
 
 ### Method 1: Direct Download via GitHub Releases (Recommended)
 1. Download the latest pre-built package from Releases:
-   👉 **[Download `com.iptv.livetv_4.9.5_all.ipk` / `IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest)**
+   👉 **[Download `com.iptv.livetv_4.9.6_all.ipk` / `IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest)**
 2. Open [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop) on your PC with your TV connected.
-3. Click **Install App** and select `com.iptv.livetv_4.9.5_all.ipk` (or `IPTV-Live-webOS.ipk`).
+3. Click **Install App** and select `com.iptv.livetv_4.9.6_all.ipk` (or `IPTV-Live-webOS.ipk`).
 4. Subsequent updates are delivered automatically via **Over-The-Air (OTA) Cloud Updates** directly inside the app!
 
 ### Method 2: 1-Click Local Build &amp; Direct TV Install (PowerShell)
