@@ -581,10 +581,16 @@ class IPTVApp {
 
     if (this.visibleChannels.length === 0) {
       listEl.innerHTML =
-        '<div style="padding: 36px 24px; color: #94a3b8; font-size: 25px; font-weight: 700; text-align: center;">' +
-        (this.onlyFavorites
-          ? 'רשימת המועדפים ריקה כעת.<br><span style="font-size:21px;font-weight:500;">בחר ערוץ ולחץ על "הוסף למועדפים" בסרגל העליון.</span>'
-          : 'אין ערוצים להצגה. לחץ על "הגדרות ו-M3U" להוספת פלייליסט.') +
+        '<div class="empty-state-card">' +
+          '<div class="empty-state-icon">' + (this.onlyFavorites ? '★' : '📺') + '</div>' +
+          '<div class="empty-state-title">' +
+            (this.onlyFavorites ? 'רשימת המועדפים ריקה כעת' : 'אין ערוצים להצגה') +
+          '</div>' +
+          '<div class="empty-state-desc">' +
+            (this.onlyFavorites
+              ? 'בחר ערוץ ולחץ על "הוסף למועדפים" בסרגל העליון כדי לשמור אותו כאן.'
+              : 'לחץ על "הגדרות ו-M3U" בסרגל העליון להוספת פלייליסט או סנכרון מהטלפון.') +
+          '</div>' +
         '</div>';
       return;
     }
@@ -707,21 +713,25 @@ class IPTVApp {
     const logoImg = document.getElementById('preview-channel-logo');
     const logoPlaceholder = document.getElementById('preview-channel-placeholder');
     if (logoImg && logoPlaceholder) {
-      logoPlaceholder.textContent = this.getChannelMonogram(channel);
-      logoImg.classList.add('hidden');
-      logoPlaceholder.classList.remove('hidden');
-      if (channel.logo) {
-        logoImg.onload = () => {
-          if (logoImg.naturalWidth > 2) {
-            logoImg.classList.remove('hidden');
-            logoPlaceholder.classList.add('hidden');
-          }
-        };
-        logoImg.onerror = () => {
-          logoImg.classList.add('hidden');
-          logoPlaceholder.classList.remove('hidden');
-        };
-        logoImg.src = channel.logo;
+      const nextLogo = channel.logo || '';
+      if (logoImg.dataset.loadedSrc !== nextLogo) {
+        logoImg.dataset.loadedSrc = nextLogo;
+        logoPlaceholder.textContent = this.getChannelMonogram(channel);
+        logoImg.classList.add('hidden');
+        logoPlaceholder.classList.remove('hidden');
+        if (nextLogo) {
+          logoImg.onload = () => {
+            if (logoImg.naturalWidth > 2) {
+              logoImg.classList.remove('hidden');
+              logoPlaceholder.classList.add('hidden');
+            }
+          };
+          logoImg.onerror = () => {
+            logoImg.classList.add('hidden');
+            logoPlaceholder.classList.remove('hidden');
+          };
+          logoImg.src = nextLogo;
+        }
       }
     }
 
@@ -957,21 +967,25 @@ class IPTVApp {
     const osdLogo = document.getElementById('osd-channel-logo');
     const osdPlaceholder = document.getElementById('osd-logo-placeholder');
     if (osdLogo && osdPlaceholder) {
-      osdPlaceholder.textContent = this.getChannelMonogram(channel);
-      osdLogo.classList.add('hidden');
-      osdPlaceholder.classList.remove('hidden');
-      if (channel.logo) {
-        osdLogo.onload = () => {
-          if (osdLogo.naturalWidth > 2) {
-            osdLogo.classList.remove('hidden');
-            osdPlaceholder.classList.add('hidden');
-          }
-        };
-        osdLogo.onerror = () => {
-          osdLogo.classList.add('hidden');
-          osdPlaceholder.classList.remove('hidden');
-        };
-        osdLogo.src = channel.logo;
+      const nextLogo = channel.logo || '';
+      if (osdLogo.dataset.loadedSrc !== nextLogo) {
+        osdLogo.dataset.loadedSrc = nextLogo;
+        osdPlaceholder.textContent = this.getChannelMonogram(channel);
+        osdLogo.classList.add('hidden');
+        osdPlaceholder.classList.remove('hidden');
+        if (nextLogo) {
+          osdLogo.onload = () => {
+            if (osdLogo.naturalWidth > 2) {
+              osdLogo.classList.remove('hidden');
+              osdPlaceholder.classList.add('hidden');
+            }
+          };
+          osdLogo.onerror = () => {
+            osdLogo.classList.add('hidden');
+            osdPlaceholder.classList.remove('hidden');
+          };
+          osdLogo.src = nextLogo;
+        }
       }
     }
 
@@ -992,12 +1006,15 @@ class IPTVApp {
       if (playback && playback.isPaused && !isSurfing) {
         osdLiveBadge.textContent = '❚❚ מושהה';
         osdLiveBadge.classList.remove('catchup-mode');
+        osdLiveBadge.classList.add('paused-mode');
       } else if (activeCatchupProg) {
         osdLiveBadge.textContent = 'סטארט אובר';
         osdLiveBadge.classList.add('catchup-mode');
+        osdLiveBadge.classList.remove('paused-mode');
       } else {
         osdLiveBadge.textContent = 'שידור חי';
         osdLiveBadge.classList.remove('catchup-mode');
+        osdLiveBadge.classList.remove('paused-mode');
       }
     }
 
@@ -1131,9 +1148,23 @@ class IPTVApp {
     if (this.onlyFavorites) {
       this.applyChannelFilter();
     } else {
-      this.renderChannelList();
-      if (this.focusArea === 'channels') {
-        this.updateChannelFocusFast();
+      // O(1) DOM update for the toggled channel row without rebuilding the whole list
+      const nowFav = this.favorites.has(id);
+      for (let i = 0; i < this.channelRowNodes.length; i++) {
+        const row = this.channelRowNodes[i];
+        if (row && row.dataset.channelId === id) {
+          let starEl = row.querySelector('.channel-fav-star');
+          if (nowFav && !starEl) {
+            starEl = document.createElement('span');
+            starEl.className = 'channel-fav-star';
+            starEl.textContent = '★';
+            const playingBadge = row.querySelector('.channel-playing-badge');
+            row.insertBefore(starEl, playingBadge || null);
+          } else if (!nowFav && starEl) {
+            starEl.remove();
+          }
+          break;
+        }
       }
     }
   }
@@ -1804,6 +1835,13 @@ class IPTVApp {
         this.guideDayTabNodes[i].classList.remove('active-day');
       }
     }
+    const barEl = document.getElementById('guide-days-bar');
+    const activeTab = this.guideDayTabNodes[this.guideDayIndex];
+    if (barEl && activeTab && typeof activeTab.scrollIntoView === 'function') {
+      try {
+        activeTab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      } catch (e) {}
+    }
   }
 
   renderGuideDayProgrammes() {
@@ -1814,7 +1852,23 @@ class IPTVApp {
 
     const dayBucket = this.guideDays[this.guideDayIndex];
     if (!dayBucket || !dayBucket.programmes || dayBucket.programmes.length === 0) {
-      listEl.innerHTML = '<div style="padding:28px;font-size:24px;color:#94a3b8;">אין תוכניות רשומות ליום זה.</div>';
+      listEl.innerHTML =
+        '<div class="empty-state-card">' +
+          '<div class="empty-state-icon">📅</div>' +
+          '<div class="empty-state-title">אין תוכניות רשומות ליום זה</div>' +
+          '<div class="empty-state-desc">השתמש בחצים ◀ ▶ למעבר מהיר בין הימים האחרים.</div>' +
+        '</div>';
+      const statusEl = document.getElementById('guide-detail-status');
+      const titleEl = document.getElementById('guide-detail-title');
+      const timeEl = document.getElementById('guide-detail-time');
+      const descEl = document.getElementById('guide-detail-desc');
+      if (statusEl) {
+        statusEl.textContent = 'אין נתוני שידור';
+        statusEl.className = 'guide-status-badge status-future';
+      }
+      if (titleEl) titleEl.textContent = dayBucket ? dayBucket.label : 'ללא תוכניות';
+      if (timeEl) timeEl.textContent = '--:-- - --:--';
+      if (descEl) descEl.textContent = 'לא נמצאו תוכניות בלוח השידורים ליום שנבחר.';
       return;
     }
 
@@ -1883,16 +1937,13 @@ class IPTVApp {
       if (statusEl) {
         if (prog.status === 'past') {
           statusEl.textContent = 'זמין לסטארט אובר (לחץ OK להפעלה)';
-          statusEl.style.backgroundColor = '#f59e0b';
-          statusEl.style.color = '#0f172a';
+          statusEl.className = 'guide-status-badge status-past';
         } else if (prog.status === 'live') {
           statusEl.textContent = '• משודר כעת בשידור חי (לחץ OK לצפייה / סטארט אובר)';
-          statusEl.style.backgroundColor = '#e11d48';
-          statusEl.style.color = '#ffffff';
+          statusEl.className = 'guide-status-badge status-live';
         } else {
           statusEl.textContent = 'ישודר בהמשך היום';
-          statusEl.style.backgroundColor = '#334155';
-          statusEl.style.color = '#e2e8f0';
+          statusEl.className = 'guide-status-badge status-future';
         }
       }
       if (titleEl) titleEl.textContent = prog.title;
@@ -2188,6 +2239,8 @@ class IPTVApp {
     document.getElementById('search-modal').classList.remove('hidden');
     this.updateVideoSurfacePosition();
     this.renderSearchKeyboard();
+    const searchInput = document.getElementById('search-query-input');
+    this.filterChannels(searchInput ? searchInput.value : '');
     this.setupModalFocus('#search-modal');
   }
 
@@ -2226,15 +2279,21 @@ class IPTVApp {
     const activeModal = document.querySelector('.modal-backdrop:not(.hidden)');
     if (!activeModal) return;
 
-    const focusables = Array.from(activeModal.querySelectorAll('.focusable')).filter(
-      (el) => el.offsetWidth > 0 || el.offsetHeight > 0
-    );
+    const allFocusables = activeModal.querySelectorAll('.focusable');
+    const focusables = [];
+    const rects = [];
+    for (let i = 0; i < allFocusables.length; i++) {
+      const r = allFocusables[i].getBoundingClientRect();
+      if (r.width > 0 || r.height > 0) {
+        focusables.push(allFocusables[i]);
+        rects.push(r);
+      }
+    }
     if (focusables.length === 0) return;
 
     const curIdx = focusables.indexOf(this.currentFocusedEl);
     const activeIdx = curIdx !== -1 ? curIdx : 0;
-    const currentEl = focusables[activeIdx];
-    const curRect = currentEl.getBoundingClientRect();
+    const curRect = rects[activeIdx];
     const curCx = curRect.left + curRect.width / 2;
     const curCy = curRect.top + curRect.height / 2;
 
@@ -2243,8 +2302,7 @@ class IPTVApp {
 
     for (let i = 0; i < focusables.length; i++) {
       if (i === activeIdx) continue;
-      const rect = focusables[i].getBoundingClientRect();
-      if (rect.width === 0 && rect.height === 0) continue;
+      const rect = rects[i];
 
       const cx = rect.left + rect.width / 2;
       const cy = rect.top + rect.height / 2;
@@ -2365,6 +2423,12 @@ class IPTVApp {
     const q = query.trim().toLowerCase();
     if (!q) {
       countEl.textContent = '0';
+      listEl.innerHTML =
+        '<div class="empty-state-card">' +
+          '<div class="empty-state-icon">🔍</div>' +
+          '<div class="empty-state-title">חיפוש ערוץ מהיר</div>' +
+          '<div class="empty-state-desc">הקלד שם ערוץ, קטגוריה או מספר ערוץ במקלדת משמאל.</div>' +
+        '</div>';
       return;
     }
 
@@ -2379,6 +2443,17 @@ class IPTVApp {
 
     countEl.textContent = matches.length.toString();
 
+    if (matches.length === 0) {
+      listEl.innerHTML =
+        '<div class="empty-state-card">' +
+          '<div class="empty-state-icon">😕</div>' +
+          '<div class="empty-state-title">לא נמצאו ערוצים תואמים</div>' +
+          '<div class="empty-state-desc">נסה להקליד שם חלקי או מספר ערוץ אחר.</div>' +
+        '</div>';
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
     matches.forEach((ch) => {
       const row = document.createElement('div');
       row.className = 'channel-item focusable';
@@ -2387,7 +2462,8 @@ class IPTVApp {
         '<div class="channel-text-col">' +
           '<span class="channel-title">' + ch.name + '</span>' +
           '<span class="channel-epg-sub">' + (ch.group || 'טלוויזיה חיה') + '</span>' +
-        '</div>';
+        '</div>' +
+        '<span class="channel-ok-pill">OK לצפייה ▶</span>';
 
       row.addEventListener('click', () => {
         this.closeModals();
@@ -2396,8 +2472,9 @@ class IPTVApp {
         this.highlightChannel(ch, true);
         this.enterFullscreen();
       });
-      listEl.appendChild(row);
+      frag.appendChild(row);
     });
+    listEl.appendChild(frag);
   }
 
   /* --------------------------------------------------------------------------

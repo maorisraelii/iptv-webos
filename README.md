@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/maorisraelii/iptv-webos/main/largeIcon.png" alt="IPTV Live TV App Icon" width="128" height="128" />
 </div>
 
-<h1 align="center">📺 Live TV for LG webOS (v4.9.8)</h1>
+<h1 align="center">📺 Live TV for LG webOS (v4.9.9)</h1>
 
 <p align="center">
   <strong>Smart, ultra-fast, native-feeling Live TV &amp; Catch-Up IPTV player built specifically for LG webOS Smart TVs (webOS 4.0 – webOS 24+), with an Android One-Click Installer Wizard!</strong>
@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-4.9.8%20Production-0284c7?style=for-the-badge" alt="Version 4.9.8" />
+  <img src="https://img.shields.io/badge/Version-4.9.9%20Production-0284c7?style=for-the-badge" alt="Version 4.9.9" />
   <img src="https://img.shields.io/badge/Platform-LG%20webOS%20TV-a50034?style=for-the-badge&logo=lg" alt="LG webOS" />
   <img src="https://img.shields.io/badge/Installer-Android%20APK-16a34a?style=for-the-badge&logo=android" alt="Android Installer APK" />
   <img src="https://img.shields.io/badge/Language-RTL%20Hebrew%20%2F%20All%20Feeds-0284c7?style=for-the-badge" alt="RTL Hebrew" />
@@ -23,7 +23,7 @@
 
 ---
 
-## 📸 Screenshots (v4.9.8)
+## 📸 Screenshots (v4.9.9)
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/maorisraelii/iptv-webos/main/docs/screenshots/browse-workspace.png" alt="Live TV LG webOS Main Split Workspace" width="90%" />
@@ -42,7 +42,7 @@
 <a id="-english-documentation"></a>
 ## 🇬🇧 English Documentation
 
-### 🚀 What's New in v4.9.8
+### 🚀 What's New in v4.9.9
 
 1. **Animated Boot Splash &amp; Instant Cold Boot (`index.html`, `appinfo.json`, `js/app.js`)**:
    - Eliminated the gray webOS default splash and blank startup screen by configuring `splashBackground` and an inline `0ms` animated dark splash screen (`#boot-splash`) with `defer` script loading.
@@ -65,19 +65,22 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 
 1. Download and install the Android Wizard APK on your phone:
    👉 **[Download `IPTV-webOS-Installer.apk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-webOS-Installer.apk)**
-2. Open **מתקין IPTV ל-LG** on your phone (make sure phone and TV are on the same Wi-Fi):
-   - **Step 1 — Auto-Discover TV**: Tap **"חפש טלוויזיות LG ברשת"** — the app automatically finds your LG TV via SSDP / LAN scan.
+2. Open **מתקין IPTV ל-LG** on your phone (make sure phone and TV are on the same Wi-Fi) and follow the **1–2–3 visual progress wizard**:
+   - **Step 1 — Auto-Discover TV**: Tap **"חפש טלוויזיות LG ברשת"** — the app automatically finds your LG TV via SSDP / LAN scan (or remembers your last IP).
    - **Step 2 — Pair &amp; Check Developer Mode**: Tap **"התחבר לטלוויזיה ופתח Developer Mode"** and accept the pairing prompt on the TV with your remote.
      - If **Developer Mode** is not installed yet, the app automatically opens the LG Content Store directly to Developer Mode on your TV so you only click **Install**.
      - If you don't have an LG Developer account yet, tap **"אין לי חשבון LG Developer"** to open the official registration page.
-   - **Step 3 — One-Click Install**: On the TV inside Developer Mode, log in with your LG account, turn ON **Dev Mode Status** (TV restarts once), turn ON **Key Server**, enter the 6-character **Passphrase** into the Android app, and tap **"התקן IPTV Live TV לטלוויזיה!"**.
+   - **Step 3 — One-Click Readiness Check &amp; Install**:
+     - On the TV inside Developer Mode, log in with your LG account, turn ON **Dev Mode Status** (TV restarts once), and turn ON **Key Server**.
+     - Need a quick reminder? Tap **"הוראות הפעלת Key Server"** for built-in step-by-step troubleshooting, or tap **"בדוק Key Server"** to verify Key Server, Dev Mode, and your 6-character **Passphrase** before installing.
+     - Enter the 6-character **Passphrase** into the Android app, and tap **"התקן / עדכן IPTV Live TV לטלוויזיה!"** (with 1-tap retry/recovery if anything isn't ready yet).
    - The app automatically fetches the TV's SSH key (`port 9991`), downloads the latest `IPTV-Live-webOS.ipk` from GitHub Releases, installs it (`port 9922`), and launches **Live TV** on your TV!
 
 ### 💻 Option 2: Install from Windows/Mac/Linux (webOS Dev Manager)
 
 1. Install **Developer Mode** on your LG TV from the LG Apps Store and turn ON **Dev Mode Status** + **Key Server**.
 2. Download the latest `.ipk` from GitHub Releases:
-   👉 **[Download `com.iptv.livetv_4.9.8_all.ipk` / `IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest)**
+   👉 **[Download `com.iptv.livetv_4.9.9_all.ipk` / `IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest)**
 3. Open **webOS Dev Manager**, connect to your TV, click **Install App**, and select the downloaded `.ipk`.
 
 ---
@@ -85,7 +88,7 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 <a id="-תיעוד-והתקנה-בעברית"></a>
 ## 🇮🇱 תיעוד והתקנה בעברית
 
-### מה חדש בגרסה v4.9.8?
+### מה חדש בגרסה v4.9.9?
 
 1. **עלייה מהירה ומסך פתיחה מונפש (`#boot-splash`)**:
    - ביטול המסך האפור של LG webOS והמסך הריק בעלייה באמצעות `splashBackground`, סגנון מוטמע שמופיע תוך `0ms`, טעינת סקריפטים עם `defer` ואנימציית פתיחה חלקה.
@@ -108,16 +111,17 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 
 1. הורד והתקן בטלפון האנדרואיד שלך את אשף ההתקנה:
    👉 **[הורד את האשף לאנדרואיד (`IPTV-webOS-Installer.apk`)](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-webOS-Installer.apk)**
-2. פתח את האפליקציה **"מתקין IPTV ל-LG"** (ודא שהטלפון והטלוויזיה על אותו Wi-Fi):
-   - **שלב 1 — איתור אוטומטי**: לחץ על **"חפש טלוויזיות LG ברשת"**. האפליקציה תמצא אוטומטית את הטלוויזיה שלך.
+2. פתח את האפליקציה **"מתקין IPTV ל-LG"** (ודא שהטלפון והטלוויזיה על אותו Wi-Fi) ועקוב אחר **מד ההתקדמות 1–2–3**:
+   - **שלב 1 — איתור אוטומטי**: לחץ על **"חפש טלוויזיות LG ברשת"**. האפליקציה תמצא אוטומטית את הטלוויזיה שלך (וזוכרת את כתובת ה-IP האחרונה).
    - **שלב 2 — חיבור ופתיחת Developer Mode**: לחץ על **"התחבר לטלוויזיה ופתח Developer Mode"** ואשר עם השלט את בקשת החיבור על מסך הטלוויזיה.
      - אם אפליקציית **Developer Mode** עדיין לא מותקנת בטלוויזיה, האשף יפתח לך אוטומטית את חנות LG ישר עליה — תצטרך רק ללחוץ **"התקן"**.
      - אם כבר מותקנת, האשף יפתח אותה אוטומטית על המסך.
      - אין לך עדיין חשבון LG Developer? לחץ על הכפתור **"אין לי חשבון LG Developer"** לפתיחת עמוד ההרשמה הרשמי.
-   - **שלב 3 — התקנה בלחיצה אחת**:
+   - **שלב 3 — בדיקת מוכנות והתקנה בלחיצה אחת**:
      1. באפליקציית Developer Mode בטלוויזיה: התחבר לחשבון LG, הדלק **Dev Mode Status** (הטלוויזיה תבצע הפעלה מחדש פעם אחת) ולאחר מכן הדלק את **Key Server**.
-     2. הקלד באשף בטלפון את ה-**Passphrase** (6 התווים שמופיעים על מסך הטלוויזיה).
-     3. לחץ על **"התקן IPTV Live TV לטלוויזיה!"**.
+     2. ניתן ללחוץ על **"הוראות הפעלת Key Server"** להסבר מהיר ופתרון תקלות, או על **"בדוק Key Server"** כדי לוודא בלחיצה ש-Key Server, Dev Mode וה-Passphrase מוכנים.
+     3. הקלד באשף בטלפון את ה-**Passphrase** (6 התווים שמופיעים על מסך הטלוויזיה).
+     4. לחץ על **"התקן / עדכן IPTV Live TV לטלוויזיה!"** (בכל תקלה יופיע כפתור **"בדוק שוב"** בלחיצה אחת).
      - האשף ימשוך אוטומטית את מפתח ה-SSH מהטלוויזיה, יוריד את הגרסה האחרונה מ-GitHub, יתקין אותה לטלוויזיה ויפעיל את האפליקציה מיד!
 
 ### 💻 התקנה ממחשב (Windows / Mac / Linux)
