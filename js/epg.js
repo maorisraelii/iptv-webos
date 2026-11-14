@@ -235,7 +235,7 @@ class EPGService {
           if (p.stopMs >= minMs && p.startMs <= maxMs) {
             compactList.push({
               t: p.title,
-              d: p.desc ? p.desc.substring(0, 80) : '',
+              d: p.desc ? (p.desc.length > 360 ? p.desc.substring(0, 360).replace(/\s+\S*$/, '') + '...' : p.desc) : '',
               s: p.startMs,
               e: p.stopMs
             });
