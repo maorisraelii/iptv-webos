@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#090D16"
+    android:fillViewport="true"
+    android:layoutDirection="rtl">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="אשף התקנה — IPTV Live TV ל-LG"
+            android:textColor="#FFFFFF"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="16dp"
+            android:text="מחבר את הטלוויזיה, בודק Developer Mode ומתקין את האפליקציה ישירות מהטלפון."
+            android:textColor="#94A3B8"
+            android:textSize="14sp" />
+
+        <!-- Step 1: TV Discovery -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="14dp"
+            app:cardBackgroundColor="#111827"
+            app:cardCornerRadius="16dp"
+            app:strokeColor="#1E293B"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="שלב 1: איתור הטלוויזיה ב-Wi-Fi"
+                    android:textColor="#38BDF8"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnDiscover"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="חפש טלוויזיות LG ברשת"
+                    app:backgroundTint="#0284C7"
+                    app:cornerRadius="12dp" />
+
+                <LinearLayout
+                    android:id="@+id/tvListContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="vertical" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="כתובת IP של הטלוויזיה (לדוגמה 192.168.1.50)">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etTvIp"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="phone"
+                        android:textColor="#FFFFFF" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Step 2: Pair & Check Developer Mode -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="14dp"
+            app:cardBackgroundColor="#111827"
+            app:cardCornerRadius="16dp"
+            app:strokeColor="#1E293B"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="שלב 2: בדיקה ופתיחה של Developer Mode"
+                    android:textColor="#38BDF8"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="האשף יבדוק אם Developer Mode מותקנת בטלוויזיה. אם לא — יפתח לך מיד את החנות עליה. אם כן — יפתח אותה על המסך."
+                    android:textColor="#CBD5E1"
+                    android:textSize="13sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnCheckDevMode"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="התחבר לטלוויזיה ופתח Developer Mode"
+                    app:backgroundTint="#0369A1"
+                    app:cornerRadius="12dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnCreateAccount"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="אין לי חשבון LG Developer (פתח הרשמה)"
+                    android:textColor="#E2E8F0"
+                    app:cornerRadius="12dp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Step 3: Install IPK -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="14dp"
+            app:cardBackgroundColor="#111827"
+            app:cardCornerRadius="16dp"
+            app:strokeColor="#1E293B"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="שלב 3: התקנת IPTV בלחיצה אחת"
+                    android:textColor="#38BDF8"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="בטלוויזיה (באפליקציית Developer Mode):\n1. התחבר לחשבון LG\n2. הדלק Dev Mode Status\n3. הדלק Key Server\n4. הזן כאן את ה-Passphrase (6 תווים):"
+                    android:textColor="#CBD5E1"
+                    android:textSize="13sp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:hint="Passphrase (לדוגמה A1B2C3)">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etPassphrase"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textVisiblePassword"
+                        android:textColor="#FFFFFF" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnInstall"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="התקן IPTV Live TV לטלוויזיה!"
+                    app:backgroundTint="#16A34A"
+                    app:cornerRadius="12dp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Status Box -->
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#0F172A"
+            android:padding="14dp"
+            android:text="מוכן. התחל בשלב 1 למציאת הטלוויזיה."
+            android:textColor="#E2E8F0"
+            android:textSize="14sp" />
+
+    </LinearLayout>
+</ScrollView>
