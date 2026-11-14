@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/mainScrollView"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#090D16"
@@ -11,34 +12,156 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp">
+        android:padding="18dp">
 
+        <!-- Header -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="אשף התקנה — IPTV Live TV ל-LG"
             android:textColor="#FFFFFF"
-            android:textSize="24sp"
+            android:textSize="23sp"
             android:textStyle="bold" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:layout_marginBottom="16dp"
-            android:text="מחבר את הטלוויזיה, בודק Developer Mode ומתקין את האפליקציה ישירות מהטלפון."
+            android:layout_marginBottom="14dp"
+            android:text="3 שלבים פשוטים מהטלפון: איתור טלוויזיה, פתיחת Developer Mode והתקנה בלחיצה."
             android:textColor="#94A3B8"
-            android:textSize="14sp" />
+            android:textSize="13.5sp" />
+
+        <!-- Top 1-2-3 Visual Progress Stepper -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="14dp"
+            app:cardBackgroundColor="#0F172A"
+            app:cardCornerRadius="14dp"
+            app:strokeColor="#1E293B"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="12dp">
+
+                <!-- Step 1 node -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tvStepper1Circle"
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:gravity="center"
+                        android:text="1"
+                        android:textColor="#FFFFFF"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvStepper1Label"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="טלוויזיה"
+                        android:textColor="#E2E8F0"
+                        android:textSize="11.5sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <View
+                    android:id="@+id/stepperLine12"
+                    android:layout_width="0dp"
+                    android:layout_height="2dp"
+                    android:layout_marginHorizontal="6dp"
+                    android:layout_marginBottom="14dp"
+                    android:layout_weight="1"
+                    android:background="#334155" />
+
+                <!-- Step 2 node -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tvStepper2Circle"
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:gravity="center"
+                        android:text="2"
+                        android:textColor="#94A3B8"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvStepper2Label"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Dev Mode"
+                        android:textColor="#94A3B8"
+                        android:textSize="11.5sp" />
+                </LinearLayout>
+
+                <View
+                    android:id="@+id/stepperLine23"
+                    android:layout_width="0dp"
+                    android:layout_height="2dp"
+                    android:layout_marginHorizontal="6dp"
+                    android:layout_marginBottom="14dp"
+                    android:layout_weight="1"
+                    android:background="#334155" />
+
+                <!-- Step 3 node -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tvStepper3Circle"
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:gravity="center"
+                        android:text="3"
+                        android:textColor="#94A3B8"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvStepper3Label"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="התקנה"
+                        android:textColor="#94A3B8"
+                        android:textSize="11.5sp" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
         <!-- Step 1: TV Discovery -->
         <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardStep1"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="14dp"
             app:cardBackgroundColor="#111827"
             app:cardCornerRadius="16dp"
-            app:strokeColor="#1E293B"
-            app:strokeWidth="1dp">
+            app:strokeColor="#0284C7"
+            app:strokeWidth="1.5dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -46,19 +169,49 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <TextView
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="שלב 1: איתור הטלוויזיה ב-Wi-Fi"
-                    android:textColor="#38BDF8"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvStep1Badge"
+                        android:layout_width="26dp"
+                        android:layout_height="26dp"
+                        android:gravity="center"
+                        android:text="1"
+                        android:textColor="#FFFFFF"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginHorizontal="10dp"
+                        android:layout_weight="1"
+                        android:text="איתור הטלוויזיה ב-Wi-Fi"
+                        android:textColor="#F8FAFC"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvStep1Pill"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="3dp"
+                        android:text="התחל כאן"
+                        android:textColor="#38BDF8"
+                        android:textSize="11.5sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnDiscover"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="12dp"
                     android:text="חפש טלוויזיות LG ברשת"
                     app:backgroundTint="#0284C7"
                     app:cornerRadius="12dp" />
@@ -71,15 +224,20 @@
                     android:orientation="vertical" />
 
                 <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:hint="כתובת IP של הטלוויזיה (לדוגמה 192.168.1.50)">
+                    android:hint="כתובת IP של הטלוויזיה (לדוגמה 192.168.1.50)"
+                    android:textColorHint="#94A3B8"
+                    app:boxStrokeColor="#334155"
+                    app:hintTextColor="#38BDF8">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etTvIp"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:imeOptions="actionNext"
                         android:inputType="phone"
                         android:textColor="#FFFFFF" />
                 </com.google.android.material.textfield.TextInputLayout>
@@ -88,6 +246,7 @@
 
         <!-- Step 2: Pair & Check Developer Mode -->
         <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardStep2"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="14dp"
@@ -102,18 +261,49 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <TextView
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="שלב 2: בדיקה ופתיחה של Developer Mode"
-                    android:textColor="#38BDF8"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvStep2Badge"
+                        android:layout_width="26dp"
+                        android:layout_height="26dp"
+                        android:gravity="center"
+                        android:text="2"
+                        android:textColor="#94A3B8"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginHorizontal="10dp"
+                        android:layout_weight="1"
+                        android:text="בדיקה ופתיחה של Developer Mode"
+                        android:textColor="#F8FAFC"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvStep2Pill"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="3dp"
+                        android:text="ממתין"
+                        android:textColor="#94A3B8"
+                        android:textSize="11.5sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
 
                 <TextView
+                    android:id="@+id/tvStep2Hint"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="6dp"
                     android:text="האשף יבדוק אם Developer Mode מותקנת בטלוויזיה. אם לא — יפתח לך מיד את החנות עליה. אם כן — יפתח אותה על המסך."
                     android:textColor="#CBD5E1"
                     android:textSize="13sp" />
@@ -135,12 +325,14 @@
                     android:layout_marginTop="8dp"
                     android:text="אין לי חשבון LG Developer (פתח הרשמה)"
                     android:textColor="#E2E8F0"
-                    app:cornerRadius="12dp" />
+                    app:cornerRadius="12dp"
+                    app:strokeColor="#334155" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
         <!-- Step 3: Install IPK -->
         <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardStep3"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="14dp"
@@ -155,33 +347,107 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <TextView
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="שלב 3: התקנת IPTV בלחיצה אחת"
-                    android:textColor="#38BDF8"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvStep3Badge"
+                        android:layout_width="26dp"
+                        android:layout_height="26dp"
+                        android:gravity="center"
+                        android:text="3"
+                        android:textColor="#94A3B8"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginHorizontal="10dp"
+                        android:layout_weight="1"
+                        android:text="התקנת IPTV בלחיצה אחת"
+                        android:textColor="#F8FAFC"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvStep3Pill"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="3dp"
+                        android:text="ממתין"
+                        android:textColor="#94A3B8"
+                        android:textSize="11.5sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="בטלוויזיה (באפליקציית Developer Mode):\n1. התחבר לחשבון LG\n2. הדלק Dev Mode Status\n3. הדלק Key Server\n4. הזן כאן את ה-Passphrase (6 תווים):"
+                    android:layout_marginTop="8dp"
+                    android:lineSpacingExtra="2dp"
+                    android:text="בטלוויזיה (באפליקציית Developer Mode):\n1. התחבר לחשבון LG והדלק Dev Mode Status\n2. הדלק Key Server (לאחר ההפעלה מחדש)\n3. הזן כאן את ה-Passphrase (6 תווים):"
                     android:textColor="#CBD5E1"
                     android:textSize="13sp" />
 
-                <com.google.android.material.textfield.TextInputLayout
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    android:hint="Passphrase (לדוגמה A1B2C3)">
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCheckKeyServer"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="6dp"
+                        android:layout_weight="1"
+                        android:text="בדוק Key Server"
+                        android:textColor="#38BDF8"
+                        android:textSize="12.5sp"
+                        app:cornerRadius="12dp"
+                        app:strokeColor="#0369A1" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnKeyServerHelp"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="הוראות הפעלת Key Server"
+                        android:textColor="#E2E8F0"
+                        android:textSize="12.5sp"
+                        app:cornerRadius="12dp"
+                        app:strokeColor="#334155" />
+                </LinearLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:hint="Passphrase (לדוגמה A1B2C3)"
+                    android:textColorHint="#94A3B8"
+                    app:boxStrokeColor="#334155"
+                    app:counterEnabled="true"
+                    app:counterMaxLength="6"
+                    app:counterTextColor="#94A3B8"
+                    app:helperText="6 תווים כפי שמופיעים בטלוויזיה (רגיש לאותיות)"
+                    app:helperTextTextColor="#94A3B8"
+                    app:hintTextColor="#38BDF8">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etPassphrase"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:imeOptions="actionDone"
                         android:inputType="textVisiblePassword"
+                        android:maxLength="6"
                         android:textColor="#FFFFFF" />
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -202,20 +468,69 @@
                     android:layout_marginTop="8dp"
                     android:text="הארך Developer Mode ל-999 שעות (בלחיצה)"
                     android:textColor="#FBBF24"
-                    app:cornerRadius="12dp" />
+                    app:cornerRadius="12dp"
+                    app:strokeColor="#78350F" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Status Box -->
-        <TextView
-            android:id="@+id/tvStatus"
+        <!-- Status & Error Recovery Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="#0F172A"
-            android:padding="14dp"
-            android:text="מוכן. התחל בשלב 1 למציאת הטלוויזיה."
-            android:textColor="#E2E8F0"
-            android:textSize="14sp" />
+            app:cardBackgroundColor="#0F172A"
+            app:cardCornerRadius="14dp"
+            app:strokeColor="#1E293B"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="14dp">
+
+                <ProgressBar
+                    android:id="@+id/progressBar"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:indeterminate="true"
+                    android:indeterminateTint="#38BDF8"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tvStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:lineSpacingExtra="2dp"
+                    android:text="מוכן. התחל בשלב 1 למציאת הטלוויזיה."
+                    android:textColor="#E2E8F0"
+                    android:textSize="14sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnQuickRetry"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="בדוק שוב"
+                    android:visibility="gone"
+                    app:backgroundTint="#0284C7"
+                    app:cornerRadius="10dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnStatusHelp"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="הוראות הפעלת Key Server ופתרון תקלות"
+                    android:textColor="#FBBF24"
+                    android:visibility="gone"
+                    app:cornerRadius="10dp"
+                    app:strokeColor="#92400E" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
     </LinearLayout>
 </ScrollView>
