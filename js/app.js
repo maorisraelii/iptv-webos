@@ -549,6 +549,13 @@ class IPTVApp {
       '<span class="channel-playing-badge">מתנגן ▶</span>' +
       '<span class="channel-ok-pill">' + pillLabel + '</span>';
 
+    // Cache direct child references to eliminate querySelector calls on periodic EPG ticks
+    item._epgSub = item.querySelector('.channel-epg-sub');
+    item._epgTime = item.querySelector('.channel-mini-time');
+    item._epgFill = item.querySelector('.channel-mini-progress-fill');
+    item._epgRem = item.querySelector('.channel-mini-rem-badge');
+    item._lastEpgSig = epgMetrics.title + '|' + epgMetrics.pct + '|' + epgMetrics.remText;
+
     item.addEventListener('click', () => {
       this.focusArea = 'channels';
       this.focusedChannelIndex = idx;
@@ -627,30 +634,38 @@ class IPTVApp {
     }
   }
 
-  refreshVisibleEPGLabels() {
-    for (let i = 0; i < this.channelRowNodes.length; i++) {
-      const ch = this.visibleChannels[i];
-      const row = this.channelRowNodes[i];
-      if (!ch || !row) continue;
+  updateRowEPGDom(row, ch) {
+    if (!row || !ch) return;
+    const epgMetrics = this.getChannelRowEPGMetrics(ch);
+    const sig = epgMetrics.title + '|' + epgMetrics.pct + '|' + epgMetrics.remText;
+    if (row._lastEpgSig === sig) return;
+    row._lastEpgSig = sig;
 
-      const epgMetrics = this.getChannelRowEPGMetrics(ch);
-      const sub = row.querySelector('.channel-epg-sub');
-      if (sub) {
-        sub.textContent = epgMetrics.title;
+    if (row._epgSub) row._epgSub.textContent = epgMetrics.title;
+    if (row._epgTime) row._epgTime.textContent = epgMetrics.timeRange;
+    if (row._epgFill) {
+      row._epgFill.style.width = epgMetrics.pct + '%';
+      row._epgFill.classList.toggle('ending-soon', epgMetrics.isEndingSoon);
+    }
+    if (row._epgRem) {
+      row._epgRem.textContent = epgMetrics.remText;
+      row._epgRem.classList.toggle('ending-soon', epgMetrics.isEndingSoon);
+    }
+  }
+
+  refreshVisibleEPGLabels() {
+    const total = this.channelRowNodes.length;
+    if (total > 0) {
+      const listEl = document.getElementById('channel-list');
+      let startIdx = 0;
+      let endIdx = total - 1;
+      if (listEl && listEl.clientHeight > 0) {
+        const rowPitch = 108;
+        startIdx = Math.max(0, Math.floor(listEl.scrollTop / rowPitch) - 2);
+        endIdx = Math.min(total - 1, Math.ceil((listEl.scrollTop + listEl.clientHeight) / rowPitch) + 2);
       }
-      const timeEl = row.querySelector('.channel-mini-time');
-      if (timeEl) {
-        timeEl.textContent = epgMetrics.timeRange;
-      }
-      const fillEl = row.querySelector('.channel-mini-progress-fill');
-      if (fillEl) {
-        fillEl.style.width = epgMetrics.pct + '%';
-        fillEl.classList.toggle('ending-soon', epgMetrics.isEndingSoon);
-      }
-      const remEl = row.querySelector('.channel-mini-rem-badge');
-      if (remEl) {
-        remEl.textContent = epgMetrics.remText;
-        remEl.classList.toggle('ending-soon', epgMetrics.isEndingSoon);
+      for (let i = startIdx; i <= endIdx; i++) {
+        this.updateRowEPGDom(this.channelRowNodes[i], this.visibleChannels[i]);
       }
     }
     const previewCh = this.visibleChannels[this.focusedChannelIndex] || this.selectedChannel;

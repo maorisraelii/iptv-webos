@@ -163,4 +163,60 @@ object WebosSshInstaller {
             channel.disconnect()
         }
     }
+
+    suspend fun extendDevModeSession(
+        tvIp: String,
+        passphrase: String,
+        onProgress: (String) -> Unit
+    ): Result<String> = withContext(Dispatchers.IO) {
+        var session: Session? = null
+        try {
+            onProgress("מתחבר לטלוויזיה כדי לקרוא את אסימון ה-Developer Mode...")
+            val keyBytes = downloadBytes("http://$tvIp:9991/webos_rsa")
+                ?: return@withContext Result.failure(
+                    IllegalStateException("לא ניתן להוריד מפתח מהטלוויזיה. ודא ש-Key Server דלוק.")
+                )
+
+            val jsch = JSch()
+            jsch.addIdentity("webos_rsa", keyBytes, null, passphrase.toByteArray(Charsets.UTF_8))
+            session = jsch.getSession("prisoner", tvIp, 9922).apply {
+                setConfig(Properties().apply {
+                    put("StrictHostKeyChecking", "no")
+                    put("PreferredAuthentications", "publickey")
+                })
+                timeout = 12_000
+                connect(12_000)
+            }
+
+            val tokenRaw = execSimple(
+                session,
+                "cat /var/luna/preferences/devmode_enabled 2>/dev/null || cat /media/developer/temp/devmode_session 2>/dev/null"
+            ).trim()
+
+            if (tokenRaw.isEmpty()) {
+                return@withContext Result.failure(
+                    IllegalStateException("לא נמצא sessionToken בטלוויזיה. ודא ש-Developer Mode פעיל.")
+                )
+            }
+
+            onProgress("מאריך את טיימר ה-Developer Mode מול שרתי LG...")
+            val url = "https://developer.lge.com/secure/ResetDevModeSession.dev?sessionToken=$tokenRaw"
+            val req = Request.Builder().url(url).build()
+            http.newCall(req).execute().use { resp ->
+                val body = resp.body?.string().orEmpty()
+                if (resp.isSuccessful && (body.contains("200") || body.contains("success", true))) {
+                    Result.success("טיימר ה-Developer Mode הוארך בהצלחה ל-999 שעות!")
+                } else {
+                    Result.failure(IllegalStateException("תגובת LG: ${resp.code} $body"))
+                }
+            }
+        } catch (e: Exception) {
+            Result.failure(IllegalStateException(e.message ?: "שגיאה בהארכת Developer Mode", e))
+        } finally {
+            try {
+                session?.disconnect()
+            } catch (_: Exception) {
+            }
+        }
+    }
 }

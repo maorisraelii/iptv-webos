@@ -703,10 +703,19 @@ class EPGService {
     const list = this.getChannelProgrammes(channel);
 
     if (list && list.length > 0) {
+      // Binary search on chronologically sorted list (O(log N) instead of O(N))
       let currentIdx = -1;
-      for (let i = 0; i < list.length; i++) {
-        if (list[i].startMs <= nowMs && list[i].stopMs > nowMs) {
-          currentIdx = i;
+      let lo = 0;
+      let hi = list.length - 1;
+      while (lo <= hi) {
+        const mid = (lo + hi) >>> 1;
+        const p = list[mid];
+        if (nowMs < p.startMs) {
+          hi = mid - 1;
+        } else if (nowMs >= p.stopMs) {
+          lo = mid + 1;
+        } else {
+          currentIdx = mid;
           break;
         }
       }
