@@ -402,8 +402,8 @@ class VideoPlayer {
         maxBufferLength: prof.maxBufferLength,
         maxMaxBufferLength: prof.maxMaxBufferLength,
         backBufferLength: prof.backBufferLength,
-        liveSyncDurationCount: prof.liveSyncDurationCount,
-        liveMaxLatencyDurationCount: prof.liveMaxLatencyDurationCount,
+        liveSyncDurationCount: isCatchup ? 99999 : prof.liveSyncDurationCount,
+        liveMaxLatencyDurationCount: isCatchup ? Infinity : prof.liveMaxLatencyDurationCount,
         lowLatencyMode: false,
         // Discontinuity & Hole Healing
         maxBufferHole: 0.5,
@@ -614,12 +614,35 @@ class VideoPlayer {
     const sec = seconds || 30;
     if (!this.video) return 0;
     try {
-      const target = (this.video.currentTime || 0) + sec;
+      let target = (this.video.currentTime || 0) + sec;
+      if (this.video.seekable && this.video.seekable.length > 0) {
+        const maxSeek = this.video.seekable.end(this.video.seekable.length - 1);
+        if (isFinite(maxSeek) && maxSeek > 0) {
+          target = Math.min(target, Math.max(0, maxSeek - 1));
+        }
+      }
       this.video.currentTime = target;
       return target;
     } catch (e) {
       return 0;
     }
+  }
+
+  getPlaybackInfo() {
+    const currentTime = this.video && isFinite(this.video.currentTime) ? this.video.currentTime : 0;
+    let duration = 0;
+    if (this.currentProgramme && this.currentProgramme.start && this.currentProgramme.stop) {
+      duration = Math.max(0, (this.currentProgramme.stop - this.currentProgramme.start) / 1000);
+    } else if (this.video && isFinite(this.video.duration) && this.video.duration > 0) {
+      duration = this.video.duration;
+    }
+    return {
+      currentTime,
+      duration,
+      isCatchup: Boolean(this.currentProgramme),
+      programme: this.currentProgramme || null,
+      isPaused: Boolean(this.video && this.video.paused)
+    };
   }
 
   startOver() {
