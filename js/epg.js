@@ -116,6 +116,7 @@ class EPGService {
    */
   normalizeChannelKey(str) {
     if (!str || typeof str !== 'string') return '';
+    if (!this._normCache) this._normCache = new Map();
     const cached = this._normCache.get(str);
     if (cached !== undefined) return cached;
 
@@ -292,8 +293,8 @@ class EPGService {
       this.programmesByChannel.clear();
       this.channelAliasMap.clear();
       this.dayBucketsCache.clear();
-      this._channelMatchCache.clear();
-      this._normCache.clear();
+      if (this._channelMatchCache) this._channelMatchCache.clear();
+      if (this._normCache) this._normCache.clear();
       this.lastUpdatedMs = 0;
     } catch (e) {}
   }
@@ -765,6 +766,7 @@ class EPGService {
    */
   findXmlProgrammesForChannel(channel) {
     if (!channel || this.programmesByChannel.size === 0) return null;
+    if (!this._channelMatchCache) this._channelMatchCache = new Map();
 
     const cacheKey = channel.id || channel.uid || '';
     if (cacheKey && this._channelMatchCache.has(cacheKey)) {

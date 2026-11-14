@@ -74,6 +74,8 @@ const jsPatch = `
         syncClassProto({ prototype: Object.getPrototypeOf(app.epg) }, OtaEPGService);
         if (!app.epg.channelAliasMap) app.epg.channelAliasMap = new Map();
         if (!app.epg.loadedUrls) app.epg.loadedUrls = [];
+        if (!app.epg._channelMatchCache) app.epg._channelMatchCache = new Map();
+        if (!app.epg._normCache) app.epg._normCache = new Map();
         app.epg.EPG_CACHE_KEY = 'zenplay_iptv_epg_cache_v491';
         app.epg.DEFAULT_LIVE_EPG_URL = 'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/epg-il.xml';
       }
@@ -81,6 +83,9 @@ const jsPatch = `
       if (app.store) {
         syncClassProto({ prototype: Object.getPrototypeOf(app.store) }, OtaLineupStore);
         if (!app.store.discoveredEpgUrls) app.store.discoveredEpgUrls = [];
+        if (!app.store._heCollator && typeof Intl !== 'undefined' && typeof Intl.Collator === 'function') {
+          app.store._heCollator = new Intl.Collator('he');
+        }
         if (app.store.parser) {
           syncClassProto({ prototype: Object.getPrototypeOf(app.store.parser) }, OtaM3UParser);
         }
@@ -88,6 +93,8 @@ const jsPatch = `
 
       if (app.player) {
         syncClassProto({ prototype: Object.getPrototypeOf(app.player) }, OtaVideoPlayer);
+        if (typeof app.player._mediaRecoveryAttempts !== 'number') app.player._mediaRecoveryAttempts = 0;
+        if (!app.player._currentUrl) app.player._currentUrl = '';
         if (app.player.video) {
           try { app.player.video.playbackRate = 1.0; } catch (e) {}
         }
