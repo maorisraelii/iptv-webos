@@ -65,12 +65,15 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 
 1. Download and install the Android Wizard APK on your phone:
    👉 **[Download `IPTV-webOS-Installer.apk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-webOS-Installer.apk)**
-2. Open **מתקין IPTV ל-LG** on your phone (make sure phone and TV are on the same Wi-Fi):
-   - **Step 1 — Auto-Discover TV**: Tap **"חפש טלוויזיות LG ברשת"** — the app automatically finds your LG TV via SSDP / LAN scan.
+2. Open **מתקין IPTV ל-LG** on your phone (make sure phone and TV are on the same Wi-Fi) and follow the **1–2–3 visual progress wizard**:
+   - **Step 1 — Auto-Discover TV**: Tap **"חפש טלוויזיות LG ברשת"** — the app automatically finds your LG TV via SSDP / LAN scan (or remembers your last IP).
    - **Step 2 — Pair &amp; Check Developer Mode**: Tap **"התחבר לטלוויזיה ופתח Developer Mode"** and accept the pairing prompt on the TV with your remote.
      - If **Developer Mode** is not installed yet, the app automatically opens the LG Content Store directly to Developer Mode on your TV so you only click **Install**.
      - If you don't have an LG Developer account yet, tap **"אין לי חשבון LG Developer"** to open the official registration page.
-   - **Step 3 — One-Click Install**: On the TV inside Developer Mode, log in with your LG account, turn ON **Dev Mode Status** (TV restarts once), turn ON **Key Server**, enter the 6-character **Passphrase** into the Android app, and tap **"התקן IPTV Live TV לטלוויזיה!"**.
+   - **Step 3 — One-Click Readiness Check &amp; Install**:
+     - On the TV inside Developer Mode, log in with your LG account, turn ON **Dev Mode Status** (TV restarts once), and turn ON **Key Server**.
+     - Need a quick reminder? Tap **"הוראות הפעלת Key Server"** for built-in step-by-step troubleshooting, or tap **"בדוק Key Server"** to verify Key Server, Dev Mode, and your 6-character **Passphrase** before installing.
+     - Enter the 6-character **Passphrase** into the Android app, and tap **"התקן / עדכן IPTV Live TV לטלוויזיה!"** (with 1-tap retry/recovery if anything isn't ready yet).
    - The app automatically fetches the TV's SSH key (`port 9991`), downloads the latest `IPTV-Live-webOS.ipk` from GitHub Releases, installs it (`port 9922`), and launches **Live TV** on your TV!
 
 ### 💻 Option 2: Install from Windows/Mac/Linux (webOS Dev Manager)
@@ -108,16 +111,17 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 
 1. הורד והתקן בטלפון האנדרואיד שלך את אשף ההתקנה:
    👉 **[הורד את האשף לאנדרואיד (`IPTV-webOS-Installer.apk`)](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-webOS-Installer.apk)**
-2. פתח את האפליקציה **"מתקין IPTV ל-LG"** (ודא שהטלפון והטלוויזיה על אותו Wi-Fi):
-   - **שלב 1 — איתור אוטומטי**: לחץ על **"חפש טלוויזיות LG ברשת"**. האפליקציה תמצא אוטומטית את הטלוויזיה שלך.
+2. פתח את האפליקציה **"מתקין IPTV ל-LG"** (ודא שהטלפון והטלוויזיה על אותו Wi-Fi) ועקוב אחר **מד ההתקדמות 1–2–3**:
+   - **שלב 1 — איתור אוטומטי**: לחץ על **"חפש טלוויזיות LG ברשת"**. האפליקציה תמצא אוטומטית את הטלוויזיה שלך (וזוכרת את כתובת ה-IP האחרונה).
    - **שלב 2 — חיבור ופתיחת Developer Mode**: לחץ על **"התחבר לטלוויזיה ופתח Developer Mode"** ואשר עם השלט את בקשת החיבור על מסך הטלוויזיה.
      - אם אפליקציית **Developer Mode** עדיין לא מותקנת בטלוויזיה, האשף יפתח לך אוטומטית את חנות LG ישר עליה — תצטרך רק ללחוץ **"התקן"**.
      - אם כבר מותקנת, האשף יפתח אותה אוטומטית על המסך.
      - אין לך עדיין חשבון LG Developer? לחץ על הכפתור **"אין לי חשבון LG Developer"** לפתיחת עמוד ההרשמה הרשמי.
-   - **שלב 3 — התקנה בלחיצה אחת**:
+   - **שלב 3 — בדיקת מוכנות והתקנה בלחיצה אחת**:
      1. באפליקציית Developer Mode בטלוויזיה: התחבר לחשבון LG, הדלק **Dev Mode Status** (הטלוויזיה תבצע הפעלה מחדש פעם אחת) ולאחר מכן הדלק את **Key Server**.
-     2. הקלד באשף בטלפון את ה-**Passphrase** (6 התווים שמופיעים על מסך הטלוויזיה).
-     3. לחץ על **"התקן IPTV Live TV לטלוויזיה!"**.
+     2. ניתן ללחוץ על **"הוראות הפעלת Key Server"** להסבר מהיר ופתרון תקלות, או על **"בדוק Key Server"** כדי לוודא בלחיצה ש-Key Server, Dev Mode וה-Passphrase מוכנים.
+     3. הקלד באשף בטלפון את ה-**Passphrase** (6 התווים שמופיעים על מסך הטלוויזיה).
+     4. לחץ על **"התקן / עדכן IPTV Live TV לטלוויזיה!"** (בכל תקלה יופיע כפתור **"בדוק שוב"** בלחיצה אחת).
      - האשף ימשוך אוטומטית את מפתח ה-SSH מהטלוויזיה, יוריד את הגרסה האחרונה מ-GitHub, יתקין אותה לטלוויזיה ויפעיל את האפליקציה מיד!
 
 ### 💻 התקנה ממחשב (Windows / Mac / Linux)

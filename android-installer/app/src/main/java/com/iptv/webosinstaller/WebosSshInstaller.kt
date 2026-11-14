@@ -3,6 +3,7 @@ package com.iptv.webosinstaller
 import com.jcraft.jsch.ChannelExec
 import com.jcraft.jsch.ChannelSftp
 import com.jcraft.jsch.JSch
+import com.jcraft.jsch.KeyPair
 import com.jcraft.jsch.Session
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -10,8 +11,18 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.ByteArrayInputStream
 import java.io.File
+import java.net.InetSocketAddress
+import java.net.Socket
 import java.util.Properties
 import java.util.concurrent.TimeUnit
+
+data class KeyServerCheckResult(
+    val ready: Boolean,
+    val keyServerOn: Boolean,
+    val devModeOn: Boolean,
+    val passphraseValid: Boolean?,
+    val message: String
+)
 
 object WebosSshInstaller {
 
@@ -23,6 +34,66 @@ object WebosSshInstaller {
         .readTimeout(60, TimeUnit.SECONDS)
         .followRedirects(true)
         .build()
+
+    private val quickHttp = OkHttpClient.Builder()
+        .connectTimeout(4, TimeUnit.SECONDS)
+        .readTimeout(4, TimeUnit.SECONDS)
+        .build()
+
+    suspend fun checkKeyServerReady(
+        tvIp: String,
+        passphrase: String? = null
+    ): KeyServerCheckResult = withContext(Dispatchers.IO) {
+        val keyBytes = downloadBytes("http://$tvIp:9991/webos_rsa", quickHttp)
+            ?: return@withContext KeyServerCheckResult(
+                ready = false,
+                keyServerOn = false,
+                devModeOn = false,
+                passphraseValid = null,
+                message = "Key Server עדיין כבוי בטלוויזיה ($tvIp:9991). באפליקציית Developer Mode בטלוויזיה הדלק את Key Server ולחץ 'בדוק שוב'."
+            )
+
+        val sshOpen = isPortOpen(tvIp, 9922, 3500)
+        if (!sshOpen) {
+            return@withContext KeyServerCheckResult(
+                ready = false,
+                keyServerOn = true,
+                devModeOn = false,
+                passphraseValid = null,
+                message = "Key Server דלוק, אך Dev Mode Status כבוי ($tvIp:9922). הדלק את Dev Mode Status בטלוויזיה (תתבצע הפעלה מחדש פעם אחת) ואז הדלק שוב את Key Server."
+            )
+        }
+
+        val cleanPass = passphrase?.trim().orEmpty()
+        if (cleanPass.isEmpty()) {
+            return@withContext KeyServerCheckResult(
+                ready = true,
+                keyServerOn = true,
+                devModeOn = true,
+                passphraseValid = null,
+                message = "Key Server ו-Dev Mode פעילים בטלוויזיה! הזן את ה-Passphrase (6 תווים) ולחץ על 'התקן / עדכן IPTV Live TV'."
+            )
+        }
+
+        val passValid = verifyKeyPassphrase(keyBytes, cleanPass)
+        if (passValid == false) {
+            return@withContext KeyServerCheckResult(
+                ready = false,
+                keyServerOn = true,
+                devModeOn = true,
+                passphraseValid = false,
+                message = "הטלוויזיה מחוברת, אך ה-Passphrase שגוי. בדוק את 6 התווים במסך Developer Mode (שימו לב לאותיות גדולות/קטנות)."
+            )
+        }
+
+        KeyServerCheckResult(
+            ready = true,
+            keyServerOn = true,
+            devModeOn = true,
+            passphraseValid = passValid,
+            message = "הכל מוכן להתקנה! Key Server, Dev Mode וה-Passphrase תקינים."
+        )
+    }
 
     suspend fun installToTv(
         cacheDir: File,
@@ -98,9 +169,11 @@ object WebosSshInstaller {
             val msg = e.message ?: "שגיאה לא ידועה"
             val friendly = when {
                 msg.contains("USERAUTH", true) || msg.contains("Auth fail", true) || msg.contains("decrypt", true) ->
-                    "ה-Passphrase שגוי או שהמפתח לא תואם. בדוק את 6 התווים ב-Developer Mode."
+                    "ה-Passphrase שגוי או שהמפתח לא תואם. בדוק את 6 התווים ב-Developer Mode (רגיש לאותיות גדולות/קטנות)."
                 msg.contains("Connection refused", true) ->
                     "החיבור נדחה (port 9922). ודא ש-Dev Mode Status דלוק בטלוויזיה."
+                msg.contains("timeout", true) || msg.contains("timed out", true) || msg.contains("Host", true) ->
+                    "לא ניתן להגיע לטלוויזיה ($tvIp). ודא שהטלוויזיה דלוקה ובאותו Wi-Fi."
                 else -> msg
             }
             Result.failure(IllegalStateException(friendly, e))
@@ -112,15 +185,42 @@ object WebosSshInstaller {
         }
     }
 
-    private fun downloadBytes(url: String): ByteArray? {
+    private fun downloadBytes(url: String, client: OkHttpClient = http): ByteArray? {
         return try {
             val req = Request.Builder().url(url).build()
-            http.newCall(req).execute().use { resp ->
+            client.newCall(req).execute().use { resp ->
                 if (!resp.isSuccessful) return null
                 resp.body?.bytes()
             }
         } catch (_: Exception) {
             null
+        }
+    }
+
+    private fun isPortOpen(ip: String, port: Int, timeoutMs: Int): Boolean {
+        return try {
+            Socket().use { socket ->
+                socket.connect(InetSocketAddress(ip, port), timeoutMs)
+                true
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun verifyKeyPassphrase(keyBytes: ByteArray, passphrase: String): Boolean? {
+        var keyPair: KeyPair? = null
+        return try {
+            val jsch = JSch()
+            keyPair = KeyPair.load(jsch, keyBytes, null)
+            if (!keyPair.isEncrypted) true else keyPair.decrypt(passphrase)
+        } catch (_: Exception) {
+            null
+        } finally {
+            try {
+                keyPair?.dispose()
+            } catch (_: Exception) {
+            }
         }
     }
 
