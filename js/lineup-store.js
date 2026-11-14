@@ -24,6 +24,9 @@ class LineupStore {
     this.rawChannels = []; // All parsed channels from all enabled sources
     this.compiledChannels = []; // Filtered (enabled) & sorted by customNumber
     this.discoveredEpgUrls = [];
+    this._heCollator = (typeof Intl !== 'undefined' && typeof Intl.Collator === 'function')
+      ? new Intl.Collator('he')
+      : null;
 
     this.loadConfig();
   }
@@ -87,11 +90,38 @@ class LineupStore {
       const raw = localStorage.getItem(LINEUP_KEYS.CACHED_LINEUP);
       if (!raw) return null;
       const data = JSON.parse(raw);
-      if (data && Array.isArray(data.compiledChannels) && data.compiledChannels.length > 0) {
+      if (!data) return null;
+
+      this.discoveredEpgUrls = Array.isArray(data.discoveredEpgUrls) ? data.discoveredEpgUrls : [];
+      this.lastCacheTimestamp = data.updatedAt || 0;
+
+      // Compact v2 format: stores only rawChannels (omitting empty fields) and compiles in-memory
+      if (Array.isArray(data.rawChannels) && data.rawChannels.length > 0 && !Array.isArray(data.compiledChannels)) {
+        this.rawChannels = data.rawChannels.map((c) => ({
+          id: c.id || c.uid,
+          uid: c.uid || c.id,
+          sourceId: c.sourceId || 'src_default',
+          sourceName: c.sourceName || '',
+          originalNumber: c.originalNumber || c.defaultSeqNumber || 1,
+          defaultSeqNumber: c.defaultSeqNumber || c.originalNumber || 1,
+          number: c.number || c.defaultSeqNumber || 1,
+          name: c.name || '',
+          tvgName: c.tvgName || c.name || '',
+          logo: c.logo || '',
+          group: c.group || 'טלוויזיה חיה',
+          epgId: c.epgId || '',
+          url: c.url || '',
+          catchupType: c.catchupType || '',
+          catchupSource: c.catchupSource || '',
+          catchupDays: typeof c.catchupDays === 'number' ? c.catchupDays : 7
+        }));
+        return this.recompileLineup(true);
+      }
+
+      // Legacy format compatibility
+      if (Array.isArray(data.compiledChannels) && data.compiledChannels.length > 0) {
         this.rawChannels = data.rawChannels || data.compiledChannels;
         this.compiledChannels = data.compiledChannels;
-        this.discoveredEpgUrls = Array.isArray(data.discoveredEpgUrls) ? data.discoveredEpgUrls : [];
-        this.lastCacheTimestamp = data.updatedAt || 0;
         return this.compiledChannels;
       }
     } catch (e) {}
@@ -113,19 +143,52 @@ class LineupStore {
     } catch (e) {}
   }
 
+  compactChannelForCache(ch) {
+    const out = {
+      uid: ch.uid,
+      sourceId: ch.sourceId,
+      number: ch.number,
+      name: ch.name,
+      url: ch.url
+    };
+    if (ch.sourceName) out.sourceName = ch.sourceName;
+    if (ch.originalNumber && ch.originalNumber !== ch.number) out.originalNumber = ch.originalNumber;
+    if (ch.defaultSeqNumber && ch.defaultSeqNumber !== ch.number) out.defaultSeqNumber = ch.defaultSeqNumber;
+    if (ch.tvgName && ch.tvgName !== ch.name) out.tvgName = ch.tvgName;
+    if (ch.logo) out.logo = ch.logo;
+    if (ch.group && ch.group !== 'טלוויזיה חיה') out.group = ch.group;
+    if (ch.epgId) out.epgId = ch.epgId;
+    if (ch.catchupType) out.catchupType = ch.catchupType;
+    if (ch.catchupSource) out.catchupSource = ch.catchupSource;
+    if (typeof ch.catchupDays === 'number' && ch.catchupDays !== 7) out.catchupDays = ch.catchupDays;
+    return out;
+  }
+
   saveCachedLineup() {
-    try {
-      this.lastCacheTimestamp = Date.now();
-      // Keep cache compact (cap at 800 channels for 5MB localStorage limit safety)
-      const payload = {
-        updatedAt: this.lastCacheTimestamp,
-        discoveredEpgUrls: this.discoveredEpgUrls || [],
-        rawChannels: this.rawChannels.slice(0, 800),
-        compiledChannels: this.compiledChannels.slice(0, 800)
-      };
-      localStorage.setItem(LINEUP_KEYS.CACHED_LINEUP, JSON.stringify(payload));
-    } catch (e) {
-      console.warn('Could not cache lineup in localStorage:', e);
+    this.lastCacheTimestamp = Date.now();
+    // Store single compacted rawChannels copy (avoids 2x duplication) with graceful quota fallback
+    const caps = [1500, 800, 400];
+    for (let c = 0; c < caps.length; c++) {
+      const cap = caps[c];
+      try {
+        const sliceLen = Math.min(this.rawChannels.length, cap);
+        const compactRaw = new Array(sliceLen);
+        for (let i = 0; i < sliceLen; i++) {
+          compactRaw[i] = this.compactChannelForCache(this.rawChannels[i]);
+        }
+        const payload = {
+          v: 2,
+          updatedAt: this.lastCacheTimestamp,
+          discoveredEpgUrls: this.discoveredEpgUrls || [],
+          rawChannels: compactRaw
+        };
+        localStorage.setItem(LINEUP_KEYS.CACHED_LINEUP, JSON.stringify(payload));
+        return;
+      } catch (e) {
+        if (c === caps.length - 1) {
+          console.warn('Could not cache lineup in localStorage:', e);
+        }
+      }
     }
   }
 
@@ -191,7 +254,64 @@ class LineupStore {
     }
     this.sources = this.sources.filter((s) => s.id !== id);
     this.saveSources();
+
+    // Clean up stale overrides belonging to the removed source
+    const prefix = id + '::';
+    let removedAny = false;
+    const keys = Object.keys(this.overrides);
+    for (let i = 0; i < keys.length; i++) {
+      if (keys[i].indexOf(prefix) === 0) {
+        delete this.overrides[keys[i]];
+        removedAny = true;
+      }
+    }
+    if (removedAny) {
+      this.saveOverrides();
+    }
     return true;
+  }
+
+  /**
+   * Removes no-op overrides and (when full lineup is loaded) overrides for channels no longer present.
+   */
+  pruneStaleOverrides(pruneMissingUids) {
+    let activeUids = null;
+    if (pruneMissingUids && this.rawChannels.length > 0) {
+      activeUids = new Set();
+      for (let i = 0; i < this.rawChannels.length; i++) {
+        if (this.rawChannels[i] && this.rawChannels[i].uid) {
+          activeUids.add(this.rawChannels[i].uid);
+        }
+      }
+    }
+
+    let changed = false;
+    const keys = Object.keys(this.overrides);
+    for (let i = 0; i < keys.length; i++) {
+      const uid = keys[i];
+      const ov = this.overrides[uid];
+      if (!ov || typeof ov !== 'object') {
+        delete this.overrides[uid];
+        changed = true;
+        continue;
+      }
+      if (activeUids && !activeUids.has(uid)) {
+        delete this.overrides[uid];
+        changed = true;
+        continue;
+      }
+      const isDefaultEnabled = ov.enabled !== false;
+      const hasCustomNum = typeof ov.customNumber === 'number' && !isNaN(ov.customNumber) && ov.customNumber > 0;
+      const hasCustomName = typeof ov.customName === 'string' && ov.customName.trim().length > 0;
+      if (isDefaultEnabled && !hasCustomNum && !hasCustomName) {
+        delete this.overrides[uid];
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      this.saveOverrides();
+    }
   }
 
   /**
@@ -200,11 +320,21 @@ class LineupStore {
   setChannelOverride(uid, changes) {
     if (!uid) return;
     const existing = this.overrides[uid] || {};
-    this.overrides[uid] = {
-      enabled: typeof changes.enabled === 'boolean' ? changes.enabled : (typeof existing.enabled === 'boolean' ? existing.enabled : true),
-      customNumber: typeof changes.customNumber === 'number' && !isNaN(changes.customNumber) ? changes.customNumber : existing.customNumber,
-      customName: typeof changes.customName === 'string' ? changes.customName : existing.customName
-    };
+    const nextEnabled = typeof changes.enabled === 'boolean' ? changes.enabled : (typeof existing.enabled === 'boolean' ? existing.enabled : true);
+    const nextNumber = typeof changes.customNumber === 'number' && !isNaN(changes.customNumber) ? changes.customNumber : existing.customNumber;
+    const nextName = typeof changes.customName === 'string' ? changes.customName : existing.customName;
+
+    const hasCustomNum = typeof nextNumber === 'number' && !isNaN(nextNumber) && nextNumber > 0;
+    const hasCustomName = typeof nextName === 'string' && nextName.trim().length > 0;
+    if (nextEnabled !== false && !hasCustomNum && !hasCustomName) {
+      delete this.overrides[uid];
+    } else {
+      const entry = { enabled: nextEnabled };
+      if (hasCustomNum) entry.customNumber = nextNumber;
+      if (hasCustomName) entry.customName = nextName;
+      this.overrides[uid] = entry;
+    }
+
     this.saveOverrides();
     this.recompileLineup();
   }
@@ -217,11 +347,16 @@ class LineupStore {
       const ch = this.rawChannels[i];
       if (ch.sourceId === sourceId) {
         const existing = this.overrides[ch.uid] || {};
-        this.overrides[ch.uid] = {
-          enabled: enabled,
-          customNumber: existing.customNumber,
-          customName: existing.customName
-        };
+        const hasCustomNum = typeof existing.customNumber === 'number' && !isNaN(existing.customNumber) && existing.customNumber > 0;
+        const hasCustomName = typeof existing.customName === 'string' && existing.customName.trim().length > 0;
+        if (enabled !== false && !hasCustomNum && !hasCustomName) {
+          delete this.overrides[ch.uid];
+        } else {
+          const entry = { enabled: enabled };
+          if (hasCustomNum) entry.customNumber = existing.customNumber;
+          if (hasCustomName) entry.customName = existing.customName;
+          this.overrides[ch.uid] = entry;
+        }
       }
     }
     this.saveOverrides();
@@ -239,6 +374,7 @@ class LineupStore {
 
     let discoveredEpgUrl = '';
     const discoveredEpgSet = new Set();
+    let hadSourceError = false;
     const fetchPromises = activeSources.map((src) => {
       const normalizedUrl = this.normalizeM3uInput(src.url);
       let textPromise;
@@ -268,6 +404,7 @@ class LineupStore {
           return parsed.channels || [];
         })
         .catch((err) => {
+          hadSourceError = true;
           console.warn('Failed to fetch source ' + src.name + ':', err);
           if (onProgress) onProgress('שגיאה בטעינת ' + src.name);
           return [];
@@ -286,7 +423,7 @@ class LineupStore {
       for (let s = 0; s < channelArrays.length; s++) {
         const list = channelArrays[s];
         for (let c = 0; c < list.length; c++) {
-          const ch = Object.assign({}, list[c]);
+          const ch = list[c];
           ch.defaultSeqNumber = sequentialFallback++;
           mergedRaw.push(ch);
         }
@@ -294,6 +431,7 @@ class LineupStore {
 
       if (mergedRaw.length > 0) {
         this.rawChannels = mergedRaw;
+        this.pruneStaleOverrides(!hadSourceError);
         this.recompileLineup();
       }
 
@@ -310,21 +448,23 @@ class LineupStore {
    * Applies channel selection (enabled/disabled) and custom channel numbers,
    * producing a single unified, sorted channel lineup.
    */
-  recompileLineup() {
+  recompileLineup(skipCacheSave) {
     const visible = [];
+    const overrides = this.overrides;
     for (let i = 0; i < this.rawChannels.length; i++) {
       const raw = this.rawChannels[i];
-      const ov = this.overrides[raw.uid] || {};
-      const isEnabled = typeof ov.enabled === 'boolean' ? ov.enabled : true;
+      const ov = overrides[raw.uid];
+      const isEnabled = ov && typeof ov.enabled === 'boolean' ? ov.enabled : true;
 
-      const assignedNum = (typeof ov.customNumber === 'number' && ov.customNumber > 0)
+      const assignedNum = (ov && typeof ov.customNumber === 'number' && ov.customNumber > 0)
         ? ov.customNumber
         : (raw.defaultSeqNumber || raw.originalNumber || (i + 1));
 
       raw.enabled = isEnabled;
       raw.number = assignedNum;
-      if (ov.customName && ov.customName.trim()) {
-        raw.displayName = ov.customName.trim();
+      const customName = (ov && ov.customName && ov.customName.trim()) ? ov.customName.trim() : '';
+      if (customName) {
+        raw.displayName = customName;
       }
 
       if (isEnabled) {
@@ -335,7 +475,7 @@ class LineupStore {
           sourceName: raw.sourceName,
           number: assignedNum,
           originalNumber: raw.originalNumber,
-          name: (ov.customName && ov.customName.trim()) ? ov.customName.trim() : raw.name,
+          name: customName || raw.name,
           rawName: raw.name,
           tvgName: raw.tvgName || raw.name,
           logo: raw.logo,
@@ -350,13 +490,16 @@ class LineupStore {
     }
 
     // Sort unified channel list by assigned channel number ascending
+    const collator = this._heCollator;
     visible.sort((a, b) => {
       if (a.number !== b.number) return a.number - b.number;
-      return a.name.localeCompare(b.name, 'he');
+      return collator ? collator.compare(a.name, b.name) : a.name.localeCompare(b.name, 'he');
     });
 
     this.compiledChannels = visible;
-    this.saveCachedLineup();
+    if (!skipCacheSave) {
+      this.saveCachedLineup();
+    }
     return this.compiledChannels;
   }
 

@@ -7,11 +7,84 @@
  * - Multi-alias channel matcher: matches by tvg-id, tvg-name, XMLTV <channel id>, <display-name>, and normalized Hebrew/English synonyms
  * - Strictly bounds history to 7 days back + today + 1 day ahead
  */
+const NORM_BRACKETS_RE = /\[[^\]]*\]/g;
+const NORM_PARENS_RE = /\([^)]*\)/g;
+const NORM_NOISE_RE = /\b(?:1080p|720p|576p|480p|4k|uhd|fhd|hd|sd|hevc|h265|h264|israel|il|tv|channel|ch)\b/gi;
+const NORM_HE_CH_RE = /ערוץ/g;
+const NORM_STRIP_RE = /[^a-z0-9\u0590-\u05fe]+/g;
+const CDATA_RE = /<!\[CDATA\[([\s\S]*?)\]\]>/g;
+const XML_ENTITY_RE = /&(?:(quot|apos|lt|gt|amp|#39)|#(\d+)|#x([0-9a-fA-F]+));/g;
+const XML_ENTITY_MAP = {
+  quot: '"',
+  apos: "'",
+  '#39': "'",
+  lt: '<',
+  gt: '>',
+  amp: '&'
+};
+
+const CHANNEL_SYNONYMS = {
+  'כאן11': 'kan11',
+  'kan11': 'kan11',
+  '11': 'kan11',
+  'קשת12': 'keshet12',
+  'קשת': 'keshet12',
+  'keshet12': 'keshet12',
+  '12': 'keshet12',
+  'רשת13': 'reshet13',
+  'רשת': 'reshet13',
+  'reshet13': 'reshet13',
+  '13': 'reshet13',
+  'עכשיו14': 'now14',
+  'now14': 'now14',
+  '14': 'now14',
+  '9': 'channel9il',
+  'ישראלפלוס': 'channel9il',
+  '24': 'channel24il',
+  'מוזיקה24': 'channel24il',
+  'מכאן33': 'makan33',
+  'makan33': 'makan33',
+  '33': 'makan33',
+  'ספורט5': 'sport5',
+  '5sport': 'sport5',
+  'sport5': 'sport5',
+  '5plus': 'sport5plus',
+  'ספורט5פלוס': 'sport5plus',
+  '5stars': 'sport5stars',
+  'ספורט5סטארס': 'sport5stars',
+  '5live': 'sport5live',
+  'ספורט5לייב': 'sport5live',
+  '5gold': 'sport5gold',
+  'ספורט5גולד': 'sport5gold',
+  'ספורט1': 'sport1il',
+  'sport1': 'sport1il',
+  'ספורט2': 'sport2il',
+  'sport2': 'sport2il',
+  'ספורט3': 'sport3il',
+  'sport3': 'sport3il',
+  'ספורט4': 'sport4il',
+  'sport4': 'sport4il',
+  'החייםהטובים': 'goodlife',
+  'goodlife': 'goodlife',
+  'הקומדיה': 'comedychannel',
+  'comedychannel': 'comedychannel',
+  'comedy': 'comedychannel',
+  'הלא': 'halatv',
+  'הלאtv': 'halatv',
+  'hala': 'halatv',
+  'halatv': 'halatv',
+  'כנסת': 'knesset',
+  'הכנסת': 'knesset',
+  'knesset': 'knesset'
+};
+
 class EPGService {
   constructor() {
     this.programmesByChannel = new Map();
     this.channelAliasMap = new Map(); // normalizedKey -> xmltvChannelId
     this.dayBucketsCache = new Map();
+    this._channelMatchCache = new Map();
+    this._normCache = new Map();
     this.epgUrl = '';
     this.loadedUrls = [];
     this.isLoading = false;
@@ -43,72 +116,24 @@ class EPGService {
    */
   normalizeChannelKey(str) {
     if (!str || typeof str !== 'string') return '';
-    let s = str
+    const cached = this._normCache.get(str);
+    if (cached !== undefined) return cached;
+
+    const s = str
       .toLowerCase()
-      .replace(/\[[^\]]*\]/g, ' ')
-      .replace(/\([^)]*\)/g, ' ')
-      .replace(/\b(?:1080p|720p|576p|480p|4k|uhd|fhd|hd|sd|hevc|h265|h264|israel|il|tv|channel|ch)\b/gi, ' ')
-      .replace(/ערוץ/g, ' ')
-      .replace(/[^a-z0-9\u0590-\u05fe]+/g, '')
+      .replace(NORM_BRACKETS_RE, ' ')
+      .replace(NORM_PARENS_RE, ' ')
+      .replace(NORM_NOISE_RE, ' ')
+      .replace(NORM_HE_CH_RE, ' ')
+      .replace(NORM_STRIP_RE, '')
       .trim();
 
-    // Canonical synonym table for common Israeli & international channels
-    const synonyms = {
-      'כאן11': 'kan11',
-      'kan11': 'kan11',
-      '11': 'kan11',
-      'קשת12': 'keshet12',
-      'קשת': 'keshet12',
-      'keshet12': 'keshet12',
-      '12': 'keshet12',
-      'רשת13': 'reshet13',
-      'רשת': 'reshet13',
-      'reshet13': 'reshet13',
-      '13': 'reshet13',
-      'עכשיו14': 'now14',
-      'now14': 'now14',
-      '14': 'now14',
-      '9': 'channel9il',
-      'ישראלפלוס': 'channel9il',
-      '24': 'channel24il',
-      'מוזיקה24': 'channel24il',
-      'מכאן33': 'makan33',
-      'makan33': 'makan33',
-      '33': 'makan33',
-      'ספורט5': 'sport5',
-      '5sport': 'sport5',
-      'sport5': 'sport5',
-      '5plus': 'sport5plus',
-      'ספורט5פלוס': 'sport5plus',
-      '5stars': 'sport5stars',
-      'ספורט5סטארס': 'sport5stars',
-      '5live': 'sport5live',
-      'ספורט5לייב': 'sport5live',
-      '5gold': 'sport5gold',
-      'ספורט5גולד': 'sport5gold',
-      'ספורט1': 'sport1il',
-      'sport1': 'sport1il',
-      'ספורט2': 'sport2il',
-      'sport2': 'sport2il',
-      'ספורט3': 'sport3il',
-      'sport3': 'sport3il',
-      'ספורט4': 'sport4il',
-      'sport4': 'sport4il',
-      'החייםהטובים': 'goodlife',
-      'goodlife': 'goodlife',
-      'הקומדיה': 'comedychannel',
-      'comedychannel': 'comedychannel',
-      'comedy': 'comedychannel',
-      'הלא': 'halatv',
-      'הלאtv': 'halatv',
-      'hala': 'halatv',
-      'halatv': 'halatv',
-      'כנסת': 'knesset',
-      'הכנסת': 'knesset',
-      'knesset': 'knesset'
-    };
-
-    return synonyms[s] || s;
+    const result = CHANNEL_SYNONYMS[s] || s;
+    if (this._normCache.size >= 2000) {
+      this._normCache.clear();
+    }
+    this._normCache.set(str, result);
+    return result;
   }
 
   registerChannelAlias(rawAlias, targetChannelId) {
@@ -149,23 +174,25 @@ class EPGService {
 
       this.programmesByChannel.clear();
       this.channelAliasMap.clear();
+      this._channelMatchCache.clear();
 
       let latestStopMs = 0;
       for (let i = 0; i < data.entries.length; i++) {
         const entry = data.entries[i];
         const chId = entry[0];
-        const progs = entry[1].map((p) => {
+        const rawList = entry[1];
+        const progs = new Array(rawList.length);
+        for (let j = 0; j < rawList.length; j++) {
+          const p = rawList[j];
           if (p.e > latestStopMs) latestStopMs = p.e;
-          return {
+          progs[j] = {
             id: chId + '_' + p.s,
             title: p.t,
             desc: p.d,
             startMs: p.s,
-            stopMs: p.e,
-            start: new Date(p.s),
-            stop: new Date(p.e)
+            stopMs: p.e
           };
-        });
+        }
         this.programmesByChannel.set(chId, progs);
         this.registerChannelAlias(chId, chId);
       }
@@ -201,17 +228,20 @@ class EPGService {
       this.programmesByChannel.forEach((list, chId) => {
         if (!chId || chId.indexOf('gen_') === 0 || !Array.isArray(list)) return;
         // Keep shows in current active viewing window, up to 25 shows per channel
-        const active = list.filter((p) => p.stopMs >= minMs && p.startMs <= maxMs).slice(0, 25);
-        if (active.length > 0) {
-          entries.push([
-            chId,
-            active.map((p) => ({
+        const compactList = [];
+        for (let i = 0; i < list.length && compactList.length < 25; i++) {
+          const p = list[i];
+          if (p.stopMs >= minMs && p.startMs <= maxMs) {
+            compactList.push({
               t: p.title,
               d: p.desc ? p.desc.substring(0, 80) : '',
               s: p.startMs,
               e: p.stopMs
-            }))
-          ]);
+            });
+          }
+        }
+        if (compactList.length > 0) {
+          entries.push([chId, compactList]);
         }
       });
 
@@ -262,6 +292,8 @@ class EPGService {
       this.programmesByChannel.clear();
       this.channelAliasMap.clear();
       this.dayBucketsCache.clear();
+      this._channelMatchCache.clear();
+      this._normCache.clear();
       this.lastUpdatedMs = 0;
     } catch (e) {}
   }
@@ -436,21 +468,71 @@ class EPGService {
 
   decodeXmlEntities(str) {
     if (!str) return '';
-    return str
-      .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
-      .replace(/&quot;/g, '"')
-      .replace(/&apos;/g, "'")
-      .replace(/&#39;/g, "'")
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&amp;/g, '&')
-      .replace(/&#(\d+);/g, (_m, code) => String.fromCharCode(parseInt(code, 10)))
-      .trim();
+    if (str.indexOf('&') === -1 && str.indexOf('<') === -1) {
+      return str.trim();
+    }
+    let out = str;
+    if (out.indexOf('<![CDATA[') !== -1) {
+      out = out.replace(CDATA_RE, '$1');
+    }
+    if (out.indexOf('&') !== -1) {
+      out = out.replace(XML_ENTITY_RE, (m, named, dec, hex) => {
+        if (named) return XML_ENTITY_MAP[named] || m;
+        if (dec) return String.fromCharCode(parseInt(dec, 10));
+        if (hex) return String.fromCharCode(parseInt(hex, 16));
+        return m;
+      });
+    }
+    return out.trim();
+  }
+
+  extractXmlAttr(attrs, attrName) {
+    const nameLen = attrName.length;
+    const len = attrs.length;
+    let idx = attrs.indexOf(attrName);
+    while (idx !== -1) {
+      const prev = idx > 0 ? attrs.charCodeAt(idx - 1) : 32;
+      if (prev <= 32) {
+        let p = idx + nameLen;
+        while (p < len && attrs.charCodeAt(p) <= 32) p++;
+        if (p < len && attrs.charCodeAt(p) === 61) { // '='
+          p++;
+          while (p < len && attrs.charCodeAt(p) <= 32) p++;
+          if (p < len) {
+            const q = attrs.charCodeAt(p);
+            if (q === 34 || q === 39) { // '"' or "'"
+              const end = attrs.indexOf(q === 34 ? '"' : "'", p + 1);
+              return end !== -1 ? attrs.slice(p + 1, end) : '';
+            }
+          }
+        }
+      }
+      idx = attrs.indexOf(attrName, idx + 1);
+    }
+    return '';
+  }
+
+  extractXmlTagText(body, tagName) {
+    const open = '<' + tagName;
+    const openLen = open.length;
+    let pos = body.indexOf(open);
+    while (pos !== -1) {
+      const nextChar = body.charCodeAt(pos + openLen);
+      if (nextChar === 62 || nextChar <= 32) { // '>' or whitespace
+        const gtIdx = body.indexOf('>', pos + openLen);
+        if (gtIdx === -1) return '';
+        const closeIdx = body.indexOf('</' + tagName + '>', gtIdx + 1);
+        if (closeIdx === -1) return '';
+        return body.slice(gtIdx + 1, closeIdx);
+      }
+      pos = body.indexOf(open, pos + openLen);
+    }
+    return '';
   }
 
   /**
    * High-speed, fault-tolerant XMLTV parser that extracts <channel> display-names and <programme> schedules.
-   * Never fails on unescaped '&' entities in IPTV XMLTV feeds.
+   * Uses native indexOf scanning instead of backtracking regexes for minimal CPU & memory on webOS TVs.
    */
   parseXMLTV(xmlString, appendMode) {
     if (!xmlString || typeof xmlString !== 'string') return;
@@ -463,109 +545,149 @@ class EPGService {
         this.programmesByChannel.clear();
         this.channelAliasMap.clear();
       } else {
-        Array.from(this.programmesByChannel.keys()).forEach((k) => {
+        this.programmesByChannel.forEach((_val, k) => {
           if (k.indexOf('gen_') === 0) this.programmesByChannel.delete(k);
         });
       }
       this.dayBucketsCache.clear();
+      this._channelMatchCache.clear();
 
       const matchedChannelIds = new Set();
       const hasFilter = Boolean(this.targetChannelKeys && this.targetChannelKeys.size > 0);
+      const xmlLen = xmlString.length;
 
-      // 1. Parse <channel id="..."> and its <display-name> tags
-      const channelBlockRegex = /<channel\b[^>]*\bid\s*=\s*(?:"([^"]+)"|'([^']+)')[^>]*>([\s\S]*?)<\/channel>/gi;
-      let chMatch;
-      while ((chMatch = channelBlockRegex.exec(xmlString)) !== null) {
-        const chId = this.decodeXmlEntities(chMatch[1] || chMatch[2] || '');
-        const chBody = chMatch[3] || '';
-        if (!chId) continue;
-        const lowerId = chId.toLowerCase();
+      // 1. Scan <channel id="..."> blocks and their <display-name> tags
+      let chPos = xmlString.indexOf('<channel');
+      while (chPos !== -1) {
+        const afterTag = xmlString.charCodeAt(chPos + 8);
+        if (afterTag === 62 || afterTag <= 32) {
+          const openEnd = xmlString.indexOf('>', chPos + 8);
+          if (openEnd === -1) break;
+          const closeIdx = xmlString.indexOf('</channel>', openEnd + 1);
+          if (closeIdx === -1) break;
 
-        let isMatch = !hasFilter || this.targetChannelKeys.has(lowerId);
+          const chAttrs = xmlString.slice(chPos + 8, openEnd);
+          const rawId = this.extractXmlAttr(chAttrs, 'id');
+          if (rawId) {
+            const chId = this.decodeXmlEntities(rawId);
+            if (chId) {
+              const lowerId = chId.toLowerCase();
+              let isMatch = !hasFilter || this.targetChannelKeys.has(lowerId);
 
-        const dispRegex = /<display-name\b[^>]*>([\s\S]*?)<\/display-name>/gi;
-        let dMatch;
-        const displayNames = [];
-        while ((dMatch = dispRegex.exec(chBody)) !== null) {
-          const dispName = this.decodeXmlEntities(dMatch[1] || '');
-          if (dispName) {
-            displayNames.push(dispName);
-            if (!isMatch && hasFilter) {
-              const lowerDisp = dispName.toLowerCase();
-              const normDisp = this.normalizeChannelKey(dispName);
-              if (this.targetChannelKeys.has(lowerDisp) || (normDisp && this.targetChannelKeys.has(normDisp))) {
-                isMatch = true;
+              const chBody = xmlString.slice(openEnd + 1, closeIdx);
+              const displayNames = [];
+              let dnPos = chBody.indexOf('<display-name');
+              while (dnPos !== -1) {
+                const dnNext = chBody.charCodeAt(dnPos + 13);
+                if (dnNext === 62 || dnNext <= 32) {
+                  const dnGt = chBody.indexOf('>', dnPos + 13);
+                  if (dnGt === -1) break;
+                  const dnClose = chBody.indexOf('</display-name>', dnGt + 1);
+                  if (dnClose === -1) break;
+                  const dispName = this.decodeXmlEntities(chBody.slice(dnGt + 1, dnClose));
+                  if (dispName) {
+                    displayNames.push(dispName);
+                    if (!isMatch && hasFilter) {
+                      const lowerDisp = dispName.toLowerCase();
+                      if (this.targetChannelKeys.has(lowerDisp)) {
+                        isMatch = true;
+                      } else {
+                        const normDisp = this.normalizeChannelKey(dispName);
+                        if (normDisp && this.targetChannelKeys.has(normDisp)) {
+                          isMatch = true;
+                        }
+                      }
+                    }
+                  }
+                  dnPos = chBody.indexOf('<display-name', dnClose + 15);
+                } else {
+                  dnPos = chBody.indexOf('<display-name', dnPos + 13);
+                }
+              }
+
+              if (isMatch) {
+                matchedChannelIds.add(chId);
+                this.registerChannelAlias(chId, chId);
+                for (let d = 0; d < displayNames.length; d++) {
+                  this.registerChannelAlias(displayNames[d], chId);
+                }
               }
             }
           }
-        }
-
-        if (isMatch) {
-          matchedChannelIds.add(chId);
-          this.registerChannelAlias(chId, chId);
-          for (let d = 0; d < displayNames.length; d++) {
-            this.registerChannelAlias(displayNames[d], chId);
-          }
+          chPos = xmlString.indexOf('<channel', closeIdx + 10);
+        } else {
+          chPos = xmlString.indexOf('<channel', chPos + 8);
         }
       }
 
-      // 2. Parse <programme ...> blocks
-      const progBlockRegex = /<programme\b([^>]*)>([\s\S]*?)<\/programme>/gi;
-      let pMatch;
-      while ((pMatch = progBlockRegex.exec(xmlString)) !== null) {
-        const attrs = pMatch[1] || '';
+      // 2. Scan <programme ...> blocks
+      let pPos = xmlString.indexOf('<programme');
+      while (pPos !== -1 && pPos < xmlLen) {
+        const afterTag = xmlString.charCodeAt(pPos + 10);
+        if (afterTag === 62 || afterTag <= 32) {
+          const openEnd = xmlString.indexOf('>', pPos + 10);
+          if (openEnd === -1) break;
+          const closeIdx = xmlString.indexOf('</programme>', openEnd + 1);
+          if (closeIdx === -1) break;
 
-        const chAttr = attrs.match(/\bchannel\s*=\s*(?:"([^"]+)"|'([^']+)')/i);
-        const startAttr = attrs.match(/\bstart\s*=\s*(?:"([^"]+)"|'([^']+)')/i);
-        if (!chAttr || !startAttr) continue;
+          const attrs = xmlString.slice(pPos + 10, openEnd);
+          const rawChannel = this.extractXmlAttr(attrs, 'channel');
+          const startStr = this.extractXmlAttr(attrs, 'start');
 
-        const channelId = this.decodeXmlEntities(chAttr[1] || chAttr[2] || '');
-        const startStr = startAttr[1] || startAttr[2] || '';
-        if (!channelId || !startStr) continue;
+          if (rawChannel && startStr) {
+            const channelId = this.decodeXmlEntities(rawChannel);
+            if (channelId) {
+              // SYSTEMIC FILTER: Skip programmes for channels not in user's active playlist
+              let keepChannel = true;
+              if (hasFilter && matchedChannelIds.size > 0 && !matchedChannelIds.has(channelId)) {
+                const lowerChId = channelId.toLowerCase();
+                if (!this.targetChannelKeys.has(lowerChId)) {
+                  const normChId = this.normalizeChannelKey(channelId);
+                  if (!(normChId && this.targetChannelKeys.has(normChId))) {
+                    keepChannel = false;
+                  }
+                }
+              }
 
-        // SYSTEMIC FILTER: Only parse programmes for channels present in user's active playlist!
-        if (hasFilter && matchedChannelIds.size > 0 && !matchedChannelIds.has(channelId)) {
-          const lowerChId = channelId.toLowerCase();
-          const normChId = this.normalizeChannelKey(channelId);
-          if (!this.targetChannelKeys.has(lowerChId) && !(normChId && this.targetChannelKeys.has(normChId))) {
-            continue;
+              if (keepChannel) {
+                const startMs = this.parseDateMs(startStr);
+                if (!isNaN(startMs) && startMs >= minAllowedTime && startMs <= maxAllowedTime) {
+                  const stopStr = this.extractXmlAttr(attrs, 'stop');
+                  const rawStopMs = stopStr ? this.parseDateMs(stopStr) : NaN;
+                  const stopMs = (!isNaN(rawStopMs) && rawStopMs > startMs) ? rawStopMs : startMs + 3600000;
+
+                  const body = xmlString.slice(openEnd + 1, closeIdx);
+                  const rawTitle = this.extractXmlTagText(body, 'title');
+                  const rawDesc = this.extractXmlTagText(body, 'desc');
+                  const title = rawTitle ? this.decodeXmlEntities(rawTitle) : 'שידור חי';
+                  let desc = rawDesc ? this.decodeXmlEntities(rawDesc) : '';
+                  if (!desc) {
+                    const rawSub = this.extractXmlTagText(body, 'sub-title');
+                    if (rawSub) desc = this.decodeXmlEntities(rawSub);
+                  }
+
+                  let list = this.programmesByChannel.get(channelId);
+                  if (!list) {
+                    list = [];
+                    this.programmesByChannel.set(channelId, list);
+                    this.registerChannelAlias(channelId, channelId);
+                  }
+
+                  list.push({
+                    id: channelId + '_' + startMs,
+                    title: title,
+                    desc: desc,
+                    startMs: startMs,
+                    stopMs: stopMs
+                  });
+                }
+              }
+            }
           }
+          pPos = xmlString.indexOf('<programme', closeIdx + 12);
+        } else {
+          pPos = xmlString.indexOf('<programme', pPos + 10);
         }
-
-        const body = pMatch[2] || '';
-        const start = this.parseDate(startStr);
-        const startMs = start.getTime();
-        if (isNaN(startMs) || startMs < minAllowedTime || startMs > maxAllowedTime) continue;
-
-        const stopAttr = attrs.match(/\bstop\s*=\s*(?:"([^"]+)"|'([^']+)')/i);
-        const stopStr = stopAttr ? (stopAttr[1] || stopAttr[2] || '') : '';
-        const stop = stopStr ? this.parseDate(stopStr) : new Date(startMs + 3600000);
-        const stopMs = stop.getTime();
-
-        const titleMatch = body.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
-        const descMatch = body.match(/<desc\b[^>]*>([\s\S]*?)<\/desc>/i);
-        const subTitleMatch = body.match(/<sub-title\b[^>]*>([\s\S]*?)<\/sub-title>/i);
-
-        const title = titleMatch ? this.decodeXmlEntities(titleMatch[1]) : 'שידור חי';
-        let desc = descMatch ? this.decodeXmlEntities(descMatch[1]) : '';
-        if (!desc && subTitleMatch) {
-          desc = this.decodeXmlEntities(subTitleMatch[1]);
-        }
-
-        if (!this.programmesByChannel.has(channelId)) {
-          this.programmesByChannel.set(channelId, []);
-          this.registerChannelAlias(channelId, channelId);
-        }
-
-        this.programmesByChannel.get(channelId).push({
-          id: channelId + '_' + startMs,
-          title: title,
-          desc: desc,
-          start: start,
-          stop: stop,
-          startMs: startMs,
-          stopMs: stopMs > startMs ? stopMs : startMs + 3600000
-        });
       }
 
       // Sort each channel's schedule chronologically and deduplicate identical start times
@@ -593,32 +715,49 @@ class EPGService {
   }
 
   /**
+   * Fast zero-regex XMLTV date parser returning epoch milliseconds.
+   * Supports "YYYYMMDDHHMMSS +HHMM" or "YYYYMMDDHHMM +HHMM" or without timezone.
+   */
+  parseDateMs(str) {
+    if (!str) return NaN;
+    const s = str.trim();
+    const len = s.length;
+    if (len < 12) return NaN;
+
+    const y = ((s.charCodeAt(0) - 48) * 1000) + ((s.charCodeAt(1) - 48) * 100) + ((s.charCodeAt(2) - 48) * 10) + (s.charCodeAt(3) - 48);
+    const mo = ((s.charCodeAt(4) - 48) * 10) + (s.charCodeAt(5) - 48) - 1;
+    const d = ((s.charCodeAt(6) - 48) * 10) + (s.charCodeAt(7) - 48);
+    const h = ((s.charCodeAt(8) - 48) * 10) + (s.charCodeAt(9) - 48);
+    const min = ((s.charCodeAt(10) - 48) * 10) + (s.charCodeAt(11) - 48);
+    let sec = 0;
+    let idx = 12;
+    if (len >= 14 && s.charCodeAt(12) >= 48 && s.charCodeAt(12) <= 57 && s.charCodeAt(13) >= 48 && s.charCodeAt(13) <= 57) {
+      sec = ((s.charCodeAt(12) - 48) * 10) + (s.charCodeAt(13) - 48);
+      idx = 14;
+    }
+
+    while (idx < len && s.charCodeAt(idx) <= 32) idx++;
+    if (idx + 4 < len) {
+      const tzChar = s.charCodeAt(idx);
+      if (tzChar === 43 || tzChar === 45) { // '+' or '-'
+        const sign = tzChar === 45 ? -1 : 1;
+        const tzH = ((s.charCodeAt(idx + 1) - 48) * 10) + (s.charCodeAt(idx + 2) - 48);
+        const tzM = ((s.charCodeAt(idx + 3) - 48) * 10) + (s.charCodeAt(idx + 4) - 48);
+        const offsetMs = sign * ((tzH * 60) + tzM) * 60000;
+        return Date.UTC(y, mo, d, h, min, sec) - offsetMs;
+      }
+    }
+
+    return new Date(y, mo, d, h, min, sec).getTime();
+  }
+
+  /**
    * Parses XMLTV date string: "20261109143000 +0200" or "20261109123000 +0000" or "20261109143000"
    * Respects timezone offset when provided so programmes align with the TV's local clock!
    */
   parseDate(str) {
-    if (!str) return new Date();
-    const m = str.trim().match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})?(?:\s*([+-])(\d{2})(\d{2}))?/);
-    if (!m) {
-      return new Date();
-    }
-    const y = parseInt(m[1], 10);
-    const mo = parseInt(m[2], 10) - 1;
-    const d = parseInt(m[3], 10);
-    const h = parseInt(m[4], 10) || 0;
-    const min = parseInt(m[5], 10) || 0;
-    const sec = parseInt(m[6], 10) || 0;
-
-    if (m[7] && m[8] && m[9]) {
-      const sign = m[7] === '-' ? -1 : 1;
-      const tzHours = parseInt(m[8], 10) || 0;
-      const tzMins = parseInt(m[9], 10) || 0;
-      const offsetMs = sign * ((tzHours * 60) + tzMins) * 60000;
-      const utcMs = Date.UTC(y, mo, d, h, min, sec) - offsetMs;
-      return new Date(utcMs);
-    }
-
-    return new Date(y, mo, d, h, min, sec);
+    const ms = this.parseDateMs(str);
+    return isNaN(ms) ? new Date() : new Date(ms);
   }
 
   /**
@@ -626,6 +765,12 @@ class EPGService {
    */
   findXmlProgrammesForChannel(channel) {
     if (!channel || this.programmesByChannel.size === 0) return null;
+
+    const cacheKey = channel.id || channel.uid || '';
+    if (cacheKey && this._channelMatchCache.has(cacheKey)) {
+      const cachedTarget = this._channelMatchCache.get(cacheKey);
+      return cachedTarget ? this.programmesByChannel.get(cachedTarget) || null : null;
+    }
 
     const candidates = [
       channel.epgId,
@@ -643,12 +788,14 @@ class EPGService {
 
       // 1. Direct match
       if (this.programmesByChannel.has(trimmed)) {
+        if (cacheKey) this._channelMatchCache.set(cacheKey, trimmed);
         return this.programmesByChannel.get(trimmed);
       }
 
       // 2. Alias map match (exact or lowercase)
       const aliasTarget = this.channelAliasMap.get(trimmed) || this.channelAliasMap.get(trimmed.toLowerCase());
       if (aliasTarget && this.programmesByChannel.has(aliasTarget)) {
+        if (cacheKey) this._channelMatchCache.set(cacheKey, aliasTarget);
         return this.programmesByChannel.get(aliasTarget);
       }
 
@@ -657,11 +804,13 @@ class EPGService {
       if (norm) {
         const normTarget = this.channelAliasMap.get(norm);
         if (normTarget && this.programmesByChannel.has(normTarget)) {
+          if (cacheKey) this._channelMatchCache.set(cacheKey, normTarget);
           return this.programmesByChannel.get(normTarget);
         }
       }
     }
 
+    if (cacheKey) this._channelMatchCache.set(cacheKey, '');
     return null;
   }
 
@@ -694,6 +843,24 @@ class EPGService {
     return generated;
   }
 
+  findCurrentProgrammeIndex(list, nowMs) {
+    if (!list || list.length === 0) return -1;
+    let lo = 0;
+    let hi = list.length - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >>> 1;
+      const p = list[mid];
+      if (nowMs < p.startMs) {
+        hi = mid - 1;
+      } else if (nowMs >= p.stopMs) {
+        lo = mid + 1;
+      } else {
+        return mid;
+      }
+    }
+    return -1;
+  }
+
   /**
    * Returns Previous, Current & Next programme for fast rendering (including both startStr, stopStr, progressPercent, remainingMin)
    */
@@ -703,22 +870,7 @@ class EPGService {
     const list = this.getChannelProgrammes(channel);
 
     if (list && list.length > 0) {
-      // Binary search on chronologically sorted list (O(log N) instead of O(N))
-      let currentIdx = -1;
-      let lo = 0;
-      let hi = list.length - 1;
-      while (lo <= hi) {
-        const mid = (lo + hi) >>> 1;
-        const p = list[mid];
-        if (nowMs < p.startMs) {
-          hi = mid - 1;
-        } else if (nowMs >= p.stopMs) {
-          lo = mid + 1;
-        } else {
-          currentIdx = mid;
-          break;
-        }
-      }
+      const currentIdx = this.findCurrentProgrammeIndex(list, nowMs);
 
       if (currentIdx !== -1) {
         const prev = currentIdx > 0 ? list[currentIdx - 1] : null;
@@ -735,8 +887,8 @@ class EPGService {
                 id: prev.id,
                 title: prev.title,
                 desc: prev.desc,
-                startStr: this.formatTime(prev.start),
-                stopStr: this.formatTime(prev.stop),
+                startStr: this.formatTime(prev.startMs),
+                stopStr: this.formatTime(prev.stopMs),
                 startMs: prev.startMs,
                 stopMs: prev.stopMs
               }
@@ -745,12 +897,12 @@ class EPGService {
             id: current.id,
             title: current.title,
             desc: current.desc || 'שידור ישיר בערוץ.',
-            start: current.start,
-            stop: current.stop,
+            start: current.start || new Date(current.startMs),
+            stop: current.stop || new Date(current.stopMs),
             startMs: current.startMs,
             stopMs: current.stopMs,
-            startStr: this.formatTime(current.start),
-            stopStr: this.formatTime(current.stop),
+            startStr: this.formatTime(current.startMs),
+            stopStr: this.formatTime(current.stopMs),
             progressPercent: progress,
             remainingMin: remainingMin,
             status: 'live'
@@ -760,8 +912,8 @@ class EPGService {
                 id: next.id,
                 title: next.title,
                 desc: next.desc,
-                startStr: this.formatTime(next.start),
-                stopStr: this.formatTime(next.stop),
+                startStr: this.formatTime(next.startMs),
+                stopStr: this.formatTime(next.stopMs),
                 startMs: next.startMs,
                 stopMs: next.stopMs
               }
@@ -781,23 +933,11 @@ class EPGService {
     if (!channel) return [];
     const nowMs = Date.now();
     let list = this.getChannelProgrammes(channel);
-    let currentIdx = -1;
-
-    for (let i = 0; i < list.length; i++) {
-      if (list[i].startMs <= nowMs && list[i].stopMs > nowMs) {
-        currentIdx = i;
-        break;
-      }
-    }
+    let currentIdx = this.findCurrentProgrammeIndex(list, nowMs);
 
     if (currentIdx === -1) {
       list = this.generateSevenDaySchedule(channel);
-      for (let i = 0; i < list.length; i++) {
-        if (list[i].startMs <= nowMs && list[i].stopMs > nowMs) {
-          currentIdx = i;
-          break;
-        }
-      }
+      currentIdx = this.findCurrentProgrammeIndex(list, nowMs);
     }
 
     if (currentIdx === -1) return [];
@@ -816,12 +956,12 @@ class EPGService {
         id: p.id,
         title: p.title,
         desc: p.desc,
-        start: p.start,
-        stop: p.stop,
+        start: p.start || new Date(p.startMs),
+        stop: p.stop || new Date(p.stopMs),
         startMs: p.startMs,
         stopMs: p.stopMs,
-        startStr: this.formatTime(p.start),
-        stopStr: this.formatTime(p.stop),
+        startStr: this.formatTime(p.startMs),
+        stopStr: this.formatTime(p.stopMs),
         status: status,
         canStartOver: status === 'past' || status === 'live'
       });
@@ -868,12 +1008,12 @@ class EPGService {
             id: p.id,
             title: p.title,
             desc: p.desc,
-            start: p.start,
-            stop: p.stop,
+            start: p.start || new Date(p.startMs),
+            stop: p.stop || new Date(p.stopMs),
             startMs: p.startMs,
             stopMs: p.stopMs,
-            startStr: this.formatTime(p.start),
-            stopStr: this.formatTime(p.stop),
+            startStr: this.formatTime(p.startMs),
+            stopStr: this.formatTime(p.stopMs),
             status: status,
             canStartOver: status === 'past' || status === 'live'
           });
@@ -924,8 +1064,6 @@ class EPGService {
           id: channel.id + '_' + startMs,
           title: progInfo.title,
           desc: progInfo.desc,
-          start: new Date(startMs),
-          stop: new Date(stopMs),
           startMs: startMs,
           stopMs: stopMs
         });
@@ -1060,58 +1198,60 @@ class EPGService {
   generateSmartFallbackNowNext(channel, now) {
     const list = this.getChannelProgrammes(channel);
     const nowMs = now.getTime();
-    for (let i = 0; i < list.length; i++) {
-      if (list[i].startMs <= nowMs && list[i].stopMs > nowMs) {
-        const prev = i > 0 ? list[i - 1] : null;
-        const cur = list[i];
-        const next = list[i + 1] || null;
-        const totalDuration = Math.max(1, cur.stopMs - cur.startMs);
-        const elapsed = Math.max(0, nowMs - cur.startMs);
-        const progress = Math.min(100, Math.round((elapsed / totalDuration) * 100));
-        const remainingMin = Math.max(1, Math.ceil((cur.stopMs - nowMs) / 60000));
-        return {
-          previous: prev
-            ? {
-                id: prev.id,
-                title: prev.title,
-                desc: prev.desc,
-                startStr: this.formatTime(prev.start),
-                stopStr: this.formatTime(prev.stop),
-                startMs: prev.startMs,
-                stopMs: prev.stopMs
-              }
-            : null,
-          current: {
-            id: cur.id,
-            title: cur.title,
-            desc: cur.desc,
-            startStr: this.formatTime(cur.start),
-            stopStr: this.formatTime(cur.stop),
-            startMs: cur.startMs,
-            stopMs: cur.stopMs,
-            progressPercent: progress,
-            remainingMin: remainingMin,
-            status: 'live'
-          },
-          next: next
-            ? {
-                id: next.id,
-                title: next.title,
-                desc: next.desc,
-                startStr: this.formatTime(next.start),
-                stopStr: this.formatTime(next.stop),
-                startMs: next.startMs,
-                stopMs: next.stopMs
-              }
-            : null
-        };
-      }
+    const i = this.findCurrentProgrammeIndex(list, nowMs);
+    if (i !== -1) {
+      const prev = i > 0 ? list[i - 1] : null;
+      const cur = list[i];
+      const next = list[i + 1] || null;
+      const totalDuration = Math.max(1, cur.stopMs - cur.startMs);
+      const elapsed = Math.max(0, nowMs - cur.startMs);
+      const progress = Math.min(100, Math.round((elapsed / totalDuration) * 100));
+      const remainingMin = Math.max(1, Math.ceil((cur.stopMs - nowMs) / 60000));
+      return {
+        previous: prev
+          ? {
+              id: prev.id,
+              title: prev.title,
+              desc: prev.desc,
+              startStr: this.formatTime(prev.startMs),
+              stopStr: this.formatTime(prev.stopMs),
+              startMs: prev.startMs,
+              stopMs: prev.stopMs
+            }
+          : null,
+        current: {
+          id: cur.id,
+          title: cur.title,
+          desc: cur.desc,
+          start: cur.start || new Date(cur.startMs),
+          stop: cur.stop || new Date(cur.stopMs),
+          startStr: this.formatTime(cur.startMs),
+          stopStr: this.formatTime(cur.stopMs),
+          startMs: cur.startMs,
+          stopMs: cur.stopMs,
+          progressPercent: progress,
+          remainingMin: remainingMin,
+          status: 'live'
+        },
+        next: next
+          ? {
+              id: next.id,
+              title: next.title,
+              desc: next.desc,
+              startStr: this.formatTime(next.startMs),
+              stopStr: this.formatTime(next.stopMs),
+              startMs: next.startMs,
+              stopMs: next.stopMs
+            }
+          : null
+      };
     }
     return null;
   }
 
-  formatTime(date) {
-    if (!date) return '';
+  formatTime(dateOrMs) {
+    if (!dateOrMs && dateOrMs !== 0) return '';
+    const date = typeof dateOrMs === 'number' ? new Date(dateOrMs) : dateOrMs;
     const h = ('0' + date.getHours()).slice(-2);
     const m = ('0' + date.getMinutes()).slice(-2);
     return h + ':' + m;
