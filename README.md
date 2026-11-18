@@ -83,11 +83,11 @@ Compatible with NVIDIA Shield TV, Chromecast with Google TV, Xiaomi Mi Box / TV 
 1. Install the free **Downloader by AFTVnews** app from Google Play Store on your Android TV.
 2. Enable **"Install unknown apps"** for **Downloader**:
    - Open TV **Settings → Apps → Security &amp; restrictions** (or **Special app access → Install unknown apps**) and turn ON permission for **Downloader**.
-3. Open **Downloader** and enter either the GitHub short link or direct APK mirror into the URL box:
+3. Open **Downloader** and enter the ultra-short link below into the URL box (no `https://` needed):
    ```text
-   https://files.catbox.moe/49pmcw.apk
+   da.gd/iptv5
    ```
-   *(GitHub Releases URL: `https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk` or `maorisraelii.github.io/iptv-webos/tv`)*
+   *(Backups: `is.gd/iptvil5` / `https://files.catbox.moe/49pmcw.apk` / `https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk`)*
 4. Press **Go** — Downloader automatically fetches `IPTV-Live-AndroidTV.apk`. When prompted, select **Install**, then **Open**.
 
 #### Method B (Wi-Fi Transfer from Phone via Send Files to TV)
@@ -166,11 +166,11 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 1. התקן מחנות Google Play בטלוויזיה את האפליקציה החינמית **Downloader by AFTVnews** (סמל כתום).
 2. אפשר הרשאת התקנת אפליקציות חיצוניות עבור Downloader בטלוויזיה:
    - היכנס ל**הגדרות (Settings) ← אפליקציות (Apps) ← אבטחה והגבלות / גישה מיוחדת (Security &amp; restrictions / Special app access) ← התקנת אפליקציות לא ידועות (Install unknown apps)** והדלק את ההרשאה ל-**Downloader**.
-3. פתח את אפליקציית **Downloader** והקלד בשורת הכתובת (URL) את הקישור הישיר או הקישור הקצר הבא:
+3. פתח את אפליקציית **Downloader** והקלד בשורת הכתובת (URL) את הקיצור הקצר הבא (אין צורך ב-`https://`):
    ```text
-   https://files.catbox.moe/49pmcw.apk
+   da.gd/iptv5
    ```
-   *(או דרך GitHub: `https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk` / `maorisraelii.github.io/iptv-webos/tv`)*
+   *(קישורי גיבוי: `is.gd/iptvil5` / `https://files.catbox.moe/49pmcw.apk` / `https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk`)*
 4. לחץ **Go** — האפליקציה תוריד אוטומטית את `IPTV-Live-AndroidTV.apk`. כשיקפוץ חלון ההתקנה, לחץ **התקן (Install)** ובסיום **פתח (Open)**.
 
 #### שיטה 2 (העברה אלחוטית מהטלפון עם Send Files to TV)
