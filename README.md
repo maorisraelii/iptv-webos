@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/maorisraelii/iptv-webos/main/largeIcon.png" alt="IPTV Live TV App Icon" width="128" height="128" />
+  <img src="./largeIcon.png" alt="IPTV Live TV App Icon" width="128" height="128" />
 </div>
 
 <h1 align="center">📺 Live TV for LG webOS &amp; Android TV (v5.0.0)</h1>
@@ -27,15 +27,27 @@
 ## 📸 Screenshots (v5.0.0)
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/maorisraelii/iptv-webos/main/docs/screenshots/browse-workspace.png" alt="Live TV Main Split Workspace" width="90%" />
+  <img src="./docs/screenshots/browse-workspace.png" alt="Live TV Main Split Workspace" width="90%" />
   <br />
   <em>Main Split Workspace: Right-side O(1) Channel List with Real-Time EPG, Mini Progress Bars, Start/End Times &amp; Remaining Minutes + Left-side 16:9 Live Preview &amp; 5-Program Start-Over Strip.</em>
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/maorisraelii/iptv-webos/main/docs/screenshots/fullscreen-osd.png" alt="Live TV Fullscreen Info Bar OSD" width="90%" />
+  <img src="./docs/screenshots/fullscreen-osd.png" alt="Live TV Fullscreen Info Bar OSD" width="90%" />
   <br />
   <em>Fullscreen Unified Info Bar (OSD): Live &amp; Start-Over programme details, elapsed/total progress, previous &amp; next shows, seek speed multiplier badge, and instant remote shortcuts.</em>
+</p>
+
+<p align="center">
+  <img src="./docs/screenshots/guide-modal.png" alt="7-Day Channel Program Guide Modal" width="90%" />
+  <br />
+  <em>7-Day Channel Program Guide (Yellow / Menu / Guide): Instant day-by-day zapping and 1-click Start-Over on past or live broadcasts.</em>
+</p>
+
+<p align="center">
+  <img src="./docs/screenshots/settings-modal.png" alt="Multi-M3U & Phone QR Sync Settings" width="90%" />
+  <br />
+  <em>Settings &amp; QR Phone Sync: Push M3U playlists and XMLTV feeds directly from your phone without typing on the TV remote.</em>
 </p>
 
 ---
@@ -65,13 +77,35 @@
 
 ### 🤖 Option 1: Install on Android TV / Google TV (`IPTV-Live-AndroidTV.apk`)
 
-Run Live TV natively on NVIDIA Shield, Chromecast with Google TV, Xiaomi Mi Box/Stick, Sony Bravia, TCL, Philips, or any Android TV device:
+Compatible with NVIDIA Shield TV, Chromecast with Google TV, Xiaomi Mi Box / TV Stick, Sony Bravia, TCL, Philips, and any Android TV / Google TV box:
 
-1. Download the standalone Android TV APK from GitHub Releases:
-   👉 **[Download `IPTV-Live-AndroidTV.apk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk)**
-2. Install it directly on your Android TV (via Downloader app, USB flash drive, "Send Files to TV", or `adb install -r IPTV-Live-AndroidTV.apk`).
-3. Open **IPTV Live TV** from the Android TV home screen (Apps / Leanback Launcher), scan the QR code with your phone in **הגדרות ו-M3U** to push your M3U playlists &amp; EPG, and enjoy!
-   - **Android TV Remote Tip:** Since most Android TV remotes don't have colored buttons, **hold `OK` (Center button)** for ~0.5 seconds in fullscreen to toggle **Start-Over** ON/OFF, or press **Menu / Guide** to open the 7-Day Program Guide!
+#### Method A (Easiest — Direct on TV using Downloader)
+1. Install the free **Downloader by AFTVnews** app from Google Play Store on your Android TV.
+2. Enable **"Install unknown apps"** for **Downloader**:
+   - Open TV **Settings → Apps → Security &amp; restrictions** (or **Special app access → Install unknown apps**) and turn ON permission for **Downloader**.
+3. Open **Downloader** and enter the short URL into the URL box:
+   ```text
+   maorisraelii.github.io/iptv-webos/tv
+   ```
+   *(Or use the direct link: `https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk`)*
+4. Press **Go** — Downloader automatically fetches `IPTV-Live-AndroidTV.apk`. When prompted, select **Install**, then **Open**.
+
+#### Method B (Wi-Fi Transfer from Phone via Send Files to TV)
+1. Install **Send Files to TV** on both your Android TV and your smartphone (Google Play Store).
+2. Download **[`IPTV-Live-AndroidTV.apk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk)** on your phone.
+3. Open **Send Files to TV** and tap **Receive** on the TV and **Send** on your phone, select `IPTV-Live-AndroidTV.apk`, then open and install it from the TV notification/file manager.
+
+#### Method C (USB Flash Drive or PC `adb`)
+- **USB**: Copy [`IPTV-Live-AndroidTV.apk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk) to a USB drive, plug it into your TV, and install via any TV File Manager.
+- **ADB from PC**:
+  ```bash
+  adb connect <TV_IP>:5555
+  adb install -r IPTV-Live-AndroidTV.apk
+  ```
+
+#### First-Time Setup &amp; Android TV Remote Tips
+- Open **IPTV Live TV** from your Android TV Home Screen (Apps / Leanback Launcher), open **הגדרות ו-M3U**, and scan the **QR code** with your phone to send your M3U playlists &amp; EPG links effortlessly without typing with the TV remote.
+- **Remote Shortcut**: On minimalist Android TV remotes without colored buttons, **hold `OK` (Center button) for 0.5s** in fullscreen to toggle **Start-Over** ON/OFF, press **Menu / Guide** for the 7-Day Program Guide, and hold **◄ / ►** to accelerate seeking (`×2` to `×16`)!
 
 ---
 
@@ -124,15 +158,38 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 
 ---
 
-### 🤖 התקנה על Android TV / Google TV (`IPTV-Live-AndroidTV.apk`)
+### 🤖 התקנה על Android TV / Google TV (`IPTV-Live-AndroidTV.apk`) — מדריך מלא שלב-אחר-שלב
 
-מתאים לכל טלוויזיה או סטרימר מבוסס Android TV / Google TV (Xiaomi Mi Box, NVIDIA Shield, Chromecast, Sony, TCL, Philips ועוד):
+מתאים לכל טלוויזיה חכמה או סטרימר מבוסס Android TV / Google TV (Xiaomi Mi Box / Stick, NVIDIA Shield, Chromecast with Google TV, Sony, TCL, Philips ועוד):
 
-1. הורד את קובץ ההתקנה הייעודי ל-Android TV:
+#### שיטה 1 (הכי קלה — ישירות מהטלוויזיה עם אפליקציית Downloader)
+1. התקן מחנות Google Play בטלוויזיה את האפליקציה החינמית **Downloader by AFTVnews** (סמל כתום).
+2. אפשר הרשאת התקנת אפליקציות חיצוניות עבור Downloader בטלוויזיה:
+   - היכנס ל**הגדרות (Settings) ← אפליקציות (Apps) ← אבטחה והגבלות / גישה מיוחדת (Security &amp; restrictions / Special app access) ← התקנת אפליקציות לא ידועות (Install unknown apps)** והדלק את ההרשאה ל-**Downloader**.
+3. פתח את אפליקציית **Downloader** והקלד בשורת הכתובת (URL) את הקישור הקצר הבא:
+   ```text
+   maorisraelii.github.io/iptv-webos/tv
+   ```
+   *(או את הקישור המלא: `https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk`)*
+4. לחץ **Go** — האפליקציה תוריד אוטומטית את `IPTV-Live-AndroidTV.apk`. כשיקפוץ חלון ההתקנה, לחץ **התקן (Install)** ובסיום **פתח (Open)**.
+
+#### שיטה 2 (העברה אלחוטית מהטלפון עם Send Files to TV)
+1. התקן את **Send Files to TV** מחנות Google Play גם בטלפון וגם בטלוויזיה (ודא ששניהם על אותו Wi-Fi).
+2. הורד בטלפון את קובץ ה-APK:
    👉 **[הורד `IPTV-Live-AndroidTV.apk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk)**
-2. התקן בטלוויזיה באמצעות אפליקציית **Downloader**, דיסק-און-קי, **Send Files to TV**, או מהמחשב עם `adb install -r IPTV-Live-AndroidTV.apk`.
-3. פתח את **IPTV Live TV** ממסך הבית של Android TV, סרוק את קוד ה-QR מהטלפון בתוך **הגדרות ו-M3U** כדי לשלוח את הפלייליסטים שלך — והתחל לצפות!
-   - **טיפ לשלט Android TV:** בשלטים ללא כפתורי צבע, **החזקה ארוכה על `OK` (חצי שנייה)** במסך מלא מפעילה ומכבה **סטארט אובר**, וכפתור **Menu / Guide** פותח את מדריך התוכניות ל-7 ימים.
+3. פתח את **Send Files to TV** ולחץ על **Receive** בטלוויזיה ועל **Send** בטלפון, בחר את הקובץ שהורדת, ובסיום לחץ עליו בטלוויזיה כדי להתקין.
+
+#### שיטה 3 (דיסק-און-קי USB או ADB מהמחשב)
+- **דיסק-און-קי (USB):** העתק את [`IPTV-Live-AndroidTV.apk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk) ל-USB, חבר לטלוויזיה, ופתח עם סייר הקבצים בטלוויזיה להתקנה.
+- **דרך ADB מהמחשב:**
+  ```bash
+  adb connect <TV_IP>:5555
+  adb install -r IPTV-Live-AndroidTV.apk
+  ```
+
+#### הגדרה ראשונית וטיפים לשלט Android TV
+- פתח את **IPTV Live TV** ממסך הבית של הטלוויזיה, היכנס ל-**הגדרות ו-M3U**, וסרוק עם הטלפון את **קוד ה-QR** כדי לשלוח פלייליסטים ו-EPG ישירות מהנייד בלי להקליד עם השלט!
+- **קיצורי שלט מותאמים ל-Android TV:** בשלטים בלי כפתורים צבעוניים (כמו Xiaomi / Chromecast), **החזקה ארוכה על `OK` (כחצי שנייה)** במסך מלא מפעילה ומכבה **סטארט אובר**, כפתור **Menu / Guide** פותח את מדריך 7 הימים, והחזקה של **◄ / ►** מריצה קדימה/אחורה בהאצה מדורגת (`×2` עד `×16`).
 
 ---
 
