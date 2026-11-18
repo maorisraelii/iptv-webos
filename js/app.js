@@ -68,6 +68,13 @@ class IPTVApp {
     this.toastTimer = null;
     this.jumpTimer = null;
 
+    this._seekHoldDir = 0;
+    this._seekHoldStartMs = 0;
+    this._seekHoldLastEventMs = 0;
+    this._seekHoldTicks = 0;
+    this._activeSeekSpeedLabel = '';
+    this._seekBadgeClearTimer = null;
+
     this.init();
   }
 
@@ -101,13 +108,11 @@ class IPTVApp {
 
     if (cached && cached.length > 0) {
       this.allChannels = cached;
+      this.loadActiveEPGSources(false);
       this.applyChannelFilter();
       this.restoreLastWatchedChannel(true);
       this.updateVideoSurfacePosition(true);
       this.hideBootSplash();
-
-      // Load EPG after channels & video start, with full channel list filter populated
-      setTimeout(() => this.loadActiveEPGSources(false), 120);
 
       // Only refresh M3U in background if the cache TTL (24h / 3d / 7d) has expired!
       const ttlHours = this.epg.getCacheTtlHours();
@@ -251,6 +256,17 @@ class IPTVApp {
       },
       onError: (msg) => {
         this.showToast(msg);
+      },
+      getNextProgramme: (channel, currentProg, afterMs) =>
+        this.epg && typeof this.epg.getNextProgrammeForChannel === 'function'
+          ? this.epg.getNextProgrammeForChannel(channel, afterMs)
+          : null,
+      onProgrammeChanged: (channel) => {
+        this.refreshVisibleEPGLabels();
+        if (this.selectedChannel && channel && this.selectedChannel.id === channel.id) {
+          this.updateOSD(channel, false);
+          if (this.mode === 'FULLSCREEN') this.showOSD(5000);
+        }
       }
     });
   }
@@ -338,10 +354,8 @@ class IPTVApp {
     this.store
       .fetchAllSources()
       .then((res) => {
-        // Load any M3U-discovered EPG URLs + user-configured EPG URL + real-time Cloud EPG
-        this.loadActiveEPGSources(false);
-
         if (!res.compiledChannels || res.compiledChannels.length === 0) {
+          this.loadActiveEPGSources(false);
           if (!silentBackground) {
             this.showToast('לא נמצאו ערוצים פעילים במקורות ה-M3U');
             if (statusText) statusText.textContent = 'לא נמצאו ערוצים פעילים.';
@@ -350,6 +364,8 @@ class IPTVApp {
         }
 
         this.allChannels = res.compiledChannels;
+        // Load any M3U-discovered EPG URLs + user-configured EPG URL + real-time Cloud EPG
+        this.loadActiveEPGSources(false);
         if (statusText) {
           statusText.textContent =
             'נטענו בהצלחה ' +
@@ -554,7 +570,7 @@ class IPTVApp {
     item._epgTime = item.querySelector('.channel-mini-time');
     item._epgFill = item.querySelector('.channel-mini-progress-fill');
     item._epgRem = item.querySelector('.channel-mini-rem-badge');
-    item._lastEpgSig = epgMetrics.title + '|' + epgMetrics.pct + '|' + epgMetrics.remText;
+    item._lastEpgSig = epgMetrics.title + '|' + epgMetrics.timeRange + '|' + epgMetrics.pct + '|' + epgMetrics.remText;
 
     item.addEventListener('click', () => {
       this.focusArea = 'channels';
@@ -643,7 +659,7 @@ class IPTVApp {
   updateRowEPGDom(row, ch) {
     if (!row || !ch) return;
     const epgMetrics = this.getChannelRowEPGMetrics(ch);
-    const sig = epgMetrics.title + '|' + epgMetrics.pct + '|' + epgMetrics.remText;
+    const sig = epgMetrics.title + '|' + epgMetrics.timeRange + '|' + epgMetrics.pct + '|' + epgMetrics.remText;
     if (row._lastEpgSig === sig) return;
     row._lastEpgSig = sig;
 
@@ -661,18 +677,8 @@ class IPTVApp {
 
   refreshVisibleEPGLabels() {
     const total = this.channelRowNodes.length;
-    if (total > 0) {
-      const listEl = document.getElementById('channel-list');
-      let startIdx = 0;
-      let endIdx = total - 1;
-      if (listEl && listEl.clientHeight > 0) {
-        const rowPitch = 108;
-        startIdx = Math.max(0, Math.floor(listEl.scrollTop / rowPitch) - 2);
-        endIdx = Math.min(total - 1, Math.ceil((listEl.scrollTop + listEl.clientHeight) / rowPitch) + 2);
-      }
-      for (let i = startIdx; i <= endIdx; i++) {
-        this.updateRowEPGDom(this.channelRowNodes[i], this.visibleChannels[i]);
-      }
+    for (let i = 0; i < total; i++) {
+      this.updateRowEPGDom(this.channelRowNodes[i], this.visibleChannels[i]);
     }
     const previewCh = this.visibleChannels[this.focusedChannelIndex] || this.selectedChannel;
     if (previewCh) {
@@ -709,6 +715,18 @@ class IPTVApp {
     if (nameEl) nameEl.textContent = channel.name;
     if (catEl) catEl.textContent = channel.group || 'טלוויזיה חיה';
     if (srcEl) srcEl.textContent = channel.sourceName || 'פלייליסט ראשי';
+
+    const playStatusEl = document.getElementById('preview-playing-status');
+    if (playStatusEl) {
+      const isCatchupHere = Boolean(
+        this.player &&
+        this.player.currentProgramme &&
+        this.player.currentChannel &&
+        this.player.currentChannel.id === channel.id
+      );
+      playStatusEl.textContent = isCatchupHere ? 'סטארט אובר' : 'שידור חי';
+      playStatusEl.classList.toggle('catchup-mode', isCatchupHere);
+    }
 
     const logoImg = document.getElementById('preview-channel-logo');
     const logoPlaceholder = document.getElementById('preview-channel-placeholder');
@@ -772,8 +790,17 @@ class IPTVApp {
 
     this.previewChannelInfo(channel);
 
+    this.endSeekHold();
+    this._activeSeekSpeedLabel = '';
+    clearTimeout(this._seekBadgeClearTimer);
+
     const catchupBadge = document.getElementById('video-catchup-badge');
     if (catchupBadge) catchupBadge.classList.add('hidden');
+
+    const hintRedLabel = document.getElementById('hint-red-label') || document.querySelector('#hint-red span:last-child');
+    if (hintRedLabel) {
+      hintRedLabel.textContent = 'סטארט אובר (מההתחלה)';
+    }
 
     if (this.mode === 'FULLSCREEN') {
       this.updateOSD(channel, false);
@@ -940,6 +967,9 @@ class IPTVApp {
     if (!channel || !prog) return;
     this.selectedChannel = channel;
     this.isSurfing = false;
+    this.endSeekHold();
+    this._activeSeekSpeedLabel = '';
+    clearTimeout(this._seekBadgeClearTimer);
     this.player.playProgrammeStartOver(channel, prog);
 
     const catchupBadge = document.getElementById('video-catchup-badge');
@@ -1003,19 +1033,32 @@ class IPTVApp {
 
     const osdLiveBadge = document.getElementById('osd-live-badge');
     if (osdLiveBadge) {
-      if (playback && playback.isPaused && !isSurfing) {
+      if (this._activeSeekSpeedLabel && !isSurfing) {
+        osdLiveBadge.textContent = this._activeSeekSpeedLabel;
+        osdLiveBadge.classList.add('seeking-mode');
+        osdLiveBadge.classList.remove('catchup-mode');
+        osdLiveBadge.classList.remove('paused-mode');
+      } else if (playback && playback.isPaused && !isSurfing) {
         osdLiveBadge.textContent = '❚❚ מושהה';
+        osdLiveBadge.classList.remove('seeking-mode');
         osdLiveBadge.classList.remove('catchup-mode');
         osdLiveBadge.classList.add('paused-mode');
       } else if (activeCatchupProg) {
         osdLiveBadge.textContent = 'סטארט אובר';
+        osdLiveBadge.classList.remove('seeking-mode');
         osdLiveBadge.classList.add('catchup-mode');
         osdLiveBadge.classList.remove('paused-mode');
       } else {
         osdLiveBadge.textContent = 'שידור חי';
+        osdLiveBadge.classList.remove('seeking-mode');
         osdLiveBadge.classList.remove('catchup-mode');
         osdLiveBadge.classList.remove('paused-mode');
       }
+    }
+
+    const hintRedLabel = document.getElementById('hint-red-label') || document.querySelector('#hint-red span:last-child');
+    if (hintRedLabel) {
+      hintRedLabel.textContent = activeCatchupProg ? 'יציאה מסטארט אובר (לחי)' : 'סטארט אובר (מההתחלה)';
     }
 
     const osdTitle = document.getElementById('osd-epg-title');
@@ -1034,9 +1077,15 @@ class IPTVApp {
       const total = playback.duration || 0;
       const pct = total > 0 ? Math.min(100, Math.max(0, Math.round((elapsed / total) * 100))) : 0;
       const elapsedStr = total > 0 ? '  •  ' + this.formatDurationSeconds(elapsed) + ' / ' + this.formatDurationSeconds(total) : '';
+      const startStr =
+        activeCatchupProg.startStr ||
+        (this.epg && activeCatchupProg.startMs ? this.epg.formatTime(activeCatchupProg.startMs) : '--:--');
+      const stopStr =
+        activeCatchupProg.stopStr ||
+        (this.epg && activeCatchupProg.stopMs ? this.epg.formatTime(activeCatchupProg.stopMs) : '--:--');
 
       if (osdTitle) osdTitle.textContent = activeCatchupProg.title;
-      if (osdTime) osdTime.textContent = activeCatchupProg.startStr + ' - ' + activeCatchupProg.stopStr + elapsedStr;
+      if (osdTime) osdTime.textContent = startStr + ' - ' + stopStr + elapsedStr;
       if (osdProg) osdProg.style.width = pct + '%';
       if (osdDesc) osdDesc.textContent = activeCatchupProg.desc || (epgData && epgData.current ? epgData.current.desc : '');
     } else if (epgData && epgData.current) {
@@ -1046,22 +1095,33 @@ class IPTVApp {
       if (osdDesc) osdDesc.textContent = epgData.current.desc;
     }
 
-    if (epgData) {
+    const adj =
+      activeCatchupProg && this.epg && typeof this.epg.getAdjacentProgrammesForProgramme === 'function'
+        ? this.epg.getAdjacentProgrammesForProgramme(channel, activeCatchupProg)
+        : null;
+    const schedSource = adj
+      ? {
+          previous: adj.previous || (epgData ? epgData.previous : null),
+          next: adj.next || (epgData ? epgData.next : null)
+        }
+      : epgData;
+
+    if (schedSource) {
       if (osdPrevTitle) {
-        osdPrevTitle.textContent = epgData.previous ? epgData.previous.title : 'שידור קודם';
+        osdPrevTitle.textContent = schedSource.previous ? schedSource.previous.title : 'שידור קודם';
       }
       if (osdPrevTime) {
-        osdPrevTime.textContent = epgData.previous
-          ? epgData.previous.startStr + ' - ' + epgData.previous.stopStr
+        osdPrevTime.textContent = schedSource.previous
+          ? schedSource.previous.startStr + ' - ' + schedSource.previous.stopStr
           : '';
       }
 
       if (osdNextTitle) {
-        osdNextTitle.textContent = epgData.next ? epgData.next.title : 'שידור המשך';
+        osdNextTitle.textContent = schedSource.next ? schedSource.next.title : 'שידור המשך';
       }
       if (osdNextTime) {
-        osdNextTime.textContent = epgData.next
-          ? epgData.next.startStr + ' - ' + epgData.next.stopStr
+        osdNextTime.textContent = schedSource.next
+          ? schedSource.next.startStr + ' - ' + schedSource.next.stopStr
           : '';
       }
     }
@@ -1213,6 +1273,7 @@ class IPTVApp {
     const listEl = document.getElementById('channel-list');
     const targetItem = this.channelRowNodes[this.focusedChannelIndex];
     if (targetItem && listEl) {
+      this.updateRowEPGDom(targetItem, this.visibleChannels[this.focusedChannelIndex]);
       this.setFocusedElementFast(targetItem);
       this.scrollContainerFast(listEl, targetItem);
     }
@@ -1261,6 +1322,8 @@ class IPTVApp {
     if (this.mode === 'FULLSCREEN') {
       if (direction === 'up' || direction === 'down') {
         if (this.visibleChannels.length === 0) return;
+        this.endSeekHold();
+        this._activeSeekSpeedLabel = '';
 
         const osd = document.getElementById('fullscreen-osd');
         const isOsdVisible = osd && !osd.classList.contains('hidden');
@@ -1293,10 +1356,12 @@ class IPTVApp {
         this.showOSD(7000);
         return;
       } else if (direction === 'left') {
-        this.seekAndShowOSD(-15);
+        // In Hebrew RTL, Left arrow moves Forward along the progress bar
+        this.handleSeekKeyHold(1, 15);
         return;
       } else if (direction === 'right') {
-        this.seekAndShowOSD(15);
+        // In Hebrew RTL, Right arrow moves Backward along the progress bar
+        this.handleSeekKeyHold(-1, 15);
         return;
       }
       return;
@@ -1536,6 +1601,9 @@ class IPTVApp {
     if (!this.selectedChannel) return;
     this.mode = 'FULLSCREEN';
     this.isSurfing = false;
+    this.endSeekHold();
+    this._activeSeekSpeedLabel = '';
+    clearTimeout(this._seekBadgeClearTimer);
     this.updateVideoSurfacePosition();
     this.updateOSD(this.selectedChannel, false);
     this.showOSD(4500);
@@ -1545,6 +1613,9 @@ class IPTVApp {
     this.mode = 'BROWSE';
     this.isSurfing = false;
     this.focusArea = 'channels';
+    this.endSeekHold();
+    this._activeSeekSpeedLabel = '';
+    clearTimeout(this._seekBadgeClearTimer);
     clearTimeout(this.osdTimer);
     clearInterval(this.osdTickTimer);
     const osd = document.getElementById('fullscreen-osd');
@@ -1554,6 +1625,7 @@ class IPTVApp {
       if (idx !== -1) this.focusedChannelIndex = idx;
       this.previewChannelInfo(this.selectedChannel);
     }
+    this.refreshVisibleEPGLabels();
     this.updateVideoSurfacePosition();
     this.updateChannelFocusFast();
   }
@@ -1699,6 +1771,57 @@ class IPTVApp {
      OK (Fullscreen): 1st press = Info-Bar | 2nd press = Pause / Play
      -------------------------------------------------------------------------- */
 
+  handleSeekKeyHold(dir, baseSeconds) {
+    const now = Date.now();
+    if (this._seekHoldDir !== dir || (now - (this._seekHoldLastEventMs || 0)) > 600) {
+      this._seekHoldDir = dir;
+      this._seekHoldStartMs = now;
+      this._seekHoldTicks = 0;
+    }
+    this._seekHoldLastEventMs = now;
+    this._seekHoldTicks = (this._seekHoldTicks || 0) + 1;
+
+    const heldMs = now - this._seekHoldStartMs;
+    let step;
+    let speedLabel;
+    if (heldMs < 600 || this._seekHoldTicks <= 1) {
+      step = baseSeconds || 15;
+      speedLabel = '';
+    } else if (heldMs < 1800) {
+      step = 30;
+      speedLabel = '×2';
+    } else if (heldMs < 3500) {
+      step = 60;
+      speedLabel = '×4';
+    } else if (heldMs < 6000) {
+      step = 180;
+      speedLabel = '×8';
+    } else {
+      step = 300;
+      speedLabel = '×16';
+    }
+
+    this._activeSeekSpeedLabel = speedLabel
+      ? (dir > 0 ? '◀◀ הרצה קדימה ' : '▶▶ הרצה אחורה ') + speedLabel
+      : '';
+
+    clearTimeout(this._seekBadgeClearTimer);
+    this._seekBadgeClearTimer = setTimeout(() => {
+      this._activeSeekSpeedLabel = '';
+      if (this.mode === 'FULLSCREEN' && this.selectedChannel) {
+        this.updateOSD(this.selectedChannel, false);
+      }
+    }, 900);
+
+    this.seekAndShowOSD(dir * step);
+  }
+
+  endSeekHold() {
+    this._seekHoldDir = 0;
+    this._seekHoldStartMs = 0;
+    this._seekHoldTicks = 0;
+  }
+
   seekAndShowOSD(deltaSeconds) {
     if (!this.player) return;
     if (deltaSeconds < 0) {
@@ -1719,25 +1842,48 @@ class IPTVApp {
     if (!ch || !this.player) return;
 
     if (this.player.currentProgramme && this.player.currentChannel && this.player.currentChannel.id === ch.id) {
-      this.startProgrammeCatchup(ch, this.player.currentProgramme);
+      if (typeof this.player.exitStartOverToLive === 'function') {
+        this.player.exitStartOverToLive();
+      } else {
+        this.player.currentProgramme = null;
+        this.player.play(ch);
+      }
+      this.isSurfing = false;
+      this._activeSeekSpeedLabel = '';
+      this.endSeekHold();
+      clearTimeout(this._seekBadgeClearTimer);
+      this.updateOSD(ch, false);
+      if (this.mode === 'FULLSCREEN') {
+        this.showOSD(4500);
+      } else {
+        this.previewChannelInfo(ch);
+        this.showToast('חזרה לשידור חי: ' + ch.name);
+      }
       return;
     }
 
     if (this.epg) {
       const epgData = this.epg.getNowNext(ch);
-      if (epgData && epgData.current && epgData.current.start) {
+      if (epgData && epgData.current && (epgData.current.start || epgData.current.startMs)) {
         this.startProgrammeCatchup(ch, epgData.current);
         return;
       }
     }
 
+    if (this.player.currentProgramme) {
+      this.startProgrammeCatchup(ch, this.player.currentProgramme);
+      return;
+    }
+
     this.player.startOver();
     this.updateOSD(ch, false);
-    this.showOSD(4500);
+    if (this.mode === 'FULLSCREEN') {
+      this.showOSD(4500);
+    }
   }
 
   onGreenButton() {
-    this.seekAndShowOSD(-30);
+    this.handleSeekKeyHold(-1, 30);
   }
 
   onYellowButton() {
@@ -1753,11 +1899,14 @@ class IPTVApp {
   }
 
   onBlueButton() {
-    this.seekAndShowOSD(30);
+    this.handleSeekKeyHold(1, 30);
   }
 
   togglePlayPause() {
     if (this.player) {
+      this.endSeekHold();
+      this._activeSeekSpeedLabel = '';
+      clearTimeout(this._seekBadgeClearTimer);
       this.player.togglePlayPause();
       this.isSurfing = false;
       const ch = this.selectedChannel || this.player.currentChannel;

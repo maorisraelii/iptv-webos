@@ -1,10 +1,15 @@
-name: Build Android Installer APK
+name: Build Android APKs
 
 on:
   push:
     branches: [ main ]
     paths:
       - 'android-installer/**'
+      - 'android-tv/**'
+      - 'index.html'
+      - 'js/**'
+      - 'css/**'
+      - 'appinfo.json'
       - '.github/workflows/build_android_installer.yml'
   workflow_dispatch:
 
@@ -30,24 +35,48 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Build Debug APK (signed with debug keystore for direct sideloading)
+      - name: Build webOS Installer Debug APK
         working-directory: android-installer
         run: gradle assembleDebug --no-daemon
 
-      - name: Copy APK to friendly filename
-        run: cp android-installer/app/build/outputs/apk/debug/app-debug.apk IPTV-webOS-Installer.apk
+      - name: Build Android TV Debug APK
+        working-directory: android-tv
+        run: gradle assembleDebug --no-daemon
 
-      - name: Upload APK artifact
+      - name: Copy APKs to friendly filenames
+        run: |
+          cp android-installer/app/build/outputs/apk/debug/app-debug.apk IPTV-webOS-Installer.apk
+          cp android-tv/app/build/outputs/apk/debug/app-debug.apk IPTV-Live-AndroidTV.apk
+
+      - name: Upload webOS Installer APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: IPTV-webOS-Installer-APK
           path: IPTV-webOS-Installer.apk
 
-      - name: Attach APK to latest GitHub Release
+      - name: Upload Android TV APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: IPTV-Live-AndroidTV-APK
+          path: IPTV-Live-AndroidTV.apk
+
+      - name: Attach APKs to latest GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          LATEST_TAG=$(gh release list --limit 1 --json tagName -q '.[0].tagName')
-          if [ -n "$LATEST_TAG" ]; then
-            gh release upload "$LATEST_TAG" IPTV-webOS-Installer.apk --clobber
+          TARGET_TAG="v$(python3 -c "import json; print(json.load(open('appinfo.json'))['version'])")"
+          for i in $(seq 1 18); do
+            if gh release view "$TARGET_TAG" >/dev/null 2>&1; then
+              break
+            fi
+            echo "Waiting for release $TARGET_TAG ($i/18)..."
+            sleep 10
+          done
+          if gh release view "$TARGET_TAG" >/dev/null 2>&1; then
+            gh release upload "$TARGET_TAG" IPTV-webOS-Installer.apk IPTV-Live-AndroidTV.apk --clobber
+          else
+            LATEST_TAG=$(gh release list --limit 1 --json tagName -q '.[0].tagName')
+            if [ -n "$LATEST_TAG" ]; then
+              gh release upload "$LATEST_TAG" IPTV-webOS-Installer.apk IPTV-Live-AndroidTV.apk --clobber
+            fi
           fi

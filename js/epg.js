@@ -149,6 +149,14 @@ class EPGService {
     }
   }
 
+  _purgeSyntheticChannels() {
+    this.programmesByChannel.forEach((_val, chId) => {
+      if (typeof chId === 'string' && chId.indexOf('gen_') === 0) {
+        this.programmesByChannel.delete(chId);
+      }
+    });
+  }
+
   rebuildAliasesFromLoadedChannels() {
     this.programmesByChannel.forEach((_list, chId) => {
       if (chId.indexOf('gen_') === 0) return;
@@ -175,13 +183,15 @@ class EPGService {
 
       this.programmesByChannel.clear();
       this.channelAliasMap.clear();
-      this._channelMatchCache.clear();
+      if (this.dayBucketsCache) this.dayBucketsCache.clear();
+      if (this._channelMatchCache) this._channelMatchCache.clear();
 
       let latestStopMs = 0;
       for (let i = 0; i < data.entries.length; i++) {
         const entry = data.entries[i];
         const chId = entry[0];
         const rawList = entry[1];
+        if (!chId || chId.indexOf('gen_') === 0 || !Array.isArray(rawList)) continue;
         const progs = new Array(rawList.length);
         for (let j = 0; j < rawList.length; j++) {
           const p = rawList[j];
@@ -211,6 +221,9 @@ class EPGService {
           }
         }
       }
+
+      this._purgeSyntheticChannels();
+      if (this._channelMatchCache) this._channelMatchCache.clear();
 
       return true;
     } catch (e) {
@@ -546,12 +559,10 @@ class EPGService {
         this.programmesByChannel.clear();
         this.channelAliasMap.clear();
       } else {
-        this.programmesByChannel.forEach((_val, k) => {
-          if (k.indexOf('gen_') === 0) this.programmesByChannel.delete(k);
-        });
+        this._purgeSyntheticChannels();
       }
-      this.dayBucketsCache.clear();
-      this._channelMatchCache.clear();
+      if (this.dayBucketsCache) this.dayBucketsCache.clear();
+      if (this._channelMatchCache) this._channelMatchCache.clear();
 
       const matchedChannelIds = new Set();
       const hasFilter = Boolean(this.targetChannelKeys && this.targetChannelKeys.size > 0);
@@ -710,6 +721,9 @@ class EPGService {
           this.programmesByChannel.set(chKey, deduped);
         }
       });
+
+      this._purgeSyntheticChannels();
+      if (this._channelMatchCache) this._channelMatchCache.clear();
     } catch (e) {
       console.warn('XMLTV parse error:', e);
     }
@@ -925,6 +939,94 @@ class EPGService {
     }
 
     return this.generateSmartFallbackNowNext(channel, new Date(nowMs));
+  }
+
+  _formatAdjacentItem(p) {
+    if (!p) return null;
+    return {
+      id: p.id,
+      title: p.title,
+      desc: p.desc,
+      startMs: p.startMs,
+      stopMs: p.stopMs,
+      startStr: this.formatTime(p.startMs),
+      stopStr: this.formatTime(p.stopMs)
+    };
+  }
+
+  /**
+   * Returns the next programme for a channel covering (afterMs + 1000) or starting >= (afterMs - 5000).
+   */
+  getNextProgrammeForChannel(channel, afterMs) {
+    if (!channel) return null;
+    const list = this.getChannelProgrammes(channel);
+    if (!list || list.length === 0) return null;
+
+    const refMs = typeof afterMs === 'number' && isFinite(afterMs) ? afterMs : Date.now();
+    let target = null;
+    const idx = this.findCurrentProgrammeIndex(list, refMs + 1000);
+    if (idx !== -1) {
+      target = list[idx];
+    } else {
+      for (let i = 0; i < list.length; i++) {
+        if (list[i].startMs >= refMs - 5000 && (!list[i].stopMs || list[i].stopMs > refMs)) {
+          target = list[i];
+          break;
+        }
+      }
+    }
+
+    if (!target) return null;
+
+    return {
+      id: target.id,
+      title: target.title,
+      desc: target.desc || 'שידור ישיר בערוץ.',
+      start: target.start || new Date(target.startMs),
+      stop: target.stop || new Date(target.stopMs),
+      startMs: target.startMs,
+      stopMs: target.stopMs,
+      startStr: this.formatTime(target.startMs),
+      stopStr: this.formatTime(target.stopMs),
+      status: target.stopMs <= Date.now() ? 'past' : 'live'
+    };
+  }
+
+  /**
+   * Returns Previous and Next programmes relative to a specific Start-Over target programme.
+   */
+  getAdjacentProgrammesForProgramme(channel, targetProg) {
+    if (!channel || !targetProg) return null;
+    const list = this.getChannelProgrammes(channel);
+    if (!list || list.length === 0) return null;
+
+    const targetStartMs =
+      typeof targetProg.startMs === 'number'
+        ? targetProg.startMs
+        : targetProg.start
+        ? new Date(targetProg.start).getTime()
+        : NaN;
+
+    let idx = -1;
+    for (let i = 0; i < list.length; i++) {
+      const p = list[i];
+      if ((targetProg.id && p.id === targetProg.id) || (!isNaN(targetStartMs) && p.startMs === targetStartMs)) {
+        idx = i;
+        break;
+      }
+    }
+
+    if (idx === -1 && !isNaN(targetStartMs)) {
+      idx = this.findCurrentProgrammeIndex(list, targetStartMs + 1000);
+    }
+
+    if (idx === -1) return null;
+
+    return {
+      previous: idx > 0 ? this._formatAdjacentItem(list[idx - 1]) : null,
+      current: targetProg,
+      next: idx + 1 < list.length ? this._formatAdjacentItem(list[idx + 1]) : null
+    };
   }
 
   /**
