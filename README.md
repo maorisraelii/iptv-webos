@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./largeIcon.png" alt="IPTV Live TV App Icon" width="128" height="128" />
+  <img src="https://files.catbox.moe/f4jrx8.png" alt="IPTV Live TV App Icon" width="128" height="128" />
 </div>
 
 <h1 align="center">📺 Live TV for LG webOS &amp; Android TV (v5.0.0)</h1>
@@ -27,25 +27,25 @@
 ## 📸 Screenshots (v5.0.0)
 
 <p align="center">
-  <img src="./docs/screenshots/browse-workspace.png" alt="Live TV Main Split Workspace" width="90%" />
+  <img src="https://files.catbox.moe/fzplkt.png" alt="Live TV Main Split Workspace" width="90%" />
   <br />
   <em>Main Split Workspace: Right-side O(1) Channel List with Real-Time EPG, Mini Progress Bars, Start/End Times &amp; Remaining Minutes + Left-side 16:9 Live Preview &amp; 5-Program Start-Over Strip.</em>
 </p>
 
 <p align="center">
-  <img src="./docs/screenshots/fullscreen-osd.png" alt="Live TV Fullscreen Info Bar OSD" width="90%" />
+  <img src="https://files.catbox.moe/wnosf1.png" alt="Live TV Fullscreen Info Bar OSD" width="90%" />
   <br />
   <em>Fullscreen Unified Info Bar (OSD): Live &amp; Start-Over programme details, elapsed/total progress, previous &amp; next shows, seek speed multiplier badge, and instant remote shortcuts.</em>
 </p>
 
 <p align="center">
-  <img src="./docs/screenshots/guide-modal.png" alt="7-Day Channel Program Guide Modal" width="90%" />
+  <img src="https://files.catbox.moe/57jh6j.png" alt="7-Day Channel Program Guide Modal" width="90%" />
   <br />
   <em>7-Day Channel Program Guide (Yellow / Menu / Guide): Instant day-by-day zapping and 1-click Start-Over on past or live broadcasts.</em>
 </p>
 
 <p align="center">
-  <img src="./docs/screenshots/settings-modal.png" alt="Multi-M3U & Phone QR Sync Settings" width="90%" />
+  <img src="https://files.catbox.moe/lxrrei.png" alt="Multi-M3U & Phone QR Sync Settings" width="90%" />
   <br />
   <em>Settings &amp; QR Phone Sync: Push M3U playlists and XMLTV feeds directly from your phone without typing on the TV remote.</em>
 </p>
@@ -83,16 +83,16 @@ Compatible with NVIDIA Shield TV, Chromecast with Google TV, Xiaomi Mi Box / TV 
 1. Install the free **Downloader by AFTVnews** app from Google Play Store on your Android TV.
 2. Enable **"Install unknown apps"** for **Downloader**:
    - Open TV **Settings → Apps → Security &amp; restrictions** (or **Special app access → Install unknown apps**) and turn ON permission for **Downloader**.
-3. Open **Downloader** and enter the short URL into the URL box:
+3. Open **Downloader** and enter either the GitHub short link or direct APK mirror into the URL box:
    ```text
-   maorisraelii.github.io/iptv-webos/tv
+   https://files.catbox.moe/49pmcw.apk
    ```
-   *(Or use the direct link: `https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk`)*
+   *(GitHub Releases URL: `https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk` or `maorisraelii.github.io/iptv-webos/tv`)*
 4. Press **Go** — Downloader automatically fetches `IPTV-Live-AndroidTV.apk`. When prompted, select **Install**, then **Open**.
 
 #### Method B (Wi-Fi Transfer from Phone via Send Files to TV)
 1. Install **Send Files to TV** on both your Android TV and your smartphone (Google Play Store).
-2. Download **[`IPTV-Live-AndroidTV.apk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk)** on your phone.
+2. Download `IPTV-Live-AndroidTV.apk` on your phone ([Direct Mirror](https://files.catbox.moe/49pmcw.apk) • [GitHub Releases](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk)).
 3. Open **Send Files to TV** and tap **Receive** on the TV and **Send** on your phone, select `IPTV-Live-AndroidTV.apk`, then open and install it from the TV notification/file manager.
 
 #### Method C (USB Flash Drive or PC `adb`)
@@ -166,17 +166,16 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 1. התקן מחנות Google Play בטלוויזיה את האפליקציה החינמית **Downloader by AFTVnews** (סמל כתום).
 2. אפשר הרשאת התקנת אפליקציות חיצוניות עבור Downloader בטלוויזיה:
    - היכנס ל**הגדרות (Settings) ← אפליקציות (Apps) ← אבטחה והגבלות / גישה מיוחדת (Security &amp; restrictions / Special app access) ← התקנת אפליקציות לא ידועות (Install unknown apps)** והדלק את ההרשאה ל-**Downloader**.
-3. פתח את אפליקציית **Downloader** והקלד בשורת הכתובת (URL) את הקישור הקצר הבא:
+3. פתח את אפליקציית **Downloader** והקלד בשורת הכתובת (URL) את הקישור הישיר או הקישור הקצר הבא:
    ```text
-   maorisraelii.github.io/iptv-webos/tv
+   https://files.catbox.moe/49pmcw.apk
    ```
-   *(או את הקישור המלא: `https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk`)*
+   *(או דרך GitHub: `https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk` / `maorisraelii.github.io/iptv-webos/tv`)*
 4. לחץ **Go** — האפליקציה תוריד אוטומטית את `IPTV-Live-AndroidTV.apk`. כשיקפוץ חלון ההתקנה, לחץ **התקן (Install)** ובסיום **פתח (Open)**.
 
 #### שיטה 2 (העברה אלחוטית מהטלפון עם Send Files to TV)
 1. התקן את **Send Files to TV** מחנות Google Play גם בטלפון וגם בטלוויזיה (ודא ששניהם על אותו Wi-Fi).
-2. הורד בטלפון את קובץ ה-APK:
-   👉 **[הורד `IPTV-Live-AndroidTV.apk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk)**
+2. הורד בטלפון את קובץ ה-APK ([הורדה ישירה ממראה ציבורית](https://files.catbox.moe/49pmcw.apk) • [GitHub Releases](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk)):
 3. פתח את **Send Files to TV** ולחץ על **Receive** בטלוויזיה ועל **Send** בטלפון, בחר את הקובץ שהורדת, ובסיום לחץ עליו בטלוויזיה כדי להתקין.
 
 #### שיטה 3 (דיסק-און-קי USB או ADB מהמחשב)
