@@ -36,12 +36,14 @@ jobs:
       - name: Prepare Clean App Directory
         run: |
           mkdir -p dist
-          cp -r index.html manager.html appinfo.json app-config.json css js icon.png largeIcon.png dist/
+          cp -r index.html manager.html remote.html ota-manifest.json epg-il.xml appinfo.json app-config.json css js icon.png largeIcon.png dist/
 
       - name: Build webOS IPK Package
         run: |
           npx ares-package -n dist
-          IPK_FILE=$(ls com.iptv.livetv_*.ipk | head -n 1)
+          APP_VER=$(node -p "require('./appinfo.json').version")
+          IPK_FILE="com.iptv.livetv_${APP_VER}_all.ipk"
+          test -f "$IPK_FILE"
           echo "Generated IPK: $IPK_FILE"
           cp "$IPK_FILE" IPTV-Live-webOS.ipk
           echo "IPK_FILE=$IPK_FILE" >> $GITHUB_ENV
@@ -62,32 +64,30 @@ jobs:
         run: |
           APP_VER=$(node -p "require('./appinfo.json').version")
           TAG="v${APP_VER}"
-          RELEASE_TITLE="Live TV webOS v${APP_VER} (Build #${{ github.run_number }})"
+          RELEASE_TITLE="Live TV v${APP_VER} — LG webOS & Android TV (Build #${{ github.run_number }})"
           
           NOTES=$(cat << 'EOF'
-          ## 📺 Live TV for LG webOS TV (Production Redesign)
+          ## 📺 Live TV for LG webOS & Android TV (v5.0.0)
 
           ### 🚀 מה חדש בעדכון זה:
-          - **עיצוב מחדש מלא של המסך הראשי (Senior-Friendly Production UI):**
-            - הסרת מגירת הקטגוריות המיותרת וכפתורי המסך המלא הכפולים לממשק נקי ואינטואיטיבי ב-2 עמודות (רשימת ערוצים מימין + מסך תצוגה מקדימה חיה ולוח שידורים משמאל).
-            - **הגדלת גופנים משמעותית בכל האפליקציה** לקריאה נוחה ממרחק ספה (3-4 מטרים).
-          - **תיקון תצוגה מקדימה חיה (Live Preview Window):**
-            - תיקון שכבות הווידאו (`z-index`) ומנגנון מעבר חכם לנגן החומרה המובנה של LG webOS במקרה של חסימות CORS.
-          - **תיקון זפזופ בשלט רחוק של LG:**
-            - תיקון באג קפיצה כפולה (דילוג של 2 ערוצים בכל לחיצה) ע"י הסרת מאזין כפול והוספת סינון כפילויות חומרה.
-            - תיקון כיוון זפזופ הערוצים (לחיצה למעלה / CH+ מעלה מספר ערוץ באחד, ולמטה מורידה באחד) וגלילה חלקה ללא קפיצות של כל הרשימה.
-          - **תיקון סמל האפליקציה (App Icon) בפס האפליקציות של LG webOS:**
-            - ייצור מחדש של `icon.png` (80x80) ו-`largeIcon.png` (130x130) מיושרים וממורכזים ב-100%.
+          - **מהדורת Android TV / Google TV ייעודית (`IPTV-Live-AndroidTV.apk`):** תמיכה מלאה בשלטי Android TV (D-Pad, Play/Pause, Back, Media & Color keys) כולל לחיצה ארוכה על `OK` להפעלה/כיבוי של סטארט אובר.
+          - **תיקון סנכרון לוח השידורים (EPG) ברשימת הערוצים:** טעינה מיידית מהמטמון בעלייה ועדכון מלא של כל השורות וטווח השעות.
+          - **סטארט אובר חי רציף ללא תקיעות:** תיקון שידור הארכיון לתוכניות משודרות כך שהניגון נמשך ברצף עד סוף התוכנית.
+          - **מעבר אוטומטי לתוכנית הבאה + כיבוי באדום 🔴:** בסטארט אובר הנגן מתעדכן אוטומטית לתוכנית הבאה וממשיך ברצף; לחיצה חוזרת על האדום מחזירה לשידור החי.
+          - **התאמת חצי הרצה ל-RTL והאצה בלחיצה ארוכה:** שמאלה ◀ = קדימה, ימינה ▶ = אחורה, והחזקה רציפה מאיצה בהדרגה `×2 → ×4 → ×8 → ×16`.
 
           ---
-          📦 **הורדת קובץ התקנה:** הורד את `IPTV-Live-webOS.ipk` והתקן בטלוויזיה עם webOS Dev Manager.
+          📦 **הורדות:**
+          - **Android TV / Google TV:** `IPTV-Live-AndroidTV.apk`
+          - **LG webOS (התקנה מטלפון אנדרואיד):** `IPTV-webOS-Installer.apk`
+          - **LG webOS (התקנה ממחשב):** `IPTV-Live-webOS.ipk` / `com.iptv.livetv_5.0.0_all.ipk`
           EOF
           )
 
-          gh release create "$TAG" "IPTV-Live-webOS.ipk" \
+          gh release create "$TAG" "IPTV-Live-webOS.ipk" "${{ env.IPK_FILE }}" \
             --title "$RELEASE_TITLE" \
             --notes "$NOTES" \
-            --latest || gh release upload "$TAG" "IPTV-Live-webOS.ipk" --clobber
+            --latest || gh release upload "$TAG" "IPTV-Live-webOS.ipk" "${{ env.IPK_FILE }}" --clobber
 
       - name: Prepare Pages Deployment Directory
         if: github.ref == 'refs/heads/main'

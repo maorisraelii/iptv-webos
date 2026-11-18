@@ -9,6 +9,7 @@ on:
       - 'index.html'
       - 'js/**'
       - 'css/**'
+      - 'appinfo.json'
       - '.github/workflows/build_android_installer.yml'
   workflow_dispatch:
 
@@ -63,7 +64,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          LATEST_TAG=$(gh release list --limit 1 --json tagName -q '.[0].tagName')
-          if [ -n "$LATEST_TAG" ]; then
-            gh release upload "$LATEST_TAG" IPTV-webOS-Installer.apk IPTV-Live-AndroidTV.apk --clobber
+          TARGET_TAG="v$(python3 -c "import json; print(json.load(open('appinfo.json'))['version'])")"
+          for i in $(seq 1 18); do
+            if gh release view "$TARGET_TAG" >/dev/null 2>&1; then
+              break
+            fi
+            echo "Waiting for release $TARGET_TAG ($i/18)..."
+            sleep 10
+          done
+          if gh release view "$TARGET_TAG" >/dev/null 2>&1; then
+            gh release upload "$TARGET_TAG" IPTV-webOS-Installer.apk IPTV-Live-AndroidTV.apk --clobber
+          else
+            LATEST_TAG=$(gh release list --limit 1 --json tagName -q '.[0].tagName')
+            if [ -n "$LATEST_TAG" ]; then
+              gh release upload "$LATEST_TAG" IPTV-webOS-Installer.apk IPTV-Live-AndroidTV.apk --clobber
+            fi
           fi

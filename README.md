@@ -2,10 +2,10 @@
   <img src="https://raw.githubusercontent.com/maorisraelii/iptv-webos/main/largeIcon.png" alt="IPTV Live TV App Icon" width="128" height="128" />
 </div>
 
-<h1 align="center">📺 Live TV for LG webOS (v4.9.11)</h1>
+<h1 align="center">📺 Live TV for LG webOS &amp; Android TV (v5.0.0)</h1>
 
 <p align="center">
-  <strong>Smart, ultra-fast, native-feeling Live TV &amp; Catch-Up IPTV player built specifically for LG webOS Smart TVs (webOS 4.0 – webOS 24+), with an Android One-Click Installer Wizard!</strong>
+  <strong>Smart, ultra-fast, native-feeling Live TV &amp; Catch-Up IPTV player built for LG webOS Smart TVs (webOS 4.0 – webOS 24+) and Android TV / Google TV, complete with an Android One-Click webOS Installer Wizard!</strong>
 </p>
 
 <p align="center">
@@ -15,18 +15,19 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-4.9.11%20Production-0284c7?style=for-the-badge" alt="Version 4.9.11" />
+  <img src="https://img.shields.io/badge/Version-5.0.0%20Production-0284c7?style=for-the-badge" alt="Version 5.0.0" />
   <img src="https://img.shields.io/badge/Platform-LG%20webOS%20TV-a50034?style=for-the-badge&logo=lg" alt="LG webOS" />
-  <img src="https://img.shields.io/badge/Installer-Android%20APK-16a34a?style=for-the-badge&logo=android" alt="Android Installer APK" />
+  <img src="https://img.shields.io/badge/Platform-Android%20TV%20%2F%20Google%20TV-16a34a?style=for-the-badge&logo=android" alt="Android TV" />
+  <img src="https://img.shields.io/badge/Installer-Android%20APK-0ea5e9?style=for-the-badge&logo=android" alt="Android Installer APK" />
   <img src="https://img.shields.io/badge/Language-RTL%20Hebrew%20%2F%20All%20Feeds-0284c7?style=for-the-badge" alt="RTL Hebrew" />
 </p>
 
 ---
 
-## 📸 Screenshots (v4.9.11)
+## 📸 Screenshots (v5.0.0)
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/maorisraelii/iptv-webos/main/docs/screenshots/browse-workspace.png" alt="Live TV LG webOS Main Split Workspace" width="90%" />
+  <img src="https://raw.githubusercontent.com/maorisraelii/iptv-webos/main/docs/screenshots/browse-workspace.png" alt="Live TV Main Split Workspace" width="90%" />
   <br />
   <em>Main Split Workspace: Right-side O(1) Channel List with Real-Time EPG, Mini Progress Bars, Start/End Times &amp; Remaining Minutes + Left-side 16:9 Live Preview &amp; 5-Program Start-Over Strip.</em>
 </p>
@@ -34,7 +35,7 @@
 <p align="center">
   <img src="https://raw.githubusercontent.com/maorisraelii/iptv-webos/main/docs/screenshots/fullscreen-osd.png" alt="Live TV Fullscreen Info Bar OSD" width="90%" />
   <br />
-  <em>Fullscreen Unified Info Bar (OSD): Live &amp; Start-Over programme details, elapsed/total progress, previous &amp; next shows, and instant remote shortcuts.</em>
+  <em>Fullscreen Unified Info Bar (OSD): Live &amp; Start-Over programme details, elapsed/total progress, previous &amp; next shows, seek speed multiplier badge, and instant remote shortcuts.</em>
 </p>
 
 ---
@@ -42,24 +43,39 @@
 <a id="-english-documentation"></a>
 ## 🇬🇧 English Documentation
 
-### 🚀 What's New in v4.9.11
+### 🚀 What's New in v5.0.0
 
-1. **Animated Boot Splash &amp; Instant Cold Boot (`index.html`, `appinfo.json`, `js/app.js`)**:
-   - Eliminated the gray webOS default splash and blank startup screen by configuring `splashBackground` and an inline `0ms` animated dark splash screen (`#boot-splash`) with `defer` script loading.
-   - **Progressive Chunked Channel List**: Renders the first 16 visible rows immediately (`< 10ms`), launches the last-watched channel right away, and renders remaining channels smoothly in `requestAnimationFrame` chunks.
-2. **Systemic EPG Fix (`js/epg.js`, `js/app.js`)**:
-   - Populates `this.allChannels` **before** calling `loadActiveEPGSources()` so active-playlist channel filtering always runs with the full lineup.
-   - Fixed background refresh (`loadEPG`) so fresh network XMLTV replaces stale cached data cleanly without duplicating or mixing old programmes, deduplicates identical start times, and invalidates expired caches where all shows have ended.
-3. **Dynamic OTA Changelogs (`ota-release-notes.json`, `scripts/build-ota-manifest.js`)**:
-   - OTA update popups now dynamically read `title` and `releaseNotes` from `ota-release-notes.json` for every release instead of showing static text.
-4. **Live Start-Over &amp; Unified Info Bar (`v4.9.6`)**:
-   - Pressing **Red** 🔴 in fullscreen (or selecting the currently airing show in the guide/strip) restarts the live show from `00:00` (`liveSyncDurationCount: 99999` prevents jumping back to the live edge).
-   - Start-Over title, time range, elapsed/total duration (`MM:SS / MM:SS`), and seek/pause updates render directly inside `#fullscreen-osd` without corner badges or toasts.
-   - First `▲` / `▼` press while the Info Bar is hidden reveals the Info Bar for the **current channel**; subsequent presses surf channels.
+1. **Native Android TV / Google TV Edition (`IPTV-Live-AndroidTV.apk`)**:
+   - Full native Android TV launcher app (`android-tv/`, Leanback TV banner + `LAUNCHER` / `LEANBACK_LAUNCHER` support, `1920px` responsive viewport, immersive fullscreen, keep-screen-on, hardware-accelerated WebView, and zero gray default video poster).
+   - Seamless D-Pad &amp; TV remote bridge forwarding `DPAD`, `CH+/CH-`, `Play/Pause`, `Rewind/Fast-Forward`, `Guide/Info/Menu`, `Color` buttons, and `0–9` digits — including **long-press `OK` (550ms)** in fullscreen to toggle Start-Over ON/OFF on remotes without color buttons!
+2. **Channel List EPG Sync Fix (`js/app.js`, `js/epg.js`)**:
+   - Loads cached EPG synchronously before channel filtering/rendering on cold boot, purges synthetic `gen_*` fallback entries whenever real XMLTV data is present, clears stale match caches, and refreshes **all** rendered channel rows (including offscreen rows and `timeRange`) so the channel list is never out of sync with the OSD.
+3. **Continuous Live Start-Over Playback (`js/player.js`)**:
+   - Fixed live Start-Over archive URLs (`buildCatchupUrl`) so `stopUnix` is never truncated at `nowUnix` — watching a currently airing show from the beginning now plays continuously to the end without freezing at the moment you pressed Start-Over.
+   - Catchup seeking (`seekCatchup`) seeks smoothly inside the existing HLS buffer when available and debounces (`220ms`) seamless stream reloads when jumping outside the buffer.
+4. **Seamless Auto-Advance &amp; Red Button Start-Over Toggle (`js/player.js`, `js/app.js`)**:
+   - When a Start-Over programme finishes, `handleCatchupStreamBoundary` automatically transitions `player.currentProgramme` and the OSD Info Bar (including true Previous/Next adjacent programmes) to the next show — or exits cleanly back to Live when catching up to real time.
+   - Pressing **Red** 🔴 (or long-pressing **OK**) while Start-Over is active toggles it **OFF** and returns immediately to Live broadcast via `exitStartOverToLive()`.
+5. **Hebrew RTL Seek Direction Swap (`js/app.js`)**:
+   - In Fullscreen RTL mode, pressing **Left (`◄`)** now seeks **Forward (`+15s`)** and pressing **Right (`►`)** seeks **Backward (`-15s`)** to match the RTL progress bar visually.
+6. **Accelerated Long-Press Seeking (`js/app.js`, `js/remote.js`)**:
+   - Holding `◄` / `►` (or Green/Blue / Rewind/Fast-Forward) continuously ramps seek speed smoothly through progressive tiers: **`15s → 30s (×2) → 60s (×4) → 180s (×8) → 300s (×16)`** with a live speed badge inside `#osd-live-badge`.
 
 ---
 
-### 📱 Option 1 (Easiest): Install via the Android Installer Wizard APK
+### 🤖 Option 1: Install on Android TV / Google TV (`IPTV-Live-AndroidTV.apk`)
+
+Run Live TV natively on NVIDIA Shield, Chromecast with Google TV, Xiaomi Mi Box/Stick, Sony Bravia, TCL, Philips, or any Android TV device:
+
+1. Download the standalone Android TV APK from GitHub Releases:
+   👉 **[Download `IPTV-Live-AndroidTV.apk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk)**
+2. Install it directly on your Android TV (via Downloader app, USB flash drive, "Send Files to TV", or `adb install -r IPTV-Live-AndroidTV.apk`).
+3. Open **IPTV Live TV** from the Android TV home screen (Apps / Leanback Launcher), scan the QR code with your phone in **הגדרות ו-M3U** to push your M3U playlists &amp; EPG, and enjoy!
+   - **Android TV Remote Tip:** Since most Android TV remotes don't have colored buttons, **hold `OK` (Center button)** for ~0.5 seconds in fullscreen to toggle **Start-Over** ON/OFF, or press **Menu / Guide** to open the 7-Day Program Guide!
+
+---
+
+### 📱 Option 2 (LG webOS — Easiest): Install via the Android Installer Wizard APK
 
 No PC, no CLI, no IP typing, and no manual file transfers! Install directly from your Android phone on the same Wi-Fi as your LG TV:
 
@@ -76,11 +92,11 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
      - Enter the 6-character **Passphrase** into the Android app, and tap **"התקן / עדכן IPTV Live TV לטלוויזיה!"** (with 1-tap retry/recovery if anything isn't ready yet).
    - The app automatically fetches the TV's SSH key (`port 9991`), downloads the latest `IPTV-Live-webOS.ipk` from GitHub Releases, installs it (`port 9922`), and launches **Live TV** on your TV!
 
-### 💻 Option 2: Install from Windows/Mac/Linux (webOS Dev Manager)
+### 💻 Option 3 (LG webOS — PC): Install via webOS Dev Manager
 
 1. Install **Developer Mode** on your LG TV from the LG Apps Store and turn ON **Dev Mode Status** + **Key Server**.
 2. Download the latest `.ipk` from GitHub Releases:
-   👉 **[Download `com.iptv.livetv_4.9.11_all.ipk` / `IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest)**
+   👉 **[Download `com.iptv.livetv_5.0.0_all.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/com.iptv.livetv_5.0.0_all.ipk)** / **[`IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-webOS.ipk)**
 3. Open **webOS Dev Manager**, connect to your TV, click **Install App**, and select the downloaded `.ipk`.
 
 ---
@@ -88,24 +104,39 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 <a id="-תיעוד-והתקנה-בעברית"></a>
 ## 🇮🇱 תיעוד והתקנה בעברית
 
-### מה חדש בגרסה v4.9.11?
+### מה חדש בגרסה v5.0.0?
 
-1. **עלייה מהירה ומסך פתיחה מונפש (`#boot-splash`)**:
-   - ביטול המסך האפור של LG webOS והמסך הריק בעלייה באמצעות `splashBackground`, סגנון מוטמע שמופיע תוך `0ms`, טעינת סקריפטים עם `defer` ואנימציית פתיחה חלקה.
-   - **רינדור הדרגתי של רשימת הערוצים**: 16 הערוצים הראשונים עולים מיד (`< 10ms`), הערוץ האחרון שנצפה מתחיל להתנגן מיד, ושאר הערוצים מרונדרים ברקע בלי לתקוע את הממשק.
-2. **תיקון יסודי של לוח השידורים (EPG)**:
-   - אכלוס רשימת הערוצים (`this.allChannels`) **לפני** טעינת מקורות ה-EPG כדי שסינון הערוצים יעבוד מהשנייה הראשונה.
-   - החלפה נקייה של לוח השידורים בעדכון מהרשת (ללא כפילויות וללא ערבוב תוכניות ישנות וחדשות) וזיהוי אוטומטי של Cache שפג תוקפו.
-3. **Changelog עדכני בכל עדכון OTA**:
-   - רשימת השינויים בחלון ה-OTA נלקחת כעת דינמית מתוך `ota-release-notes.json` עבור כל גרסה חדשה.
-4. **סטארט אובר לתוכנית חיה, פס מידע מאוחד ושליטה נוחה (`v4.9.6`)**:
-   - לחיצה על הכפתור האדום 🔴 במסך מלא (או בחירת התוכנית המשודרת כעת במדריך) מפעילה **סטארט אובר מהשנייה הראשונה (`00:00`)** גם לתוכנית חיה.
-   - פס המידע (`#fullscreen-osd`) מתעדכן בזמן אמת בכל שנייה בפרטי התוכנית המשוחזרת, זמן ניגון נוכחי/כולל והרצות (`◀`/`▶` 15 שניות, ירוק/כחול 30 שניות) ללא הודעות מיותרות בפינה.
-   - לחיצה ראשונה על `▲` או `▼` כשפס המידע מוסתר מעלה תחילה את פס המידע של **הערוץ הנוכחי**; רק לחיצה נוספת מדפדפת לערוץ אחר.
+1. **מהדורת Android TV / Google TV מלאה (`IPTV-Live-AndroidTV.apk`)**:
+   - אפליקציית Android TV מקורית עם באנר Leanback, תצוגת Fullscreen מותאמת למסכי טלוויזיה (`1920px`), מניעת כיבוי מסך והאצת חומרה.
+   - תמיכה מלאה בשלטי Android TV / Google TV / Mi Box / Shield כולל **לחיצה ארוכה על `OK` (כ-0.5 שנייה)** במסך מלא להפעלה וכיבוי של **סטארט אובר** (גם בשלטים ללא כפתור אדום) וכפתור **Menu / Guide** למדריך 7 ימים!
+2. **תיקון סנכרון לוח השידורים (EPG) ברשימת הערוצים**:
+   - טעינה סינכרונית של המטמון מיד בעליית האפליקציה לפני רינדור הרשימה, ניקוי רשומות דמה (`gen_*`) כשיש EPG אמיתי, ועדכון מלא של כל השורות וטווח השעות (`timeRange`) כדי שרשימת הערוצים ופס המידע יהיו מסונכרנים תמיד.
+3. **סטארט אובר חי רציף ללא קפיאות**:
+   - תיקון בניית כתובת ה-Catchup לתוכנית שמשודרת כעת (ללא קטיעה של זמן הסיום לזמן הנוכחי) כך שהתוכנית מתנגנת ברצף מ-`00:00` ועד סופה בלי לקפוא.
+   - הרצה חכמה בתוך הבאפר הקיים או טעינה מחודשת חלקה (`220ms` debounce) בקפיצות מחוץ לבאפר.
+4. **מעבר אוטומטי לתוכנית הבאה בסטארט אובר + כיבוי באדום 🔴**:
+   - כשמסיימים לצפות בתוכנית בסטארט אובר, הנגן ופס המידע ממשיכים אוטומטית לתוכנית הבאה ברצף (וחוזרים אוטומטית לשידור חי כשמדביקים את זמן האמת).
+   - לחיצה חוזרת על הכפתור האדום 🔴 (או לחיצה ארוכה על `OK`) מכבה את הסטארט אובר ומחזירה מיד לשידור החי.
+5. **התאמת כיווני הרצה לעברית (RTL)**:
+   - במסך מלא, חץ **שמאלה (`◄`)** מריץ **קדימה** (+15 שניות) וחץ **ימינה (`►`)** מריץ **אחורה** (-15 שניות) בהתאמה מלאה לכיוון ציר הזמן בעברית.
+6. **האצת הרצה בלחיצה ארוכה (`×2` עד `×16`)**:
+   - החזקה רציפה של `◄` / `►` (או ירוק/כחול) מאיצה את קפיצות ההרצה בהדרגה: **`15 שניות ← ×2 (30 ש') ← ×4 (דקה) ← ×8 (3 דק') ← ×16 (5 דק')`** עם חיווי מהירות ברור בפס המידע.
 
 ---
 
-### 📱 התקנה קלה דרך אשף האנדרואיד מהטלפון (מומלץ!)
+### 🤖 התקנה על Android TV / Google TV (`IPTV-Live-AndroidTV.apk`)
+
+מתאים לכל טלוויזיה או סטרימר מבוסס Android TV / Google TV (Xiaomi Mi Box, NVIDIA Shield, Chromecast, Sony, TCL, Philips ועוד):
+
+1. הורד את קובץ ההתקנה הייעודי ל-Android TV:
+   👉 **[הורד `IPTV-Live-AndroidTV.apk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk)**
+2. התקן בטלוויזיה באמצעות אפליקציית **Downloader**, דיסק-און-קי, **Send Files to TV**, או מהמחשב עם `adb install -r IPTV-Live-AndroidTV.apk`.
+3. פתח את **IPTV Live TV** ממסך הבית של Android TV, סרוק את קוד ה-QR מהטלפון בתוך **הגדרות ו-M3U** כדי לשלוח את הפלייליסטים שלך — והתחל לצפות!
+   - **טיפ לשלט Android TV:** בשלטים ללא כפתורי צבע, **החזקה ארוכה על `OK` (חצי שנייה)** במסך מלא מפעילה ומכבה **סטארט אובר**, וכפתור **Menu / Guide** פותח את מדריך התוכניות ל-7 ימים.
+
+---
+
+### 📱 התקנה על LG webOS דרך אשף האנדרואיד מהטלפון (מומלץ!)
 
 בלי מחשב, בלי שורת פקודה ובלי להקליד כתובות IP ידנית:
 
@@ -124,24 +155,27 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
      4. לחץ על **"התקן / עדכן IPTV Live TV לטלוויזיה!"** (בכל תקלה יופיע כפתור **"בדוק שוב"** בלחיצה אחת).
      - האשף ימשוך אוטומטית את מפתח ה-SSH מהטלוויזיה, יוריד את הגרסה האחרונה מ-GitHub, יתקין אותה לטלוויזיה ויפעיל את האפליקציה מיד!
 
-### 💻 התקנה ממחשב (Windows / Mac / Linux)
+### 💻 התקנה על LG webOS ממחשב (Windows / Mac / Linux)
 
 1. התקן **Developer Mode** מחנות LG בטלוויזיה, התחבר לחשבון LG, והפעל **Dev Mode Status** + **Key Server**.
 2. הורד את קובץ ההתקנה העדכני:
-   👉 **[הורד `IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest)**
+   👉 **[הורד `com.iptv.livetv_5.0.0_all.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/com.iptv.livetv_5.0.0_all.ipk)** / **[`IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-webOS.ipk)**
 3. התקן בעזרת **webOS Dev Manager** (לחיצה על **Install App** ובחירת קובץ ה-`.ipk`).
 
 ---
 
-### 🎮 שלט הטלוויזיה (Remote Shortcuts)
+### 🎮 שלט הטלוויזיה (LG webOS &amp; Android TV Remote Controls)
 
 | כפתור בשלט / Button | מצב רשימה (Browse) | מצב מסך מלא (Fullscreen) |
 | :--- | :--- | :--- |
-| **▲ / ▼** | דפדוף ברשימת הערוצים | לחיצה 1: פתיחת פס מידע נוכחי • לחיצה 2+: זפזופ |
-| **◄ / ►** | מעבר לסטריפ 5 התוכניות / חזור לרשימה | הרצה אחורה / קדימה 15 שניות (בסטארט אובר) |
-| **OK** | נגינה / מעבר למסך מלא / הפעלת סטארט אובר | השהיה / המשך (Play/Pause) או אישור זפזופ |
+| **▲ / ▼** או **CH+ / CH-** | דפדוף ברשימת הערוצים | לחיצה 1: פתיחת פס מידע נוכחי • לחיצה 2+: זפזופ |
+| **◄ (שמאל)** | מעבר לסטריפ 5 התוכניות | **הרצה קדימה 15 שניות** (החזקה רציפה מאיצה `×2 → ×16`) |
+| **► (ימין)** | חזרה לרשימת הערוצים | **הרצה אחורה 15 שניות** (החזקה רציפה מאיצה `×2 → ×16`) |
+| **OK (לחיצה קצרה)** | נגינה / מסך מלא / הפעלת סטארט אובר | השהיה / המשך (`Play/Pause`) או אישור זפזופ |
+| **OK (לחיצה ארוכה 0.5 ש')** | — | **הפעלה / כיבוי של סטארט אובר** (שימושי במיוחד ב-Android TV!) |
 | **0–9** | מעבר מהיר לערוץ עם תצוגת שם הערוץ | מעבר מהיר לערוץ עם תצוגת שם הערוץ |
-| **אדום 🔴** | — | **סטארט אובר** לתוכנית המשודרת כעת (מ-`00:00`) |
-| **ירוק 🟢 / כחול 🔵** | — | הרצה אחורה / קדימה 30 שניות |
-| **צהוב 🟡** | הוספה / הסרה ממועדפים ★ | הוספה / הסרה ממועדפים ★ |
-| **Back / Return** | חזרה למסך מלא | חזרה לרשימת הערוצים |
+| **אדום 🔴** | יציאה מסטארט אובר חזרה לחי | **סטארט אובר** לתוכנית החיה (`00:00`) / לחיצה נוספת לחזרה לחי |
+| **ירוק 🟢 / Rewind ⏪** | — | הרצה אחורה 30 שניות (החזקה מאיצה עד `×16`) |
+| **כחול 🔵 / Fast-Forward ⏩** | — | הרצה קדימה 30 שניות (החזקה מאיצה עד `×16`) |
+| **צהוב 🟡 / Menu / Guide** | פתיחת מדריך תוכניות (7 ימים) | פתיחת מדריך תוכניות (7 ימים) |
+| **Back / Return** | חזרה למסך מלא | חזרה לרשימת הערוצים (או יציאה מתיבת קלט) |

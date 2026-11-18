@@ -95,6 +95,28 @@ const jsPatch = `
         syncClassProto({ prototype: Object.getPrototypeOf(app.player) }, OtaVideoPlayer);
         if (typeof app.player._mediaRecoveryAttempts !== 'number') app.player._mediaRecoveryAttempts = 0;
         if (!app.player._currentUrl) app.player._currentUrl = '';
+        if (typeof app.player.catchupOriginStartMs !== 'number') app.player.catchupOriginStartMs = 0;
+        if (typeof app.player._streamCatchupOriginMs !== 'number') app.player._streamCatchupOriginMs = 0;
+        if (typeof app.player._pendingCatchupTargetMs !== 'number') app.player._pendingCatchupTargetMs = 0;
+        if (typeof app.player._lastBoundaryCheckMs !== 'number') app.player._lastBoundaryCheckMs = 0;
+        if (app.player.callbacks) {
+          if (typeof app.player.callbacks.getNextProgramme !== 'function') {
+            app.player.callbacks.getNextProgramme = function(channel, currentProg, afterMs) {
+              return (app.epg && typeof app.epg.getNextProgrammeForChannel === 'function')
+                ? app.epg.getNextProgrammeForChannel(channel, afterMs)
+                : null;
+            };
+          }
+          if (typeof app.player.callbacks.onProgrammeChanged !== 'function') {
+            app.player.callbacks.onProgrammeChanged = function(channel) {
+              if (typeof app.refreshVisibleEPGLabels === 'function') app.refreshVisibleEPGLabels();
+              if (app.selectedChannel && channel && app.selectedChannel.id === channel.id) {
+                if (typeof app.updateOSD === 'function') app.updateOSD(channel, false);
+                if (app.mode === 'FULLSCREEN' && typeof app.showOSD === 'function') app.showOSD(5000);
+              }
+            };
+          }
+        }
         if (app.player.video) {
           try { app.player.video.playbackRate = 1.0; } catch (e) {}
         }
