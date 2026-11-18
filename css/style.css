@@ -620,6 +620,12 @@ html, body {
   margin-left: 8px;
 }
 
+.details-live-pill.catchup-mode {
+  background-color: rgba(245, 158, 11, 0.25);
+  border-color: rgba(251, 191, 36, 0.7);
+  color: #fef08a;
+}
+
 .details-group-pill {
   background-color: rgba(255, 255, 255, 0.1);
   color: #e2e8f0;
@@ -1266,6 +1272,14 @@ html, body {
   background-color: #334155;
   border: 1px solid #94a3b8;
   color: #f8fafc;
+}
+
+.osd-live-tag.seeking-mode {
+  background-color: #38bdf8;
+  border: 2px solid #e0f2fe;
+  color: #070b14;
+  font-weight: 900;
+  letter-spacing: 0.2px;
 }
 
 .osd-quality-tag {

@@ -11,10 +11,18 @@ class RemoteController {
     this.numberTimer = null;
 
     this.lastKeyCode = 0;
+    this.lastKeySig = null;
     this.lastKeyTime = 0;
     this.lastBackTime = 0;
 
+    this._heldSeekKey = null;
+    this._seekRepeatTimer = null;
+    this._okDownTime = 0;
+    this._okLongPressTimer = null;
+    this._okLongPressFired = false;
+
     this.bindEvents();
+    this.exposeAndroidTVBridge();
     this.ensureFocus();
   }
 
@@ -31,11 +39,181 @@ class RemoteController {
     } catch (e) {}
   }
 
+  exposeAndroidTVBridge() {
+    if (typeof window === 'undefined') return;
+    window.AndroidTVBridge = {
+      dispatchKey: (action) => this.dispatchAndroidAction(action)
+    };
+  }
+
+  dispatchAndroidAction(action) {
+    if (!this.app || !action) return false;
+    const act = String(action).toLowerCase();
+
+    if (/^[0-9]$/.test(act)) {
+      this.unlockAudioOnGesture();
+      this.handleNumberKey(act);
+      return true;
+    }
+
+    switch (act) {
+      case 'up':
+        this.unlockAudioOnGesture();
+        this.app.navigate('up');
+        return true;
+      case 'down':
+        this.unlockAudioOnGesture();
+        this.app.navigate('down');
+        return true;
+      case 'left':
+        this.unlockAudioOnGesture();
+        this.app.navigate('left');
+        return true;
+      case 'right':
+        this.unlockAudioOnGesture();
+        this.app.navigate('right');
+        return true;
+      case 'ok':
+        this.unlockAudioOnGesture();
+        this.confirmOrSelectOk();
+        return true;
+      case 'back':
+        this.app.handleBack();
+        return true;
+      case 'red':
+        this.unlockAudioOnGesture();
+        this.app.onRedButton();
+        return true;
+      case 'green':
+      case 'rewind':
+        this.unlockAudioOnGesture();
+        this.app.onGreenButton();
+        return true;
+      case 'yellow':
+        this.app.onYellowButton();
+        return true;
+      case 'blue':
+      case 'fast_forward':
+        this.unlockAudioOnGesture();
+        this.app.onBlueButton();
+        return true;
+      case 'play_pause':
+        this.unlockAudioOnGesture();
+        this.app.togglePlayPause();
+        return true;
+      case 'ch_up':
+        this.unlockAudioOnGesture();
+        this.app.changeChannelByOffset(1);
+        return true;
+      case 'ch_down':
+        this.unlockAudioOnGesture();
+        this.app.changeChannelByOffset(-1);
+        return true;
+      case 'info':
+        this.app.showOSD();
+        return true;
+      case 'end_seek':
+        this.clearSeekHold();
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  unlockAudioOnGesture() {
+    if (this.app && this.app.player && this.app.player.video) {
+      if (this.app.player.video.muted && !this.app.player.userPaused) {
+        this.app.player.video.muted = false;
+      }
+      if (this.app.player.video.volume < 1.0) {
+        this.app.player.video.volume = 1.0;
+      }
+    }
+  }
+
+  clearSeekHold() {
+    clearTimeout(this._seekRepeatTimer);
+    this._seekRepeatTimer = null;
+    this._heldSeekKey = null;
+    if (this.app && typeof this.app.endSeekHold === 'function') {
+      this.app.endSeekHold();
+    }
+  }
+
+  clearAllHoldStates() {
+    this.clearSeekHold();
+    if (this._okLongPressTimer) {
+      clearTimeout(this._okLongPressTimer);
+      this._okLongPressTimer = null;
+    }
+    this._okLongPressFired = false;
+    this._okDownTime = 0;
+  }
+
+  confirmOrSelectOk() {
+    if (this.numberBuffer && this.numberBuffer.length > 0 && !this.app.isModalOpen()) {
+      clearTimeout(this.numberTimer);
+      const channelNum = parseInt(this.numberBuffer, 10);
+      this.numberBuffer = '';
+      const overlay = document.getElementById('channel-number-jump');
+      if (overlay) overlay.classList.add('hidden');
+      if (!isNaN(channelNum)) {
+        this.app.jumpToChannelNumber(channelNum);
+      }
+      return;
+    }
+    this.app.selectCurrent();
+  }
+
+  getSeekKeyInfo(code, key) {
+    const isFullscreen = Boolean(this.app && this.app.mode === 'FULLSCREEN');
+    if (code === 37 || key === 'ArrowLeft' || key === 'Left') {
+      return isFullscreen ? { id: 'left', run: () => this.app.navigate('left') } : null;
+    }
+    if (code === 39 || key === 'ArrowRight' || key === 'Right') {
+      return isFullscreen ? { id: 'right', run: () => this.app.navigate('right') } : null;
+    }
+    if (
+      code === 404 || key === 'Green' || key === 'ColorF1Green' ||
+      code === 412 || key === 'Rewind' || key === 'MediaRewind' || key === 'MediaTrackPrevious'
+    ) {
+      return { id: 'rewind', run: () => this.app.onGreenButton() };
+    }
+    if (
+      code === 406 || key === 'Blue' || key === 'ColorF3Blue' ||
+      code === 417 || key === 'FastForward' || key === 'MediaFastForward' || key === 'MediaTrackNext'
+    ) {
+      return { id: 'ff', run: () => this.app.onBlueButton() };
+    }
+    return null;
+  }
+
+  triggerSeekWithRepeat(seekInfo, isRepeatEvent) {
+    clearTimeout(this._seekRepeatTimer);
+    this._seekRepeatTimer = null;
+    this._heldSeekKey = seekInfo.id;
+
+    seekInfo.run();
+
+    const scheduleFallback = (delayMs) => {
+      clearTimeout(this._seekRepeatTimer);
+      this._seekRepeatTimer = setTimeout(() => {
+        if (this._heldSeekKey !== seekInfo.id) return;
+        this.lastKeyTime = Date.now();
+        seekInfo.run();
+        scheduleFallback(135);
+      }, delayMs);
+    };
+
+    scheduleFallback(isRepeatEvent ? 160 : 240);
+  }
+
   bindEvents() {
     window.addEventListener('keydown', (e) => this.handleKeyEvent(e), true);
     window.addEventListener('keyup', (e) => this.handleKeyUp(e), true);
 
     window.addEventListener('blur', () => {
+      this.clearAllHoldStates();
       setTimeout(() => this.ensureFocus(), 80);
     });
 
@@ -49,13 +227,48 @@ class RemoteController {
     const key = e.key || '';
 
     if (code === 461 || key === 'Back' || key === 'GoBack' || key === 'XF86Back') {
-      e.preventDefault();
-      e.stopImmediatePropagation();
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
       const now = Date.now();
       if (now - this.lastBackTime > 350) {
         this.lastBackTime = now;
         this.app.handleBack();
       }
+      return;
+    }
+
+    const isOkKey =
+      code === 13 || key === 'Enter' || key === 'Select' || key === 'Accept' || key === 'DPAD_CENTER';
+    if (isOkKey) {
+      if (this._okLongPressTimer || this._okLongPressFired) {
+        if (typeof e.preventDefault === 'function') e.preventDefault();
+        if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+        clearTimeout(this._okLongPressTimer);
+        this._okLongPressTimer = null;
+        const alreadyFired = this._okLongPressFired;
+        this._okLongPressFired = false;
+        this._okDownTime = 0;
+        this.lastKeySig = null;
+        if (!alreadyFired && this.app) {
+          this.app.selectCurrent();
+        }
+      }
+      return;
+    }
+
+    const isSeekUpKey =
+      code === 37 || key === 'ArrowLeft' || key === 'Left' ||
+      code === 39 || key === 'ArrowRight' || key === 'Right' ||
+      code === 404 || key === 'Green' || key === 'ColorF1Green' ||
+      code === 406 || key === 'Blue' || key === 'ColorF3Blue' ||
+      code === 412 || key === 'Rewind' || key === 'MediaRewind' || key === 'MediaTrackPrevious' ||
+      code === 417 || key === 'FastForward' || key === 'MediaFastForward' || key === 'MediaTrackNext';
+
+    if (isSeekUpKey && (this._heldSeekKey || (this.app && this.app.mode === 'FULLSCREEN'))) {
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+      this.lastKeySig = null;
+      this.clearSeekHold();
     }
   }
 
@@ -65,33 +278,44 @@ class RemoteController {
     const now = Date.now();
 
     if (this.isTvControlKey(code, key)) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
     }
 
-    // Fast deduplication guard: 75ms for arrow keys, 140ms for OK/Back/Color buttons
-    const isArrow = code >= 37 && code <= 40;
-    const minGap = isArrow ? 75 : 140;
-    if (code !== 0 && code === this.lastKeyCode && (now - this.lastKeyTime) < minGap) {
+    const seekInfo = this.getSeekKeyInfo(code, key);
+    if (!seekInfo && this._heldSeekKey) {
+      this.clearSeekHold();
+    }
+
+    // Deduplication guard: 110ms for held seek keys, 75ms for arrow keys, 140ms for OK/Back/Color buttons
+    const isArrow =
+      (code >= 37 && code <= 40) ||
+      key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight' ||
+      key === 'Up' || key === 'Down' || key === 'Left' || key === 'Right';
+    const minGap = seekInfo ? 110 : (isArrow ? 75 : 140);
+    const keySig = code !== 0 ? code : key;
+
+    if (keySig && keySig === this.lastKeySig && (now - this.lastKeyTime) < minGap) {
       return;
     }
     this.lastKeyCode = code;
+    this.lastKeySig = keySig;
     this.lastKeyTime = now;
 
     // Unmute & unlock hardware audio on user gesture (fixes webOS silent autoplay policy bug)
-    if (this.app && this.app.player && this.app.player.video) {
-      if (this.app.player.video.muted && !this.app.player.userPaused) {
-        this.app.player.video.muted = false;
-      }
-      if (this.app.player.video.volume < 1.0) {
-        this.app.player.video.volume = 1.0;
-      }
-    }
+    this.unlockAudioOnGesture();
 
     // Number keys (0-9): 48-57 or 96-105
     if ((code >= 48 && code <= 57) || (code >= 96 && code <= 105)) {
       const num = code >= 96 ? (code - 96).toString() : (code - 48).toString();
       this.handleNumberKey(num);
+      return;
+    }
+
+    // Active Seek keys (ArrowLeft/ArrowRight in Fullscreen, Green/Blue, MediaRewind/MediaFastForward)
+    if (seekInfo) {
+      const isRepeatEvent = Boolean(e.repeat || this._heldSeekKey === seekInfo.id);
+      this.triggerSeekWithRepeat(seekInfo, isRepeatEvent);
       return;
     }
 
@@ -113,20 +337,31 @@ class RemoteController {
       return;
     }
 
-    // Center Button: OK / Enter (Play/Pause in Fullscreen, Select/Confirm in Browse/Modals)
-    if (code === 13 || key === 'Enter' || key === 'Select' || key === 'Accept') {
-      if (this.numberBuffer && this.numberBuffer.length > 0 && !this.app.isModalOpen()) {
-        clearTimeout(this.numberTimer);
-        const channelNum = parseInt(this.numberBuffer, 10);
-        this.numberBuffer = '';
-        const overlay = document.getElementById('channel-number-jump');
-        if (overlay) overlay.classList.add('hidden');
-        if (!isNaN(channelNum)) {
-          this.app.jumpToChannelNumber(channelNum);
+    // Center Button: OK / Enter (Long-press in Fullscreen toggles Start-Over; Short press opens OSD / Play-Pause)
+    if (code === 13 || key === 'Enter' || key === 'Select' || key === 'Accept' || key === 'DPAD_CENTER') {
+      const isFullscreenNormalOk =
+        this.app &&
+        this.app.mode === 'FULLSCREEN' &&
+        !this.app.isSurfing &&
+        !(this.numberBuffer && this.numberBuffer.length > 0);
+
+      if (isFullscreenNormalOk) {
+        if (e.repeat || this._okLongPressTimer || this._okLongPressFired) {
+          return;
         }
+        this._okDownTime = now;
+        this._okLongPressFired = false;
+        this._okLongPressTimer = setTimeout(() => {
+          this._okLongPressFired = true;
+          this._okLongPressTimer = null;
+          if (this.app) {
+            this.app.onRedButton();
+          }
+        }, 550);
         return;
       }
-      this.app.selectCurrent();
+
+      this.confirmOrSelectOk();
       return;
     }
 
@@ -166,7 +401,7 @@ class RemoteController {
     }
 
     // Color keys
-    // Red (403): Start Over
+    // Red (403): Start Over / Exit Start Over
     if (code === 403 || key === 'Red' || key === 'ColorF0Red') {
       this.app.onRedButton();
       return;
@@ -209,7 +444,15 @@ class RemoteController {
   isTvControlKey(code, key) {
     const tvKeyCodes = [13, 19, 27, 33, 34, 37, 38, 39, 40, 179, 403, 404, 405, 406, 412, 413, 415, 417, 427, 428, 457, 458, 461];
     if (tvKeyCodes.indexOf(code) !== -1) return true;
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Back', 'GoBack', 'Escape'].indexOf(key) !== -1) return true;
+    if ([
+      'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Up', 'Down', 'Left', 'Right',
+      'Enter', 'Select', 'Accept', 'DPAD_CENTER',
+      'Back', 'GoBack', 'Escape', 'XF86Back',
+      'Red', 'ColorF0Red', 'Green', 'ColorF1Green', 'Yellow', 'ColorF2Yellow', 'Blue', 'ColorF3Blue',
+      'Rewind', 'MediaRewind', 'MediaTrackPrevious', 'FastForward', 'MediaFastForward', 'MediaTrackNext',
+      'Play', 'Pause', 'MediaPlayPause', 'Stop', 'MediaStop',
+      'ChannelUp', 'ChannelDown', 'Info', 'Guide'
+    ].indexOf(key) !== -1) return true;
     return false;
   }
 
