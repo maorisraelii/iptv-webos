@@ -3,31 +3,45 @@ package com.iptv.livetv.androidtv
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import android.net.Uri
+import android.net.http.SslError
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
-import android.view.WindowInsets
-import android.view.WindowInsetsController
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.RenderProcessGoneDetail
+import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.TextView
 import org.json.JSONObject
+import java.io.ByteArrayInputStream
+import java.io.FilterInputStream
+import java.io.IOException
+import java.io.InputStream
+import java.net.HttpURLConnection
+import java.net.MalformedURLException
+import java.net.URL
+import java.util.Locale
 
 class MainActivity : Activity() {
 
@@ -43,10 +57,44 @@ class MainActivity : Activity() {
         fun setInputFocused(focused: Boolean) {
             isWebInputFocused = focused
         }
+
+        @JavascriptInterface
+        fun notifyAppReady() {
+            if (::rootContainer.isInitialized) {
+                rootContainer.post {
+                    hideBootOverlayNow()
+                }
+            }
+        }
+    }
+
+    private class ConnectionManagedInputStream(
+        delegate: InputStream,
+        private val connection: HttpURLConnection
+    ) : FilterInputStream(delegate) {
+        @Volatile
+        private var closed = false
+
+        override fun close() {
+            if (closed) return
+            closed = true
+            try {
+                super.close()
+            } finally {
+                try {
+                    connection.disconnect()
+                } catch (_: Throwable) {
+                }
+            }
+        }
     }
 
     private lateinit var rootContainer: FrameLayout
     private var webView: WebView? = null
+    private var bootOverlay: LinearLayout? = null
+    private var bootProgressBar: ProgressBar? = null
+    private var bootStatusText: TextView? = null
+    private var hideBootOverlayRunnable: Runnable? = null
 
     @Volatile
     private var isWebInputFocused: Boolean = false
@@ -55,7 +103,9 @@ class MainActivity : Activity() {
     private var isPageLoaded: Boolean = false
 
     private var suppressNextKeyUpKeyCode: Int = -1
-    private var renderRecoveryCount: Int = 0
+    private var renderCrashCount: Int = 0
+    private var useSoftwareLayer: Boolean = false
+    private var isTerminalCrashState: Boolean = false
 
     private val defaultVideoPoster: Bitmap by lazy {
         Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply {
@@ -68,7 +118,10 @@ class MainActivity : Activity() {
 
         try {
             window.setBackgroundDrawable(ColorDrawable(BACKGROUND_COLOR))
-            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_FULLSCREEN
+                    or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+            )
         } catch (t: Throwable) {
             Log.w(TAG, "Window setup notice", t)
         }
@@ -84,6 +137,7 @@ class MainActivity : Activity() {
 
         // Apply fullscreen flags strictly after setContentView to avoid AppCompat/decor crashes
         applyImmersiveFullscreen()
+        showBootOverlayLoading()
 
         initWebView()
     }
@@ -92,14 +146,19 @@ class MainActivity : Activity() {
     private fun initWebView() {
         try {
             isPageLoaded = false
+            cancelBootOverlayFallback()
             val wv = WebView(this).apply {
                 layoutParams = FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
                 setBackgroundColor(BACKGROUND_COLOR)
-                // Keep default LAYER_TYPE_NONE so window hardware acceleration handles video/MSE
-                // safely on all Android TV GPU drivers (avoids GL_OUT_OF_MEMORY / Mali/Amlogic crashes).
+                // Use hardware layer initially; switch to software layer after render crash
+                // to avoid Android TV 11 GPU WebView black-screen crash loops.
+                setLayerType(
+                    if (useSoftwareLayer) View.LAYER_TYPE_SOFTWARE else View.LAYER_TYPE_NONE,
+                    null
+                )
                 isFocusable = true
                 isFocusableInTouchMode = true
                 keepScreenOn = true
@@ -124,26 +183,88 @@ class MainActivity : Activity() {
                         view: WebView?,
                         request: WebResourceRequest?
                     ): Boolean {
-                        val scheme = request?.url?.scheme?.lowercase() ?: return false
+                        val scheme = request?.url?.scheme?.lowercase(Locale.US) ?: return false
                         return scheme !in ALLOWED_SCHEMES
+                    }
+
+                    override fun shouldInterceptRequest(
+                        view: WebView?,
+                        request: WebResourceRequest?
+                    ): WebResourceResponse? {
+                        val uri = request?.url ?: return super.shouldInterceptRequest(view, request)
+                        if (uri.isOpaque ||
+                            !uri.scheme.equals("https", ignoreCase = true) ||
+                            !uri.host.equals(APP_HOST, ignoreCase = true) ||
+                            (uri.port != -1 && uri.port != 443)
+                        ) {
+                            return super.shouldInterceptRequest(view, request)
+                        }
+
+                        val method = request.method?.uppercase(Locale.US) ?: "GET"
+                        val rawPath = uri.path ?: "/"
+                        val cleanPath = rawPath.trimStart('/')
+                        if (cleanPath == PROXY_PATH || cleanPath.startsWith("$PROXY_PATH/")) {
+                            return handleProxyRequest(uri, method, request.requestHeaders)
+                        }
+                        return handleStaticAssetRequest(rawPath, method)
+                    }
+
+                    override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                        super.onPageStarted(view, url, favicon)
+                        cancelBootOverlayFallback()
                     }
 
                     override fun onPageFinished(view: WebView?, url: String?) {
                         super.onPageFinished(view, url)
                         isPageLoaded = true
                         installWebKeyBridge()
-                        requestFocus()
+                        if (!isWebInputFocused) {
+                            (view ?: webView)?.requestFocus()
+                        }
+                        if (!isTerminalCrashState && bootOverlay?.visibility != View.GONE) {
+                            scheduleBootOverlayFallback(BOOT_FALLBACK_DELAY_MS)
+                        }
+                    }
+
+                    @SuppressLint("WebViewClientOnReceivedSslError")
+                    override fun onReceivedSslError(
+                        view: WebView?,
+                        handler: SslErrorHandler?,
+                        error: SslError?
+                    ) {
+                        Log.w(TAG, "Proceeding past SSL error for ${error?.url}: ${error?.primaryError}")
+                        handler?.proceed()
                     }
 
                     override fun onRenderProcessGone(
                         view: WebView?,
                         detail: RenderProcessGoneDetail?
                     ): Boolean {
-                        Log.e(TAG, "WebView render process gone — recovering safely")
+                        if (view != null && view !== webView) {
+                            return true
+                        }
+                        val didCrash = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            detail?.didCrash() ?: true
+                        } else {
+                            true
+                        }
+                        Log.e(TAG, "WebView render process gone (didCrash=$didCrash) — scheduling recovery")
                         isPageLoaded = false
-                        if (renderRecoveryCount < 3) {
-                            renderRecoveryCount++
-                            view?.post { recoverWebView() }
+                        cancelBootOverlayFallback()
+                        rootContainer.post {
+                            if (isFinishing || isDestroyed) return@post
+                            if (view != null && view !== webView) return@post
+                            renderCrashCount++
+                            if (renderCrashCount <= MAX_RENDER_CRASH_RECOVERIES) {
+                                useSoftwareLayer = true
+                                showBootOverlayLoading()
+                                recoverWebView()
+                            } else {
+                                destroyWebView()
+                                showBootOverlayError(
+                                    "שגיאת מנוע תצוגה (WebView קרס יותר מ-3 פעמים).\nנא להפעיל מחדש את האפליקציה או לעדכן את Android System WebView במכשיר."
+                                )
+                            }
                         }
                         return true
                     }
@@ -166,11 +287,15 @@ class MainActivity : Activity() {
             rootContainer.removeAllViews()
             rootContainer.addView(wv)
             webView = wv
+            showBootOverlayLoading()
             wv.requestFocus()
             wv.loadUrl(ENTRY_URL)
         } catch (t: Throwable) {
             Log.e(TAG, "WebView initialization failed", t)
-            showFallbackMessage("Android System WebView is unavailable or updating on this TV.")
+            destroyWebView()
+            showBootOverlayError(
+                "שגיאה באתחול מנוע התצוגה (Android System WebView אינו זמין או מתעדכן כעת בטלוויזיה)."
+            )
         }
     }
 
@@ -179,26 +304,454 @@ class MainActivity : Activity() {
         initWebView()
     }
 
-    private fun showFallbackMessage(message: String) {
-        try {
-            rootContainer.removeAllViews()
-            val tv = TextView(this).apply {
-                text = message
-                setTextColor(Color.WHITE)
-                textSize = 20f
-                gravity = Gravity.CENTER
-                setPadding(48, 48, 48, 48)
-            }
-            rootContainer.addView(
-                tv,
-                FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
+    private fun dp(value: Int): Int {
+        return TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            value.toFloat(),
+            resources.displayMetrics
+        ).toInt()
+    }
+
+    private fun ensureBootOverlay(): LinearLayout {
+        bootOverlay?.let { existing ->
+            if (existing.parent !== rootContainer) {
+                (existing.parent as? ViewGroup)?.removeView(existing)
+                rootContainer.addView(
+                    existing,
+                    FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
                 )
-            )
-        } catch (t: Throwable) {
-            Log.e(TAG, "Fallback UI error", t)
+            } else {
+                existing.bringToFront()
+            }
+            return existing
         }
+
+        val progress = ProgressBar(this, null, android.R.attr.progressBarStyleLarge).apply {
+            isIndeterminate = true
+            indeterminateTintList = ColorStateList.valueOf(BOOT_ACCENT_COLOR)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = dp(20)
+            }
+        }
+
+        val statusTv = TextView(this).apply {
+            text = BOOT_STATUS_DEFAULT
+            setTextColor(BOOT_TEXT_COLOR)
+            textSize = 22f
+            gravity = Gravity.CENTER
+            setPadding(dp(40), dp(8), dp(40), dp(8))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val overlay = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setBackgroundColor(BACKGROUND_COLOR)
+            isClickable = false
+            isFocusable = false
+            visibility = View.VISIBLE
+            addView(progress)
+            addView(statusTv)
+        }
+
+        bootProgressBar = progress
+        bootStatusText = statusTv
+        bootOverlay = overlay
+
+        rootContainer.addView(
+            overlay,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+        return overlay
+    }
+
+    private fun showBootOverlayLoading() {
+        isTerminalCrashState = false
+        val overlay = ensureBootOverlay()
+        bootProgressBar?.visibility = View.VISIBLE
+        bootStatusText?.apply {
+            setTextColor(BOOT_TEXT_COLOR)
+            text = BOOT_STATUS_DEFAULT
+        }
+        overlay.visibility = View.VISIBLE
+        overlay.bringToFront()
+    }
+
+    private fun showBootOverlayError(message: String) {
+        cancelBootOverlayFallback()
+        isTerminalCrashState = true
+        try {
+            val overlay = ensureBootOverlay()
+            bootProgressBar?.visibility = View.GONE
+            bootStatusText?.apply {
+                setTextColor(BOOT_ERROR_COLOR)
+                text = message
+            }
+            overlay.visibility = View.VISIBLE
+            overlay.bringToFront()
+        } catch (t: Throwable) {
+            Log.e(TAG, "Boot overlay error UI failure", t)
+        }
+    }
+
+    private fun cancelBootOverlayFallback() {
+        val runnable = hideBootOverlayRunnable ?: return
+        hideBootOverlayRunnable = null
+        if (::rootContainer.isInitialized) {
+            rootContainer.removeCallbacks(runnable)
+        }
+    }
+
+    private fun scheduleBootOverlayFallback(delayMs: Long) {
+        cancelBootOverlayFallback()
+        if (isTerminalCrashState || !::rootContainer.isInitialized) return
+        val overlay = bootOverlay ?: return
+        if (overlay.visibility == View.GONE) return
+        val runnable = Runnable {
+            hideBootOverlayRunnable = null
+            hideBootOverlayNow()
+        }
+        hideBootOverlayRunnable = runnable
+        rootContainer.postDelayed(runnable, delayMs)
+    }
+
+    private fun hideBootOverlayNow() {
+        if (isTerminalCrashState) return
+        cancelBootOverlayFallback()
+        val overlay = bootOverlay ?: return
+        if (overlay.visibility != View.GONE) {
+            overlay.visibility = View.GONE
+        }
+    }
+
+    private fun handleStaticAssetRequest(rawPath: String, method: String): WebResourceResponse {
+        val assetPath = normalizeAssetPath(rawPath)
+            ?: return emptyStaticNotFoundResponse()
+
+        val stream = try {
+            applicationContext.assets.open("www/$assetPath")
+        } catch (_: Throwable) {
+            return emptyStaticNotFoundResponse()
+        }
+
+        val responseStream: InputStream = if (method == "HEAD") {
+            try {
+                stream.close()
+            } catch (_: Throwable) {
+            }
+            ByteArrayInputStream(ByteArray(0))
+        } else {
+            stream
+        }
+
+        val (mimeType, encoding) = resolveAssetMimeAndEncoding(assetPath)
+        val headers = mapOf(
+            "Access-Control-Allow-Origin" to "*",
+            "Cache-Control" to "no-cache"
+        )
+        return WebResourceResponse(
+            mimeType,
+            encoding,
+            200,
+            "OK",
+            headers,
+            responseStream
+        )
+    }
+
+    private fun normalizeAssetPath(rawPath: String?): String? {
+        val trimmed = (rawPath ?: "").trim('/')
+        if (trimmed.isEmpty()) return "index.html"
+        if (trimmed.contains('\\') || trimmed.contains("..")) return null
+        val segments = trimmed.split('/')
+        val cleaned = ArrayList<String>(segments.size)
+        for (segment in segments) {
+            if (segment.isEmpty() || segment == ".") continue
+            if (segment == ".." || segment.contains("..")) return null
+            cleaned.add(segment)
+        }
+        return if (cleaned.isEmpty()) "index.html" else cleaned.joinToString("/")
+    }
+
+    private fun resolveAssetMimeAndEncoding(assetPath: String): Pair<String, String?> {
+        val fileName = assetPath.substringAfterLast('/')
+        val ext = if (fileName.contains('.')) {
+            fileName.substringAfterLast('.').lowercase(Locale.US)
+        } else {
+            ""
+        }
+        return when (ext) {
+            "html", "htm" -> "text/html" to "utf-8"
+            "js", "mjs" -> "application/javascript" to "utf-8"
+            "css" -> "text/css" to "utf-8"
+            "json" -> "application/json" to "utf-8"
+            "xml" -> "application/xml" to "utf-8"
+            "svg" -> "image/svg+xml" to "utf-8"
+            "png" -> "image/png" to null
+            "jpg", "jpeg" -> "image/jpeg" to null
+            "webp" -> "image/webp" to null
+            "gif" -> "image/gif" to null
+            "woff" -> "font/woff" to null
+            "woff2" -> "font/woff2" to null
+            else -> "application/octet-stream" to null
+        }
+    }
+
+    private fun emptyStaticNotFoundResponse(): WebResourceResponse {
+        return WebResourceResponse(
+            "text/plain",
+            "utf-8",
+            404,
+            "Not Found",
+            mapOf(
+                "Access-Control-Allow-Origin" to "*",
+                "Cache-Control" to "no-store"
+            ),
+            ByteArrayInputStream(ByteArray(0))
+        )
+    }
+
+    private fun handleProxyRequest(
+        uri: Uri,
+        method: String,
+        requestHeaders: Map<String, String>?
+    ): WebResourceResponse {
+        if (method == "OPTIONS") {
+            return WebResourceResponse(
+                "text/plain",
+                "utf-8",
+                204,
+                "No Content",
+                mapOf(
+                    "Access-Control-Allow-Origin" to "*",
+                    "Access-Control-Allow-Methods" to "GET, HEAD, OPTIONS",
+                    "Access-Control-Allow-Headers" to "*",
+                    "Cache-Control" to "no-store"
+                ),
+                ByteArrayInputStream(ByteArray(0))
+            )
+        }
+
+        val targetUrlRaw = uri.getQueryParameter("url")?.trim()
+        if (targetUrlRaw.isNullOrEmpty()) {
+            return proxyErrorResponse(400, "Bad Request")
+        }
+        val parsedTarget = try {
+            URL(targetUrlRaw)
+        } catch (_: MalformedURLException) {
+            null
+        }
+        val targetProtocol = parsedTarget?.protocol?.lowercase(Locale.US)
+        if (parsedTarget == null ||
+            (targetProtocol != "http" && targetProtocol != "https") ||
+            parsedTarget.host.isNullOrBlank()
+        ) {
+            return proxyErrorResponse(400, "Bad Request")
+        }
+
+        if (method != "GET" && method != "HEAD") {
+            return proxyErrorResponse(405, "Method Not Allowed")
+        }
+
+        val incomingUa = requestHeaders?.entries
+            ?.firstOrNull { it.key.equals("User-Agent", ignoreCase = true) }
+            ?.value
+            ?.replace(Regex("[\\r\\n]+"), " ")
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+        val userAgent = incomingUa ?: PROXY_USER_AGENT
+
+        var currentUrl = parsedTarget
+        var currentMethod = method
+        var conn: HttpURLConnection? = null
+        var statusCode = -1
+        var redirects = 0
+
+        try {
+            while (true) {
+                val candidate = (currentUrl.openConnection() as? HttpURLConnection)
+                    ?: throw IOException("Unsupported connection type")
+                var handedOff = false
+                try {
+                    candidate.instanceFollowRedirects = false
+                    candidate.connectTimeout = PROXY_CONNECT_TIMEOUT_MS
+                    candidate.readTimeout = PROXY_READ_TIMEOUT_MS
+                    candidate.useCaches = false
+                    candidate.requestMethod = currentMethod
+                    candidate.setRequestProperty("User-Agent", userAgent)
+                    requestHeaders?.forEach { (key, value) ->
+                        if (key.equals("Accept", ignoreCase = true) ||
+                            key.equals("Range", ignoreCase = true)
+                        ) {
+                            val safeVal = value.replace(Regex("[\\r\\n]+"), " ").trim()
+                            if (safeVal.isNotEmpty()) {
+                                candidate.setRequestProperty(key, safeVal)
+                            }
+                        }
+                    }
+
+                    val code = candidate.responseCode
+                    if (code in PROXY_REDIRECT_CODES) {
+                        val location = candidate.getHeaderField("Location")
+                        candidate.disconnect()
+                        if (location.isNullOrBlank() || redirects >= PROXY_MAX_REDIRECTS) {
+                            throw IOException("Redirect limit exceeded or missing Location ($code)")
+                        }
+                        val nextUrl = URL(currentUrl, location.trim())
+                        val nextProtocol = nextUrl.protocol.lowercase(Locale.US)
+                        if (nextProtocol != "http" && nextProtocol != "https") {
+                            throw IOException("Unsupported redirect scheme: $nextProtocol")
+                        }
+                        if (code == HttpURLConnection.HTTP_SEE_OTHER && currentMethod != "HEAD") {
+                            currentMethod = "GET"
+                        }
+                        currentUrl = nextUrl
+                        redirects++
+                        continue
+                    }
+
+                    conn = candidate
+                    statusCode = code
+                    handedOff = true
+                    break
+                } finally {
+                    if (!handedOff) {
+                        try {
+                            candidate.disconnect()
+                        } catch (_: Throwable) {
+                        }
+                    }
+                }
+            }
+
+            val activeConn = conn ?: throw IOException("Missing proxy connection")
+            if (statusCode !in 100..299 && statusCode !in 400..599) {
+                activeConn.disconnect()
+                return proxyErrorResponse(502, "Bad Gateway")
+            }
+
+            val reasonPhrase = activeConn.responseMessage
+                ?.replace(Regex("[\\r\\n]+"), " ")
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+                ?: defaultReasonPhrase(statusCode)
+
+            val (mimeType, encoding) = parseContentType(activeConn.contentType)
+            val responseHeaders = mapOf(
+                "Access-Control-Allow-Origin" to "*",
+                "Access-Control-Allow-Methods" to "GET, HEAD, OPTIONS",
+                "Cache-Control" to "no-store"
+            )
+
+            val responseStream: InputStream = if (currentMethod == "HEAD") {
+                activeConn.disconnect()
+                ByteArrayInputStream(ByteArray(0))
+            } else {
+                val upstreamStream = try {
+                    if (statusCode >= 400) activeConn.errorStream else activeConn.inputStream
+                } catch (_: IOException) {
+                    activeConn.errorStream
+                }
+                if (upstreamStream == null) {
+                    activeConn.disconnect()
+                    ByteArrayInputStream(ByteArray(0))
+                } else {
+                    ConnectionManagedInputStream(upstreamStream, activeConn)
+                }
+            }
+
+            return WebResourceResponse(
+                mimeType,
+                encoding,
+                statusCode,
+                reasonPhrase,
+                responseHeaders,
+                responseStream
+            )
+        } catch (e: IOException) {
+            Log.w(TAG, "Proxy IOException for $targetUrlRaw: ${e.message}")
+            try {
+                conn?.disconnect()
+            } catch (_: Throwable) {
+            }
+            return proxyErrorResponse(502, "Bad Gateway")
+        } catch (t: Throwable) {
+            Log.w(TAG, "Proxy error for $targetUrlRaw", t)
+            try {
+                conn?.disconnect()
+            } catch (_: Throwable) {
+            }
+            return proxyErrorResponse(502, "Bad Gateway")
+        }
+    }
+
+    private fun parseContentType(rawContentType: String?): Pair<String, String?> {
+        if (rawContentType.isNullOrBlank()) {
+            return "application/octet-stream" to null
+        }
+        val parts = rawContentType.split(';')
+        val mimeType = parts.firstOrNull()?.trim()?.lowercase(Locale.US)
+            ?.takeIf { it.isNotEmpty() } ?: "application/octet-stream"
+        var charset: String? = null
+        for (i in 1 until parts.size) {
+            val param = parts[i].trim()
+            if (param.startsWith("charset=", ignoreCase = true)) {
+                val value = param.substringAfter('=')
+                    .trim()
+                    .trim('"', '\'')
+                if (value.isNotEmpty()) {
+                    charset = value
+                    break
+                }
+            }
+        }
+        return mimeType to charset
+    }
+
+    private fun defaultReasonPhrase(statusCode: Int): String {
+        return when (statusCode) {
+            200 -> "OK"
+            201 -> "Created"
+            204 -> "No Content"
+            206 -> "Partial Content"
+            400 -> "Bad Request"
+            401 -> "Unauthorized"
+            403 -> "Forbidden"
+            404 -> "Not Found"
+            405 -> "Method Not Allowed"
+            500 -> "Internal Server Error"
+            502 -> "Bad Gateway"
+            503 -> "Service Unavailable"
+            504 -> "Gateway Timeout"
+            else -> if (statusCode < 400) "OK" else "Error"
+        }
+    }
+
+    private fun proxyErrorResponse(statusCode: Int, reasonPhrase: String): WebResourceResponse {
+        return WebResourceResponse(
+            "text/plain",
+            "utf-8",
+            statusCode,
+            reasonPhrase,
+            mapOf(
+                "Access-Control-Allow-Origin" to "*",
+                "Access-Control-Allow-Methods" to "GET, HEAD, OPTIONS",
+                "Cache-Control" to "no-store"
+            ),
+            ByteArrayInputStream(ByteArray(0))
+        )
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -272,6 +825,7 @@ class MainActivity : Activity() {
     }
 
     private fun destroyWebView() {
+        cancelBootOverlayFallback()
         val wv = webView ?: return
         webView = null
         try {
@@ -285,6 +839,7 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        cancelBootOverlayFallback()
         destroyWebView()
         super.onDestroy()
     }
@@ -510,23 +1065,18 @@ class MainActivity : Activity() {
     @Suppress("DEPRECATION")
     private fun applyImmersiveFullscreen() {
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                window.setDecorFitsSystemWindows(false)
-                window.insetsController?.let { controller ->
-                    controller.systemBarsBehavior =
-                        WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                    controller.hide(WindowInsets.Type.systemBars())
-                }
-            } else {
-                window.decorView.systemUiVisibility = (
-                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                        or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                        or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                        or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        or View.SYSTEM_UI_FLAG_FULLSCREEN
-                    )
-            }
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_FULLSCREEN
+                    or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+            )
+            window.decorView.systemUiVisibility = (
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_FULLSCREEN
+                    or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                )
         } catch (t: Throwable) {
             Log.w(TAG, "applyImmersiveFullscreen notice", t)
         }
@@ -534,11 +1084,24 @@ class MainActivity : Activity() {
 
     companion object {
         private const val TAG = "IPTVAndroidTV"
-        private const val ENTRY_URL = "file:///android_asset/www/index.html"
+        private const val APP_HOST = "appassets.androidplatform.net"
+        private const val PROXY_PATH = "__proxy__"
+        private const val ENTRY_URL = "https://appassets.androidplatform.net/index.html"
+        private const val PROXY_USER_AGENT = "VLC/3.0.18 LibVLC/3.0.18"
+        private const val PROXY_CONNECT_TIMEOUT_MS = 10_000
+        private const val PROXY_READ_TIMEOUT_MS = 15_000
+        private const val PROXY_MAX_REDIRECTS = 5
+        private const val MAX_RENDER_CRASH_RECOVERIES = 3
+        private const val BOOT_FALLBACK_DELAY_MS = 1200L
+        private const val BOOT_STATUS_DEFAULT = "IPTV Live • טוען שידורים..."
         private const val BACKGROUND_COLOR = 0xFF070B14.toInt()
+        private const val BOOT_ACCENT_COLOR = 0xFF38BDF8.toInt()
+        private const val BOOT_TEXT_COLOR = 0xFFE2E8F0.toInt()
+        private const val BOOT_ERROR_COLOR = 0xFFFCA5A5.toInt()
         private const val WEB_KEY_ENTER = 13
         private const val WEB_KEY_BACK = 461
         private val ALLOWED_SCHEMES = setOf("file", "http", "https", "data", "blob")
+        private val PROXY_REDIRECT_CODES = setOf(301, 302, 303, 307, 308)
 
         private val BRIDGE_BOOTSTRAP_JS = """
             (function() {
