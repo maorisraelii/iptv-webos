@@ -33,7 +33,11 @@
       var docEl = document.documentElement;
       if (!docEl) return;
       var w = window.innerWidth || docEl.clientWidth || 0;
-      if (w > 0 && w < 1800) {
+      var h = window.innerHeight || docEl.clientHeight || 0;
+      if (w > 0 && h > 0) {
+        var scale = Math.min(w / 1920, h / 1080);
+        docEl.style.zoom = scale < 0.99 ? String(scale) : '';
+      } else if (w > 0 && w < 1800) {
         docEl.style.zoom = String(w / 1920);
       } else if (w >= 1800) {
         docEl.style.zoom = '';
