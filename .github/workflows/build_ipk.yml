@@ -58,7 +58,7 @@ jobs:
           retention-days: 30
 
       - name: Create or Update GitHub Release
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -90,10 +90,10 @@ jobs:
             --latest || gh release upload "$TAG" "IPTV-Live-webOS.ipk" "${{ env.IPK_FILE }}" --clobber
 
       - name: Prepare Pages Deployment Directory
-        if: github.ref == 'refs/heads/main'
-        continue-on-error: true
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: |
           mkdir -p _site _site/tv
+          touch _site/.nojekyll
           cp -r dist/* _site/
           cp IPTV-Live-webOS.ipk _site/
           cat << 'EOF' > _site/tv/index.html
@@ -115,16 +115,14 @@ jobs:
           EOF
 
       - name: Upload Pages Artifact
-        if: github.ref == 'refs/heads/main'
-        continue-on-error: true
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
   deploy-pages:
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: build-and-release
-    continue-on-error: true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -132,5 +130,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        continue-on-error: true
         uses: actions/deploy-pages@v4

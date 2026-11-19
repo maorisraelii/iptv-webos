@@ -2710,6 +2710,14 @@ class IPTVApp {
       });
     }
 
+    const btnOsdExitFullscreen = document.getElementById('btn-osd-exit-fullscreen');
+    if (btnOsdExitFullscreen) {
+      btnOsdExitFullscreen.addEventListener('click', (e) => {
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        this.exitFullscreen();
+      });
+    }
+
     // Header buttons
     const btnFilterFavs = document.getElementById('btn-filter-favs');
     if (btnFilterFavs) btnFilterFavs.addEventListener('click', () => this.toggleFavoritesFilter());
@@ -2861,6 +2869,51 @@ class IPTVApp {
         if (urlIn) urlIn.value = '';
         this.renderSourcesManagerList();
         this.showToast('מקור M3U נוסף לרשימה! לחץ "שמור וטען" למיזוג.');
+      });
+    }
+
+    // Local .m3u/.m3u8 file upload button (especially useful in Laptop / Desktop Web Player)
+    const btnUploadLocalM3u = document.getElementById('btn-upload-local-m3u');
+    const localM3uInput = document.getElementById('m3u-local-file-input');
+    if (btnUploadLocalM3u && localM3uInput) {
+      btnUploadLocalM3u.addEventListener('click', () => {
+        localM3uInput.value = '';
+        localM3uInput.click();
+      });
+      localM3uInput.addEventListener('change', (e) => {
+        const file = e && e.target && e.target.files ? e.target.files[0] : null;
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const text = typeof reader.result === 'string' ? reader.result.trim() : '';
+          if (!text || (text.indexOf('#EXT') === -1 && text.indexOf('http') === -1)) {
+            this.showToast('הקובץ שנבחר אינו מכיל רשימת ערוצי M3U תקינה');
+            return;
+          }
+          const cleanName = String(file.name || 'קובץ מקומי').replace(/\.(m3u8?|txt)$/i, '');
+          const dataUrl = 'data:text/plain;charset=utf-8,' + encodeURIComponent(text);
+          try {
+            if (this.store.sources.length === 1 && this.store.sources[0].url === DEFAULT_SAMPLE_M3U) {
+              this.store.updateSource(this.store.sources[0].id, {
+                name: cleanName,
+                url: dataUrl,
+                enabled: true
+              });
+            } else {
+              this.store.addSource(cleanName, dataUrl);
+            }
+            this.renderSourcesManagerList();
+            this.refreshAllSources(false);
+            this.closeModals();
+            this.showToast('קובץ ' + cleanName + ' נטען בהצלחה!');
+          } catch (saveErr) {
+            this.showToast('קובץ ה-M3U גדול מדי לשמירה בדפדפן — נסה קישור URL');
+          }
+        };
+        reader.onerror = () => {
+          this.showToast('שגיאה בקריאת הקובץ מהמחשב');
+        };
+        reader.readAsText(file);
       });
     }
 
