@@ -2237,6 +2237,10 @@ class IPTVApp {
       this.renderPerformanceTab();
     } else if (tabName === 'sources') {
       this.renderSourcesManagerList();
+    } else if (tabName === 'about') {
+      if (this.otaManager && typeof this.otaManager.updateVersionBadgesUI === 'function') {
+        this.otaManager.updateVersionBadgesUI();
+      }
     }
   }
 

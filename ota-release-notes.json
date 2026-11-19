@@ -1,9 +1,8 @@
 {
-  "title": "עדכון 5.1.1 (Beta) - תיקון מסך שחור ב-Android TV 11 ועיצוב Apple Liquid Glass",
+  "title": "עדכון 5.1.2 (Beta) - עיצוב Apple Liquid Glass + החלפת ערוץ עדכונים מההגדרות",
   "releaseNotes": [
-    "תיקון מסך שחור ב-Android TV 11 (API 30): טעינת האפליקציה על גבי virtual HTTPS origin עם CORS proxy מובנה, מסך טעינה בטוח והתאמת Chromium 83",
-    "פתיחה בטוחה למסך רשימת הערוצים המפוצל (Browse Mode), התאמת תצוגה אוטומטית למכשירי 720p ושיפור fallback של הנגן",
-    "עיצוב Apple tvOS / visionOS Liquid Glass מלא בכל מסכי האפליקציה, פס מידע צף ומסכי סנכרון מחודשים",
-    "שמירה מלאה על ביצועי 60fps חלקים ותכונות הסטארט אובר ו-Android TV"
+    "נוספה בחירת ערוץ עדכונים בהגדרות (לשונית עדכונים ואודות): מעבר מיידי וחלק חזרה לגרסת Stable יציבה או המשך בערוץ Beta (Apple Liquid Glass) דרך OTA",
+    "קישור ישיר קבוע להורדת גרסת הבטא האחרונה (beta-latest) ותמיכה במניפסט נפרד ota-manifest-beta.json",
+    "עיצוב Apple tvOS / visionOS Liquid Glass מלא + כל תיקוני Android TV 11 (API 30) מ-v5.1.1 וביצועי 60fps חלקים"
   ]
 }

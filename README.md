@@ -2,7 +2,7 @@
   <img src="https://files.catbox.moe/f4jrx8.png" alt="IPTV Live TV App Icon" width="128" height="128" />
 </div>
 
-<h1 align="center">📺 Live TV for LG webOS &amp; Android TV (v5.1.1-beta)</h1>
+<h1 align="center">📺 Live TV for LG webOS &amp; Android TV (v5.1.2-beta)</h1>
 
 <p align="center">
   <strong>Smart, ultra-fast, native-feeling Live TV &amp; Catch-Up IPTV player built for LG webOS Smart TVs (webOS 4.0 – webOS 24+) and Android TV / Google TV, complete with an Android One-Click webOS Installer Wizard!</strong>
@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-5.1.1%20Beta-0284c7?style=for-the-badge" alt="Version 5.1.1-beta" />
+  <img src="https://img.shields.io/badge/Version-5.1.2%20Beta-0284c7?style=for-the-badge" alt="Version 5.1.2-beta" />
   <img src="https://img.shields.io/badge/Platform-LG%20webOS%20TV-a50034?style=for-the-badge&logo=lg" alt="LG webOS" />
   <img src="https://img.shields.io/badge/Platform-Android%20TV%20%2F%20Google%20TV-16a34a?style=for-the-badge&logo=android" alt="Android TV" />
   <img src="https://img.shields.io/badge/Downloader%20Code-2606856-f97316?style=for-the-badge" alt="Downloader Code 2606856" />
@@ -25,7 +25,7 @@
 
 ---
 
-## 📸 Screenshots (v5.1.1-beta)
+## 📸 Screenshots (v5.1.2-beta)
 
 <p align="center">
   <img src="https://files.catbox.moe/66chpb.png" alt="Live TV Main Split Workspace" width="90%" />
@@ -56,7 +56,9 @@
 <a id="-english-documentation"></a>
 ## 🇬🇧 English Documentation
 
-### 🚀 What's New in v5.1.1-beta — Apple Liquid Glass Edition + Android TV 11 Fix
+### 🚀 What's New in v5.1.2-beta — Apple Liquid Glass Edition + In-Settings OTA Channel Switcher
+
+- **Switch Between `Stable` &amp; `Beta` Inside Settings (`js/qr-ota.js`, `index.html`)**: Open **Settings → Updates (Stable / Beta) &amp; About** to switch live between **Beta (Apple Liquid Glass)** and **Stable (Classic UI)** via Cloud OTA, plus a permanent rolling **`beta-latest`** APK link (`https://github.com/maorisraelii/iptv-webos/releases/download/beta-latest/IPTV-Live-AndroidTV.apk`).
 
 1. **Android TV 11 (API 30) Black Screen Fix &amp; Safe Browse Boot (`android-tv/`, `js/app.js`, `js/loader.js`)**:
    - Virtual HTTPS origin (`https://appassets.androidplatform.net/`), built-in native CORS proxy (`/__proxy__`), Chromium 83 layout compatibility &amp; `zoom` scaling, native boot overlay until `notifyAppReady()`, and direct boot into Browse Mode.
@@ -86,12 +88,12 @@ Compatible with NVIDIA Shield TV, Chromecast with Google TV, Xiaomi Mi Box / TV 
    ```text
    2606856
    ```
-   *(Resolves via `https://aftv.news/2606856` for Stable • Beta `v5.1.1`: `https://github.com/maorisraelii/iptv-webos/releases/download/v5.1.1/IPTV-Live-AndroidTV.apk`)*
+   *(Resolves via `https://aftv.news/2606856` for Stable • Rolling Beta Direct APK: `https://github.com/maorisraelii/iptv-webos/releases/download/beta-latest/IPTV-Live-AndroidTV.apk`)*
 4. Press **Go** — Downloader automatically fetches `IPTV-Live-AndroidTV.apk`. When prompted, select **Install**, then **Open**.
 
 #### Method B (Wi-Fi Transfer from Phone via Send Files to TV)
 1. Install **Send Files to TV** on both your Android TV and your smartphone (Google Play Store).
-2. Download `IPTV-Live-AndroidTV.apk` on your phone ([Beta v5.1.1 Release](https://github.com/maorisraelii/iptv-webos/releases/download/v5.1.1/IPTV-Live-AndroidTV.apk) • [All Releases](https://github.com/maorisraelii/iptv-webos/releases)).
+2. Download `IPTV-Live-AndroidTV.apk` on your phone ([Beta Rolling APK](https://github.com/maorisraelii/iptv-webos/releases/download/beta-latest/IPTV-Live-AndroidTV.apk) • [Beta v5.1.2 Release](https://github.com/maorisraelii/iptv-webos/releases/tag/v5.1.2) • [All Releases](https://github.com/maorisraelii/iptv-webos/releases)).
 3. Open **Send Files to TV** and tap **Receive** on the TV and **Send** on your phone, select `IPTV-Live-AndroidTV.apk`, then open and install it from the TV notification/file manager.
 
 #### Method C (USB Flash Drive or PC `adb`)
@@ -129,7 +131,7 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 
 1. Install **Developer Mode** on your LG TV from the LG Apps Store and turn ON **Dev Mode Status** + **Key Server**.
 2. Download the latest `.ipk` from GitHub Releases:
-   👉 **[Download `com.iptv.livetv_5.1.1_all.ipk`](https://github.com/maorisraelii/iptv-webos/releases/tag/v5.1.1)** / **[`IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/download/v5.1.1/IPTV-Live-webOS.ipk)**
+   👉 **[Download `com.iptv.livetv_5.1.2_all.ipk`](https://github.com/maorisraelii/iptv-webos/releases/tag/v5.1.2)** / **[`IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/download/v5.1.2/IPTV-Live-webOS.ipk)**
 3. Open **webOS Dev Manager**, connect to your TV, click **Install App**, and select the downloaded `.ipk`.
 
 ---
@@ -137,7 +139,9 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 <a id="-תיעוד-והתקנה-בעברית"></a>
 ## 🇮🇱 תיעוד והתקנה בעברית
 
-### מה חדש בגרסה v5.1.1-beta? (מהדורת Apple Liquid Glass + תיקון Android TV 11)
+### מה חדש בגרסה v5.1.2-beta? (מהדורת Apple Liquid Glass + מעבר ערוצים בהגדרות)
+
+- **בחירת ערוץ עדכונים (`Stable` ↔ `Beta`) מתוך ההגדרות (`js/qr-ota.js`, `index.html`)**: פתחו **הגדרות ← עדכונים (Stable / Beta) ואודות** כדי לעבור בכל רגע דרך OTA בין ממשק הבטא (**Apple Liquid Glass**) לגרסה היציבה (**Stable**) וחזרה, ובנוסף קישור ישיר קבוע לגרסת הבטא האחרונה (`beta-latest`).
 
 1. **תיקון מסך שחור ב-Android TV 11 (API 30) ועלייה בטוחה למסך הערוצים**:
    - טעינת ממשק ה-Web על גבי Virtual HTTPS Origin (`https://appassets.androidplatform.net/`) עם CORS Proxy מובנה (`/__proxy__`), התאמת Chromium 83 וסקיילינג אוטומטי למסכי 720p/1080p, שכבת טעינה מקורית עד עליית האפליקציה (`notifyAppReady`), ופתיחה בטוחה למסך הערוצים המפוצל (Browse Mode).
@@ -167,12 +171,12 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
    ```text
    2606856
    ```
-   *(קוד `2606856` מיועד לגרסה היציבה • לבטא `v5.1.1`: `https://github.com/maorisraelii/iptv-webos/releases/download/v5.1.1/IPTV-Live-AndroidTV.apk`)*
+   *(קוד `2606856` מיועד לגרסה היציבה • קישור ישיר קבוע לבטא: `https://github.com/maorisraelii/iptv-webos/releases/download/beta-latest/IPTV-Live-AndroidTV.apk`)*
 4. לחץ **Go** — האפליקציה תוריד אוטומטית את `IPTV-Live-AndroidTV.apk`. כשיקפוץ חלון ההתקנה, לחץ **התקן (Install)** ובסיום **פתח (Open)**.
 
 #### שיטה 2 (העברה אלחוטית מהטלפון עם Send Files to TV)
 1. התקן את **Send Files to TV** מחנות Google Play גם בטלפון וגם בטלוויזיה (ודא ששניהם על אותו Wi-Fi).
-2. הורד בטלפון את קובץ ה-APK ([שחרור בטא v5.1.1](https://github.com/maorisraelii/iptv-webos/releases/download/v5.1.1/IPTV-Live-AndroidTV.apk) • [כל השחרורים](https://github.com/maorisraelii/iptv-webos/releases)):
+2. הורד בטלפון את קובץ ה-APK ([קישור בטא קבוע](https://github.com/maorisraelii/iptv-webos/releases/download/beta-latest/IPTV-Live-AndroidTV.apk) • [שחרור בטא v5.1.2](https://github.com/maorisraelii/iptv-webos/releases/tag/v5.1.2) • [כל השחרורים](https://github.com/maorisraelii/iptv-webos/releases)):
 3. פתח את **Send Files to TV** ולחץ על **Receive** בטלוויזיה ועל **Send** בטלפון, בחר את הקובץ שהורדת, ובסיום לחץ עליו בטלוויזיה כדי להתקין.
 
 #### שיטה 3 (דיסק-און-קי USB או ADB מהמחשב)
@@ -212,7 +216,7 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 
 1. התקן **Developer Mode** מחנות LG בטלוויזיה, התחבר לחשבון LG, והפעל **Dev Mode Status** + **Key Server**.
 2. הורד את קובץ ההתקנה העדכני:
-   👉 **[הורד `com.iptv.livetv_5.1.1_all.ipk`](https://github.com/maorisraelii/iptv-webos/releases/tag/v5.1.1)** / **[`IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/download/v5.1.1/IPTV-Live-webOS.ipk)**
+   👉 **[הורד `com.iptv.livetv_5.1.2_all.ipk`](https://github.com/maorisraelii/iptv-webos/releases/tag/v5.1.2)** / **[`IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/download/v5.1.2/IPTV-Live-webOS.ipk)**
 3. התקן בעזרת **webOS Dev Manager** (לחיצה על **Install App** ובחירת קובץ ה-`.ipk`).
 
 ---
