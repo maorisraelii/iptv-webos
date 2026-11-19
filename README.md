@@ -20,14 +20,15 @@
   <img src="https://img.shields.io/badge/Web%20App-GitHub%20Pages%20Live-0ea5e9?style=for-the-badge&logo=googlechrome" alt="Web App Live" />
   <img src="https://img.shields.io/badge/Platform-LG%20webOS%20TV-a50034?style=for-the-badge&logo=lg" alt="LG webOS" />
   <img src="https://img.shields.io/badge/Platform-Android%20TV%20%2F%20Google%20TV-16a34a?style=for-the-badge&logo=android" alt="Android TV" />
-  <img src="https://img.shields.io/badge/Downloader%20Code-2606856-f97316?style=for-the-badge" alt="Downloader Code 2606856" />
+  <img src="https://img.shields.io/badge/Stable%20Code-2606856-f97316?style=for-the-badge" alt="Downloader Code 2606856" />
+  <img src="https://img.shields.io/badge/Beta%20Glass%20Code-2087324-a855f7?style=for-the-badge" alt="Downloader Beta Code 2087324" />
   <img src="https://img.shields.io/badge/Installer-Android%20APK-0ea5e9?style=for-the-badge&logo=android" alt="Android Installer APK" />
   <img src="https://img.shields.io/badge/Language-RTL%20Hebrew%20%2F%20All%20Feeds-0284c7?style=for-the-badge" alt="RTL Hebrew" />
 </p>
 
-> ✨ **New Apple Liquid Glass UI Beta (`v5.1.2-beta`):** Switch directly inside **Settings → Updates (Stable / Beta) & About** via OTA, or install the permanent rolling Beta Android TV APK link **[`beta-latest` Direct APK](https://github.com/maorisraelii/iptv-webos/releases/download/beta-latest/IPTV-Live-AndroidTV.apk)** (`da.gd/iptvil512` / **[Beta Release v5.1.2](https://github.com/maorisraelii/iptv-webos/releases/tag/v5.1.2)** / **[`beta` branch](https://github.com/maorisraelii/iptv-webos/tree/beta)**). The `main` branch and Downloader code **`2606856`** stay on Stable **`v5.0.4`**.
+> ✨ **New Apple Liquid Glass UI Beta (`v5.1.2-beta`):** Downloader Code: **`2087324`** • Or switch directly inside **Settings → Updates (Stable / Beta) & About** via OTA, or install the permanent rolling Beta Android TV APK link **[`beta-latest` Direct APK](https://github.com/maorisraelii/iptv-webos/releases/download/beta-latest/IPTV-Live-AndroidTV.apk)** (**[Beta Release v5.1.2](https://github.com/maorisraelii/iptv-webos/releases/tag/v5.1.2)** / **[`beta` branch](https://github.com/maorisraelii/iptv-webos/tree/beta)**). The Stable channel Downloader code is **`2606856`** (`v5.0.5`).
 >
-> ✨ **גרסת בטא בעיצוב Apple Liquid Glass (`v5.1.2-beta`):** ניתן לעבור מהאפליקציה עצמה תחת **הגדרות ← עדכונים (Stable / Beta) ואודות** ישירות דרך OTA, או להוריד את קובץ ה-APK הישיר והקבוע של הבטא דרך **[קישור ישיר קבוע (`beta-latest`)](https://github.com/maorisraelii/iptv-webos/releases/download/beta-latest/IPTV-Live-AndroidTV.apk)** (`da.gd/iptvil512` / **[שחרור הבטא v5.1.2](https://github.com/maorisraelii/iptv-webos/releases/tag/v5.1.2)** / **[ענף `beta`](https://github.com/maorisraelii/iptv-webos/tree/beta)**). הענף הראשי (`main`) וקוד ה-Downloader **`2606856`** נשארים על הגרסה היציבה **`v5.0.4`**.
+> ✨ **גרסת בטא בעיצוב Apple Liquid Glass (`v5.1.2-beta`):** קוד Downloader לבטא: **`2087324`** • או מעבר מהאפליקציה עצמה תחת **הגדרות ← עדכונים (Stable / Beta) ואודות** דרך OTA, או הורדת קובץ ה-APK ישירות דרך **[קישור ישיר קבוע (`beta-latest`)](https://github.com/maorisraelii/iptv-webos/releases/download/beta-latest/IPTV-Live-AndroidTV.apk)** (**[שחרור הבטא v5.1.2](https://github.com/maorisraelii/iptv-webos/releases/tag/v5.1.2)** / **[ענף `beta`](https://github.com/maorisraelii/iptv-webos/tree/beta)**). קוד הגרסה היציבה נשאר **`2606856`** (`v5.0.5`).
 
 ---
 
@@ -97,11 +98,16 @@ Compatible with NVIDIA Shield TV, Chromecast with Google TV, Xiaomi Mi Box / TV 
 1. Install the free **Downloader by AFTVnews** app from Google Play Store on your Android TV.
 2. Enable **"Install unknown apps"** for **Downloader**:
    - Open TV **Settings → Apps → Security &amp; restrictions** (or **Special app access → Install unknown apps**) and turn ON permission for **Downloader**.
-3. Open **Downloader** and enter the official Downloader numeric code into the box:
-   ```text
-   2606856
-   ```
-   *(Resolves via `https://aftv.news/2606856` — Backups: `da.gd/iptvil503` / `https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk` • Rolling Beta APK: `https://github.com/maorisraelii/iptv-webos/releases/download/beta-latest/IPTV-Live-AndroidTV.apk`)*
+3. Open **Downloader** and enter the Downloader numeric code for your desired version:
+   - **Stable Release (v5.0.5):**
+     ```text
+     2606856
+     ```
+   - **Beta Release — Apple Liquid Glass UI (v5.1.2):**
+     ```text
+     2087324
+     ```
+   *(Resolves via `https://aftv.news/2606856` and `https://aftv.news/2087324`)*
 4. Press **Go** — Downloader automatically fetches `IPTV-Live-AndroidTV.apk`. When prompted, select **Install**, then **Open**.
 
 #### Method B (Wi-Fi Transfer from Phone via Send Files to TV)
@@ -187,11 +193,16 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 1. התקן מחנות Google Play בטלוויזיה את האפליקציה החינמית **Downloader by AFTVnews** (סמל כתום).
 2. אפשר הרשאת התקנת אפליקציות חיצוניות עבור Downloader בטלוויזיה:
    - היכנס ל**הגדרות (Settings) ← אפליקציות (Apps) ← אבטחה והגבלות / גישה מיוחדת (Security &amp; restrictions / Special app access) ← התקנת אפליקציות לא ידועות (Install unknown apps)** והדלק את ההרשאה ל-**Downloader**.
-3. פתח את אפליקציית **Downloader** והקלד בשורת החיפוש/כתובת את **קוד ה-Downloader המספרי**:
-   ```text
-   2606856
-   ```
-   *(מקושר ל-`https://aftv.news/2606856` — קישורי גיבוי: `da.gd/iptvil503` / `https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk` • קישור ישיר קבוע לבטא: `https://github.com/maorisraelii/iptv-webos/releases/download/beta-latest/IPTV-Live-AndroidTV.apk`)*
+3. פתח את אפליקציית **Downloader** והקלד בשורת החיפוש/כתובת את **קוד ה-Downloader המספרי** לגרסה הרצויה:
+   - **גרסה יציבה (Stable - v5.0.5):**
+     ```text
+     2606856
+     ```
+   - **גרסת בטא בעיצוב Apple Liquid Glass (Beta - v5.1.2):**
+     ```text
+     2087324
+     ```
+   *(מקושרים ישירות דרך `https://aftv.news/2606856` ו-`https://aftv.news/2087324`)*
 4. לחץ **Go** — האפליקציה תוריד אוטומטית את `IPTV-Live-AndroidTV.apk`. כשיקפוץ חלון ההתקנה, לחץ **התקן (Install)** ובסיום **פתח (Open)**.
 
 #### שיטה 2 (העברה אלחוטית מהטלפון עם Send Files to TV)
