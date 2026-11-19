@@ -1,5 +1,5 @@
 /**
- * Ultra-Fast Polyfills & Zero-Delay Bootstrapper for LG webOS TV (webOS 4.64 Chromium 53 & webOS 5.0 Chromium 68+)
+ * Ultra-Fast Polyfills & Zero-Delay Bootstrapper for LG webOS TV (webOS 4.64 Chromium 53 & webOS 5.0+) & Android TV
  */
 
 (function initWebOSPolyfills() {
@@ -25,13 +25,48 @@
 })();
 
 (function initFastBoot() {
-  function dismissSplash() {
+  var splashDismissed = false;
+  var safetyTimer = null;
+
+  function applyTvViewportScale() {
+    try {
+      var docEl = document.documentElement;
+      if (!docEl) return;
+      var w = window.innerWidth || docEl.clientWidth || 0;
+      if (w > 0 && w < 1800) {
+        docEl.style.zoom = String(w / 1920);
+      } else if (w >= 1800) {
+        docEl.style.zoom = '';
+      }
+    } catch (e) {}
+  }
+
+  window.applyTvViewportScale = applyTvViewportScale;
+  applyTvViewportScale();
+  window.addEventListener('load', applyTvViewportScale);
+  window.addEventListener('resize', applyTvViewportScale);
+
+  function dismissBootSplash() {
+    if (splashDismissed) return;
+    splashDismissed = true;
+    if (safetyTimer) {
+      clearTimeout(safetyTimer);
+      safetyTimer = null;
+    }
     var splash = document.getElementById('boot-splash');
     if (splash) {
+      splash.classList.add('fade-out');
       splash.classList.add('hidden');
     }
     if (window.app && typeof window.app.updateVideoSurfacePosition === 'function') {
-      window.app.updateVideoSurfacePosition();
+      try {
+        window.app.updateVideoSurfacePosition(true);
+      } catch (e) {}
+    }
+    if (window.AndroidTvHost && typeof window.AndroidTvHost.notifyAppReady === 'function') {
+      try {
+        window.AndroidTvHost.notifyAppReady();
+      } catch (e) {}
     }
     try {
       window.focus();
@@ -39,7 +74,13 @@
     } catch (e) {}
   }
 
+  window.dismissBootSplash = dismissBootSplash;
+
   function checkAndBoot() {
+    safetyTimer = setTimeout(function() {
+      dismissBootSplash();
+    }, 3500);
+
     var remoteUrl = '';
     try {
       remoteUrl = localStorage.getItem('zenplay_iptv_remote_url') || '';
@@ -54,20 +95,9 @@
         .then(function(res) {
           if (res.ok || res.status < 400) {
             window.location.replace(remoteUrl);
-          } else {
-            dismissSplash();
           }
         })
-        .catch(function() {
-          dismissSplash();
-        });
-      return;
-    }
-
-    if (document.readyState === 'complete' || document.readyState === 'interactive') {
-      dismissSplash();
-    } else {
-      window.addEventListener('DOMContentLoaded', dismissSplash);
+        .catch(function() {});
     }
   }
 
