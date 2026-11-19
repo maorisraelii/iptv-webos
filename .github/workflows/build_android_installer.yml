@@ -74,9 +74,19 @@ jobs:
           done
           if gh release view "$TARGET_TAG" >/dev/null 2>&1; then
             gh release upload "$TARGET_TAG" IPTV-webOS-Installer.apk IPTV-Live-AndroidTV.apk --clobber
-          else
+          elif [ "${{ github.ref_name }}" != "beta" ]; then
             LATEST_TAG=$(gh release list --limit 1 --json tagName -q '.[0].tagName')
             if [ -n "$LATEST_TAG" ]; then
               gh release upload "$LATEST_TAG" IPTV-webOS-Installer.apk IPTV-Live-AndroidTV.apk --clobber
+            fi
+          fi
+          if [ "${{ github.ref_name }}" = "beta" ]; then
+            if gh release view "beta-latest" >/dev/null 2>&1; then
+              gh release upload "beta-latest" IPTV-webOS-Installer.apk IPTV-Live-AndroidTV.apk --clobber
+            else
+              gh release create "beta-latest" IPTV-webOS-Installer.apk IPTV-Live-AndroidTV.apk \
+                --prerelease --target beta \
+                --title "IPTV Live TV — Latest Beta (Apple Liquid Glass UI)" \
+                --notes "Rolling latest Beta APK release (currently ${TARGET_TAG}) for direct download and Downloader app codes."
             fi
           fi

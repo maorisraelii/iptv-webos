@@ -10,6 +10,14 @@ const path = require('path');
 
 const appInfo = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'appinfo.json'), 'utf8'));
 const version = appInfo.version;
+let channel = 'stable';
+try {
+  const appConfigPath = path.join(process.cwd(), 'app-config.json');
+  if (fs.existsSync(appConfigPath)) {
+    const appCfg = JSON.parse(fs.readFileSync(appConfigPath, 'utf8'));
+    if (appCfg && appCfg.channel === 'beta') channel = 'beta';
+  }
+} catch (e) {}
 
 function extractClassBody(filePath, originalClassName, otaClassName) {
   let code = fs.readFileSync(path.join(process.cwd(), filePath), 'utf8');
@@ -20,6 +28,16 @@ function extractClassBody(filePath, originalClassName, otaClassName) {
   code = code.replace(/window\.addEventListener\s*\(\s*'DOMContentLoaded'[\s\S]*$/m, '');
   // Rename class declaration to Ota* so it doesn't collide with lexical globals inside Function()
   code = code.replace(new RegExp('\\bclass\\s+' + originalClassName + '\\b'), 'class ' + otaClassName);
+  return code.trim();
+}
+
+function extractOtaManagerCode() {
+  let code = fs.readFileSync(path.join(process.cwd(), 'js/qr-ota.js'), 'utf8');
+  code = code.replace(/^if\s*\(\s*typeof\s+module\s*!==\s*'undefined'[\s\S]*$/m, '');
+  // Do not shadow outer APP_BUNDLE_VERSION / APP_BUNDLE_CHANNEL inside IIFE so older base hosts can still report their base version
+  code = code.replace(/^const\s+APP_BUNDLE_VERSION\s*=.*$/m, '');
+  code = code.replace(/^const\s+APP_BUNDLE_CHANNEL\s*=.*$/m, '');
+  code = code.replace(/\bclass\s+OTACloudManager\b/, 'class OtaOTACloudManager');
   return code.trim();
 }
 
@@ -34,6 +52,7 @@ const storeCode = extractClassBody('js/lineup-store.js', 'LineupStore', 'OtaLine
 const epgCode = extractClassBody('js/epg.js', 'EPGService', 'OtaEPGService');
 const playerCode = extractClassBody('js/player.js', 'VideoPlayer', 'OtaVideoPlayer');
 const remoteCode = extractClassBody('js/remote.js', 'RemoteController', 'OtaRemoteController');
+const otaCode = extractOtaManagerCode();
 const appCode = extractClassBody('js/app.js', 'IPTVApp', 'OtaIPTVApp');
 
 const jsPatch = `
@@ -44,6 +63,7 @@ const jsPatch = `
     ${epgCode}
     ${playerCode}
     ${remoteCode}
+    ${otaCode}
     ${appCode}
 
     function syncClassProto(TargetClass, SourceClass) {
@@ -64,13 +84,37 @@ const jsPatch = `
     if (typeof EPGService !== 'undefined') syncClassProto(EPGService, OtaEPGService);
     if (typeof VideoPlayer !== 'undefined') syncClassProto(VideoPlayer, OtaVideoPlayer);
     if (typeof RemoteController !== 'undefined') syncClassProto(RemoteController, OtaRemoteController);
+    if (typeof OTACloudManager !== 'undefined') syncClassProto(OTACloudManager, OtaOTACloudManager);
     if (typeof IPTVApp !== 'undefined') syncClassProto(IPTVApp, OtaIPTVApp);
 
     function upgradeLiveAppInstance() {
+      if (typeof window !== 'undefined') {
+        if (!window.__ZENPLAY_BASE_BUNDLE_VERSION) {
+          window.__ZENPLAY_BASE_BUNDLE_VERSION =
+            (typeof APP_BUNDLE_VERSION === 'string' && APP_BUNDLE_VERSION) ? APP_BUNDLE_VERSION : '${version}';
+        }
+        if (!window.__ZENPLAY_BASE_BUNDLE_CHANNEL) {
+          window.__ZENPLAY_BASE_BUNDLE_CHANNEL =
+            (typeof APP_BUNDLE_CHANNEL === 'string' && (APP_BUNDLE_CHANNEL === 'beta' || APP_BUNDLE_CHANNEL === 'stable'))
+              ? APP_BUNDLE_CHANNEL
+              : (/^5\\.1\\./.test(window.__ZENPLAY_BASE_BUNDLE_VERSION) ? 'beta' : 'stable');
+        }
+      }
+
       var app = window.app;
       if (!app) return;
 
       syncClassProto({ prototype: Object.getPrototypeOf(app) }, OtaIPTVApp);
+
+      if (app.otaManager) {
+        syncClassProto({ prototype: Object.getPrototypeOf(app.otaManager) }, OtaOTACloudManager);
+        if (typeof app.otaManager.ensureOTAChannelControlsDOM === 'function') {
+          app.otaManager.ensureOTAChannelControlsDOM();
+        }
+        if (typeof app.otaManager.updateVersionBadgesUI === 'function') {
+          app.otaManager.updateVersionBadgesUI();
+        }
+      }
 
       if (app.epg) {
         syncClassProto({ prototype: Object.getPrototypeOf(app.epg) }, OtaEPGService);
@@ -171,6 +215,7 @@ try {
 
 const manifest = {
   version: version,
+  channel: channel,
   releaseDate: new Date().toISOString().slice(0, 10),
   title: releaseMeta.title,
   releaseNotes: releaseMeta.releaseNotes,
@@ -181,5 +226,5 @@ const manifest = {
 const outPath = path.join(process.cwd(), 'ota-manifest.json');
 fs.writeFileSync(outPath, JSON.stringify(manifest, null, 2), 'utf8');
 console.log(
-  `[OTA Builder] Wrote ota-manifest.json (v${version}, CSS: ${(cssContent.length / 1024).toFixed(1)} KB, JS: ${(jsPatch.length / 1024).toFixed(1)} KB)`
+  `[OTA Builder] Wrote ota-manifest.json (v${version} [${channel}], CSS: ${(cssContent.length / 1024).toFixed(1)} KB, JS: ${(jsPatch.length / 1024).toFixed(1)} KB)`
 );
