@@ -15,13 +15,28 @@ android {
         versionName = "5.1.2"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("keystore/iptv.keystore")
+            storePassword = "iptvlivekeystore"
+            keyAlias = "iptv"
+            keyPassword = "iptvlivekeystore"
+            enableV1Signing = true
+            enableV2Signing = true
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        debug {
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

@@ -48,6 +48,14 @@ jobs:
           cp android-installer/app/build/outputs/apk/debug/app-debug.apk IPTV-webOS-Installer.apk
           cp android-tv/app/build/outputs/apk/debug/app-debug.apk IPTV-Live-AndroidTV.apk
 
+      - name: Verify APK Signatures
+        run: |
+          APK_SIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner 2>/dev/null | sort -V | tail -n 1)
+          if [ -n "$APK_SIGNER" ]; then
+            echo "Verifying IPTV-Live-AndroidTV.apk signature:"
+            "$APK_SIGNER" verify --print-certs IPTV-Live-AndroidTV.apk
+          fi
+
       - name: Upload webOS Installer APK artifact
         uses: actions/upload-artifact@v4
         with:
