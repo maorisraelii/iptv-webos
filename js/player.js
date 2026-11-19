@@ -83,6 +83,10 @@ class VideoPlayer {
     this._networkRetryTimer = null;
     this._unmuteTimer = null;
     this.usedNativeFallback = false;
+    this._isNativePlayback = false;
+    this._enteringNative = false;
+    this._isCleaningUp = false;
+    this._isPlaying = false;
     this.userPaused = false;
     this.lastMediaRecoveryMs = 0;
     this._mediaRecoveryAttempts = 0;
@@ -202,17 +206,15 @@ class VideoPlayer {
 
   initListeners() {
     this.video.addEventListener('loadstart', () => {
+      this._isPlaying = false;
       this.triggerState('loading');
     });
 
     this.video.addEventListener('waiting', () => {
+      this._isPlaying = false;
       this.triggerState('buffering');
       // If buffer runs low during playback, immediately allow faster lower-bitrate segment fetch
       this.updateProgressiveQualityByBuffer();
-    });
-
-    this.video.addEventListener('canplay', () => {
-      this.triggerState('playing');
     });
 
     this.video.addEventListener('playing', () => {
@@ -220,10 +222,23 @@ class VideoPlayer {
       this._mediaRecoveryAttempts = 0;
       this.stallTicks = 0;
       this.userPaused = false;
+      this._isPlaying = true;
       this.triggerState('playing');
     });
 
+    this.video.addEventListener('timeupdate', () => {
+      if (this.video && this.video.currentTime > 0 && !this.video.paused && !this._isPlaying) {
+        this.retryCount = 0;
+        this._mediaRecoveryAttempts = 0;
+        this.stallTicks = 0;
+        this.userPaused = false;
+        this._isPlaying = true;
+        this.triggerState('playing');
+      }
+    });
+
     this.video.addEventListener('pause', () => {
+      this._isPlaying = false;
       if (this.userPaused) {
         this.triggerState('paused');
       }
@@ -241,6 +256,8 @@ class VideoPlayer {
     });
 
     this.video.addEventListener('error', () => {
+      if (this._isCleaningUp || !this.currentChannel) return;
+      this._isPlaying = false;
       if (this.currentProgramme && this.currentChannel) {
         this.currentProgramme = null;
         this.catchupOriginStartMs = 0;
@@ -478,6 +495,8 @@ class VideoPlayer {
       this._pendingCatchupTargetMs = 0;
     }
     this.usedNativeFallback = false;
+    this._isNativePlayback = false;
+    this._isPlaying = false;
     this.userPaused = false;
     this.retryCount = 0;
     this._mediaRecoveryAttempts = 0;
@@ -639,14 +658,16 @@ class VideoPlayer {
         fragLoadingRetryDelay: 700
       });
 
-      this.hls.attachMedia(this.video);
-      this.hls.on(window.Hls.Events.MEDIA_ATTACHED, () => {
-        if (this.hls && this._currentUrl) {
-          this.hls.loadSource(this._currentUrl);
+      const hlsInstance = this.hls;
+      hlsInstance.attachMedia(this.video);
+      hlsInstance.on(window.Hls.Events.MEDIA_ATTACHED, () => {
+        if (this.hls === hlsInstance && this._currentUrl) {
+          hlsInstance.loadSource(this._currentUrl);
         }
       });
 
-      this.hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+      hlsInstance.on(window.Hls.Events.MANIFEST_PARSED, () => {
+        if (this.hls !== hlsInstance) return;
         if (this._hlsIsCatchup && this.video) {
           try {
             this.video.currentTime = 0;
@@ -658,28 +679,31 @@ class VideoPlayer {
       });
 
       // Ensure audio track is always active and unmuted
-      this.hls.on(window.Hls.Events.AUDIO_TRACK_LOADED, () => {
+      hlsInstance.on(window.Hls.Events.AUDIO_TRACK_LOADED, () => {
+        if (this.hls !== hlsInstance) return;
         if (this.video && !this.userPaused) {
           this.video.muted = false;
           this.video.volume = 1.0;
         }
       });
 
-      this.hls.on(window.Hls.Events.AUDIO_TRACK_SWITCHED, () => {
+      hlsInstance.on(window.Hls.Events.AUDIO_TRACK_SWITCHED, () => {
+        if (this.hls !== hlsInstance) return;
         if (this.video && !this.userPaused) {
           this.video.muted = false;
           this.video.volume = 1.0;
         }
       });
 
-      this.hls.on(window.Hls.Events.FRAG_BUFFERED, () => {
+      hlsInstance.on(window.Hls.Events.FRAG_BUFFERED, () => {
+        if (this.hls !== hlsInstance) return;
         this.retryCount = 0;
         // Every time a segment finishes buffering, re-evaluate if we have enough buffer to step up quality!
         this.updateProgressiveQualityByBuffer();
       });
 
-      this.hls.on(window.Hls.Events.ERROR, (event, data) => {
-        if (!data) return;
+      hlsInstance.on(window.Hls.Events.ERROR, (event, data) => {
+        if (!data || this.hls !== hlsInstance) return;
 
         if (!data.fatal) {
           if (data.details === window.Hls.ErrorDetails.BUFFER_STALLED_ERROR) {
@@ -710,7 +734,7 @@ class VideoPlayer {
               this.hls.startLoad();
             } else {
               this._networkRetryTimer = setTimeout(() => {
-                if (this.hls) this.hls.startLoad();
+                if (this.hls === hlsInstance) this.hls.startLoad();
               }, delay);
             }
             return;
@@ -738,7 +762,7 @@ class VideoPlayer {
         }
 
         // If a reused HLS instance hit an unrecoverable codec/MSE error, retry once with a fresh Hls instance
-        if (this._hlsReused) {
+        if (this._hlsReused && !this.usedNativeFallback && !this._isNativePlayback) {
           this._hlsReused = false;
           this.retryCount = 0;
           this._mediaRecoveryAttempts = 0;
@@ -747,7 +771,7 @@ class VideoPlayer {
           return;
         }
 
-        if (!this.usedNativeFallback) {
+        if (!this.usedNativeFallback && !this._isNativePlayback) {
           this.usedNativeFallback = true;
           this.cleanUp();
           this.playNative(activeUrl);
@@ -756,12 +780,26 @@ class VideoPlayer {
         }
       });
     } catch (err) {
-      this.playNative(this._currentUrl || url);
+      if (!this.usedNativeFallback && !this._isNativePlayback) {
+        this.usedNativeFallback = true;
+        this.cleanUp();
+        this.playNative(this._currentUrl || url);
+      } else {
+        this.handlePlaybackError('שגיאה בטעינת השידור');
+      }
     }
   }
 
   playNative(url) {
+    if (this._enteringNative) return;
+    if (!url) {
+      this.handlePlaybackError('שגיאה בהפעלת הנגן');
+      return;
+    }
+    this._enteringNative = true;
     try {
+      this._isNativePlayback = true;
+      this._isPlaying = false;
       this.video.src = url;
       this.video.load();
       this.video.muted = false;
@@ -769,6 +807,8 @@ class VideoPlayer {
       this.safePlayWithUnmute();
     } catch (e) {
       this.handlePlaybackError('שגיאה בהפעלת הנגן');
+    } finally {
+      this._enteringNative = false;
     }
   }
 
@@ -980,26 +1020,33 @@ class VideoPlayer {
   }
 
   cleanUp() {
-    this.clearTimers();
-    this._hlsReused = false;
-    this._hlsIsCatchup = false;
-    if (this.hls) {
-      try {
-        this.hls.stopLoad();
-        this.hls.detachMedia();
-        this.hls.destroy();
-      } catch (e) {}
-      this.hls = null;
-    }
-    if (this.video) {
-      try {
-        this.video.pause();
-        this.video.removeAttribute('src');
-        if (this.video.srcObject) this.video.srcObject = null;
-        this.video.load(); // Forces webOS to release ALSA hardware audio decoder pipeline!
-        this.video.muted = false;
-        this.video.volume = 1.0;
-      } catch (e) {}
+    this._isCleaningUp = true;
+    try {
+      this.clearTimers();
+      this._hlsReused = false;
+      this._hlsIsCatchup = false;
+      this._isNativePlayback = false;
+      this._isPlaying = false;
+      if (this.hls) {
+        try {
+          this.hls.stopLoad();
+          this.hls.detachMedia();
+          this.hls.destroy();
+        } catch (e) {}
+        this.hls = null;
+      }
+      if (this.video) {
+        try {
+          this.video.pause();
+          this.video.removeAttribute('src');
+          if (this.video.srcObject) this.video.srcObject = null;
+          this.video.load(); // Forces webOS to release ALSA hardware audio decoder pipeline!
+          this.video.muted = false;
+          this.video.volume = 1.0;
+        } catch (e) {}
+      }
+    } finally {
+      this._isCleaningUp = false;
     }
   }
 

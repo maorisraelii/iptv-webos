@@ -80,82 +80,113 @@ class IPTVApp {
 
   init() {
     window.app = this;
-    this.loadFavorites();
-    this.initPlayer();
-    this.initRemote();
-    this.initClock();
-    this.bindDOMEvents();
-
-    if (typeof OTACloudManager !== 'undefined') {
-      this.otaManager = new OTACloudManager(this);
-      this.otaManager.initStartupChecks();
-    }
-
     try {
-      window.focus();
-      if (document.body) document.body.focus();
-    } catch (e) {}
+      this.loadFavorites();
+      this.initPlayer();
+      this.initRemote();
+      this.initClock();
+      this.bindDOMEvents();
 
-    // Populate PC Sync input if saved
-    const savedPcHost = localStorage.getItem(LINEUP_KEYS.PC_SYNC_HOST);
-    if (savedPcHost) {
-      const pcInput = document.getElementById('pc-sync-input');
-      if (pcInput) pcInput.value = savedPcHost;
-    }
+      if (typeof OTACloudManager !== 'undefined') {
+        this.otaManager = new OTACloudManager(this);
+        this.otaManager.initStartupChecks();
+      }
 
-    // INSTANT COLD BOOT: Render immediately from cached lineup if available (< 20ms)
-    const cached = this.store.loadCachedLineup();
+      try {
+        window.focus();
+        if (document.body) document.body.focus();
+      } catch (e) {}
 
-    if (cached && cached.length > 0) {
-      this.allChannels = cached;
-      this.loadActiveEPGSources(false);
-      this.applyChannelFilter();
-      this.restoreLastWatchedChannel(true);
+      // Populate PC Sync input if saved
+      const savedPcHost = localStorage.getItem(LINEUP_KEYS.PC_SYNC_HOST);
+      if (savedPcHost) {
+        const pcInput = document.getElementById('pc-sync-input');
+        if (pcInput) pcInput.value = savedPcHost;
+      }
+
+      // INSTANT COLD BOOT: Render immediately from cached lineup if available (< 20ms)
+      const cached = this.store.loadCachedLineup();
+
+      if (cached && cached.length > 0) {
+        this.allChannels = cached;
+        this.loadActiveEPGSources(false);
+        this.applyChannelFilter();
+        this.restoreLastWatchedChannel(false);
+        this.updateVideoSurfacePosition(true);
+        this.hideBootSplash();
+
+        // Only refresh M3U in background if the cache TTL (24h / 3d / 7d) has expired!
+        const ttlHours = this.epg.getCacheTtlHours();
+        if (!this.store.isLineupCacheFresh(ttlHours)) {
+          setTimeout(() => this.refreshAllSources(true), 1800);
+        }
+      } else {
+        const splashText = document.getElementById('boot-splash-text');
+        if (splashText) splashText.textContent = 'טוען רשימת ערוצים ראשונית...';
+        this.refreshAllSources(false);
+        setTimeout(() => this.hideBootSplash(), 3500);
+      }
+
       this.updateVideoSurfacePosition(true);
-      this.hideBootSplash();
+      setTimeout(() => this.updateVideoSurfacePosition(true), 150);
+      window.addEventListener('resize', () => this.updateVideoSurfacePosition(true));
 
-      // Only refresh M3U in background if the cache TTL (24h / 3d / 7d) has expired!
-      const ttlHours = this.epg.getCacheTtlHours();
-      if (!this.store.isLineupCacheFresh(ttlHours)) {
-        setTimeout(() => this.refreshAllSources(true), 1800);
+      // Restore hardware audio pipeline on resume from standby, sleep, or HDMI input switch
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && this.player) {
+          this.player.recoverAudioSink();
+        }
+      });
+      document.addEventListener('webOSRelaunch', () => {
+        if (this.player) {
+          this.player.recoverAudioSink();
+        }
+      });
+
+      if (this.otaManager && typeof this.otaManager.applySavedOTABundle === 'function') {
+        this.otaManager.applySavedOTABundle();
       }
-    } else {
-      const splashText = document.getElementById('boot-splash-text');
-      if (splashText) splashText.textContent = 'טוען רשימת ערוצים ראשונית...';
-      this.refreshAllSources(false);
-      setTimeout(() => this.hideBootSplash(), 4500);
-    }
 
-    this.updateVideoSurfacePosition(true);
-    setTimeout(() => this.updateVideoSurfacePosition(true), 150);
-    window.addEventListener('resize', () => this.updateVideoSurfacePosition(true));
-
-    // Restore hardware audio pipeline on resume from standby, sleep, or HDMI input switch
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && this.player) {
-        this.player.recoverAudioSink();
+      if (cached && cached.length > 0 && window.dismissBootSplash) {
+        window.dismissBootSplash();
       }
-    });
-    document.addEventListener('webOSRelaunch', () => {
-      if (this.player) {
-        this.player.recoverAudioSink();
+      if (!this._bootSplashHidden && window.AndroidTvHost && typeof window.AndroidTvHost.notifyAppReady === 'function') {
+        try {
+          window.AndroidTvHost.notifyAppReady();
+        } catch (e) {}
       }
-    });
-
-    if (this.otaManager && typeof this.otaManager.applySavedOTABundle === 'function') {
-      this.otaManager.applySavedOTABundle();
+    } catch (initErr) {
+      console.error('IPTVApp init error:', initErr);
+      if (window.dismissBootSplash) {
+        window.dismissBootSplash();
+      } else {
+        this.hideBootSplash();
+      }
+      if (window.AndroidTvHost && typeof window.AndroidTvHost.notifyAppReady === 'function') {
+        try {
+          window.AndroidTvHost.notifyAppReady();
+        } catch (e) {}
+      }
     }
   }
 
   hideBootSplash() {
     if (this._bootSplashHidden) return;
     this._bootSplashHidden = true;
+    if (window.dismissBootSplash) {
+      window.dismissBootSplash();
+      return;
+    }
     const splash = document.getElementById('boot-splash');
-    if (!splash) return;
-    splash.classList.add('fade-out');
-    setTimeout(() => {
+    if (splash) {
+      splash.classList.add('fade-out');
       splash.classList.add('hidden');
-    }, 260);
+    }
+    if (window.AndroidTvHost && typeof window.AndroidTvHost.notifyAppReady === 'function') {
+      try {
+        window.AndroidTvHost.notifyAppReady();
+      } catch (e) {}
+    }
   }
 
   /**
@@ -302,18 +333,33 @@ class IPTVApp {
     const surface = document.getElementById('video-surface');
     if (!surface) return;
 
+    const rawZoom =
+      typeof document !== 'undefined' && document.documentElement && document.documentElement.style
+        ? parseFloat(document.documentElement.style.zoom)
+        : NaN;
+    const docZoom = rawZoom > 0 ? rawZoom : 1;
+
     if (this.mode === 'FULLSCREEN') {
       surface.classList.remove('preview-mode');
       surface.classList.add('fullscreen-mode');
       surface.style.left = '0px';
       surface.style.top = '0px';
-      surface.style.width = '100vw';
-      surface.style.height = '100vh';
+      if (docZoom !== 1 && typeof window !== 'undefined' && window.innerWidth > 0 && window.innerHeight > 0) {
+        surface.style.setProperty('width', Math.ceil(window.innerWidth / docZoom) + 'px', 'important');
+        surface.style.setProperty('height', Math.ceil(window.innerHeight / docZoom) + 'px', 'important');
+      } else {
+        surface.style.removeProperty('width');
+        surface.style.removeProperty('height');
+        surface.style.width = '100vw';
+        surface.style.height = '100vh';
+      }
       surface.style.borderRadius = '0px';
       surface.style.zIndex = '100';
     } else {
       surface.classList.remove('fullscreen-mode');
       surface.classList.add('preview-mode');
+      surface.style.removeProperty('width');
+      surface.style.removeProperty('height');
       surface.style.zIndex = this.isModalOpen() ? '5' : '30';
 
       if (forceRecalc || !this.cachedPreviewRect) {
@@ -321,11 +367,13 @@ class IPTVApp {
         if (frame) {
           const rect = frame.getBoundingClientRect();
           if (rect.width > 0 && rect.height > 0) {
+            const scale = frame.offsetWidth > 0 ? rect.width / frame.offsetWidth : docZoom;
+            const factor = scale > 0 ? scale : 1;
             this.cachedPreviewRect = {
-              left: Math.round(rect.left) + 'px',
-              top: Math.round(rect.top) + 'px',
-              width: Math.round(rect.width) + 'px',
-              height: Math.round(rect.height) + 'px'
+              left: Math.round(rect.left / factor) + 'px',
+              top: Math.round(rect.top / factor) + 'px',
+              width: Math.round(rect.width / factor) + 'px',
+              height: Math.round(rect.height / factor) + 'px'
             };
           }
         }
@@ -359,6 +407,7 @@ class IPTVApp {
           if (!silentBackground) {
             this.showToast('לא נמצאו ערוצים פעילים במקורות ה-M3U');
             if (statusText) statusText.textContent = 'לא נמצאו ערוצים פעילים.';
+            this.hideBootSplash();
           }
           return;
         }
@@ -378,7 +427,7 @@ class IPTVApp {
         if (!silentBackground) {
           this.onlyFavorites = false;
           this.applyChannelFilter();
-          const shouldFullscreen = !this.selectedChannel;
+          const shouldFullscreen = false;
           this.restoreLastWatchedChannel(shouldFullscreen);
           this.updateVideoSurfacePosition();
           this.hideBootSplash();
@@ -2938,6 +2987,13 @@ class IPTVApp {
   }
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+function boot() {
+  if (typeof window === 'undefined' || window.__iptvAppBooted || window.app) return;
+  window.__iptvAppBooted = true;
   window.app = new IPTVApp();
-});
+}
+
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', boot);
+  else boot();
+}
