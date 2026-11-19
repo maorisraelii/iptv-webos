@@ -5,211 +5,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>העלאת M3U לטלוויזיה - Live TV Remote Sync</title>
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    }
-    body {
-      min-height: 100vh;
-      background:
-        radial-gradient(ellipse 75% 55% at 86% 8%, rgba(10, 132, 255, 0.26) 0%, transparent 60%),
-        radial-gradient(ellipse 65% 60% at 14% 88%, rgba(94, 92, 230, 0.22) 0%, transparent 60%),
-        radial-gradient(circle at 50% 45%, rgba(100, 210, 255, 0.08) 0%, transparent 55%),
-        #05070e;
-      background-attachment: fixed;
-      color: #ffffff;
-      padding: 24px 16px 40px;
-      line-height: 1.5;
-      -webkit-font-smoothing: antialiased;
-    }
-    .card {
-      max-width: 580px;
-      margin: 0 auto;
-      background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)), rgba(20,25,38,0.68);
-      -webkit-backdrop-filter: blur(26px) saturate(180%);
-      backdrop-filter: blur(26px) saturate(180%);
-      border: 1px solid rgba(255,255,255,0.16);
-      border-top-color: rgba(255,255,255,0.32);
-      border-radius: 26px;
-      padding: 26px 24px;
-      box-shadow: 0 24px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.22);
-    }
-    .brand {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      border-bottom: 1px solid rgba(255,255,255,0.12);
-      padding-bottom: 16px;
-      margin-bottom: 18px;
-    }
-    .brand h1 {
-      font-size: 22px;
-      font-weight: 800;
-      color: #ffffff;
-      letter-spacing: -0.2px;
-    }
-    .badge {
-      background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(10,132,255,0.30));
-      border: 1px solid rgba(255,255,255,0.24);
-      border-top-color: rgba(255,255,255,0.42);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.28);
-      color: #ffffff;
-      font-size: 12.5px;
-      font-weight: 700;
-      padding: 5px 12px;
-      border-radius: 999px;
-      white-space: nowrap;
-    }
-    label {
-      display: block;
-      font-size: 14.5px;
-      font-weight: 700;
-      color: rgba(255,255,255,0.86);
-      margin-bottom: 6px;
-      margin-top: 16px;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+    body { background: #070b14; color: #f8fafc; padding: 18px; line-height: 1.45; }
+    .card { max-width: 580px; margin: 0 auto; background: #0f172a; border: 2px solid rgba(56, 189, 248, 0.4); border-radius: 20px; padding: 22px; box-shadow: 0 12px 32px rgba(0,0,0,0.5); }
+    .brand { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 14px; margin-bottom: 16px; }
+    .brand h1 { font-size: 22px; font-weight: 900; color: #38bdf8; }
+    .badge { background: #0284c7; color: #fff; font-size: 13px; font-weight: 800; padding: 4px 10px; border-radius: 8px; }
+    label { display: block; font-size: 15px; font-weight: 800; color: #cbd5e1; margin-bottom: 6px; margin-top: 14px; }
     input[type="text"], input[type="url"], textarea {
-      width: 100%;
-      padding: 12px 15px;
-      font-size: 16px;
-      background: rgba(5, 7, 14, 0.54);
-      color: #ffffff;
-      border: 1px solid rgba(255,255,255,0.18);
-      border-radius: 16px;
-      outline: none;
-      transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+      width: 100%; padding: 12px 14px; font-size: 16px; background: #070b14; color: #fff;
+      border: 2px solid rgba(255,255,255,0.2); border-radius: 12px; outline: none;
     }
-    input::placeholder, textarea::placeholder {
-      color: rgba(235, 235, 245, 0.42);
-    }
-    input:focus, textarea:focus {
-      border-color: rgba(100, 210, 255, 0.78);
-      background: rgba(10, 14, 24, 0.76);
-      box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.26);
-    }
-    .code-input {
-      font-size: 26px !important;
-      font-weight: 800;
-      text-align: center;
-      letter-spacing: 6px;
-      color: #64D2FF !important;
-      direction: ltr;
-    }
+    input:focus, textarea:focus { border-color: #38bdf8; }
+    .code-input { font-size: 26px !important; font-weight: 900; text-align: center; letter-spacing: 6px; color: #38bdf8 !important; direction: ltr; }
     .ltr-input { direction: ltr; text-align: left; }
-    .file-box {
-      margin-top: 14px;
-      padding: 16px 14px;
-      border: 1.5px dashed rgba(100, 210, 255, 0.42);
-      border-radius: 20px;
-      background: linear-gradient(180deg, rgba(10, 132, 255, 0.12), rgba(10, 132, 255, 0.04));
-      text-align: center;
-    }
-    .file-box input {
-      margin-top: 10px;
-      font-size: 13.5px;
-      color: rgba(255,255,255,0.82);
-      max-width: 100%;
-    }
-    .file-box input::file-selector-button {
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07));
-      color: #ffffff;
-      border: 1px solid rgba(255, 255, 255, 0.24);
-      border-radius: 999px;
-      padding: 7px 14px;
-      margin-left: 10px;
-      font-weight: 700;
-      font-size: 13px;
-      cursor: pointer;
-    }
-    .btn {
-      width: 100%;
-      margin-top: 20px;
-      padding: 14px 20px;
-      font-size: 17px;
-      font-weight: 700;
-      border: 1px solid rgba(255, 255, 255, 0.26);
-      border-top-color: rgba(255, 255, 255, 0.48);
-      border-radius: 999px;
-      cursor: pointer;
-      background: linear-gradient(180deg, #1E94FF 0%, #0A84FF 100%);
-      color: #ffffff;
-      box-shadow: 0 12px 28px rgba(10, 132, 255, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.38);
-      transition: transform 0.14s ease, box-shadow 0.16s ease, background 0.16s ease, color 0.16s ease;
-    }
-    .btn:hover {
-      box-shadow: 0 14px 32px rgba(10, 132, 255, 0.46), 0 0 0 2px rgba(255, 255, 255, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.65);
-    }
-    .btn:active { transform: scale(0.985); }
-    .btn-add {
-      margin-top: 10px;
-      padding: 11px 18px;
-      font-size: 15px;
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.06) 100%);
-      border: 1px solid rgba(255, 255, 255, 0.20);
-      border-top-color: rgba(255, 255, 255, 0.36);
-      color: #ffffff;
-      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.24);
-    }
-    .btn-add:hover {
-      background: linear-gradient(180deg, #ffffff 0%, #e5ecf6 100%);
-      color: #090d16;
-      border-color: #ffffff;
-      box-shadow: 0 10px 26px rgba(255, 255, 255, 0.28), 0 4px 12px rgba(0, 0, 0, 0.35);
-    }
-    .status {
-      margin-top: 16px;
-      padding: 12px 16px;
-      border-radius: 18px;
-      font-size: 15px;
-      font-weight: 700;
-      display: none;
-      text-align: center;
-    }
-    .status.ok {
-      display: block;
-      background: rgba(48, 209, 88, 0.16);
-      border: 1px solid rgba(48, 209, 88, 0.48);
-      color: #86efac;
-    }
-    .status.err {
-      display: block;
-      background: rgba(255, 55, 95, 0.16);
-      border: 1px solid rgba(255, 55, 95, 0.48);
-      color: #fda4af;
-    }
+    .file-box { margin-top: 12px; padding: 12px; border: 2px dashed rgba(56, 189, 248, 0.45); border-radius: 12px; background: rgba(2, 132, 199, 0.08); text-align: center; }
+    .file-box input { margin-top: 8px; font-size: 14px; color: #bae6fd; max-width: 100%; }
+    .btn { width: 100%; margin-top: 18px; padding: 14px; font-size: 18px; font-weight: 900; border: none; border-radius: 14px; cursor: pointer; background: #0284c7; color: #fff; }
+    .btn:active { transform: scale(0.99); background: #0369a1; }
+    .btn-add { margin-top: 10px; padding: 10px; font-size: 15px; background: #1e293b; border: 1px solid rgba(255,255,255,0.2); color: #e2e8f0; }
+    .status { margin-top: 16px; padding: 12px 14px; border-radius: 12px; font-size: 15px; font-weight: 700; display: none; text-align: center; }
+    .status.ok { display: block; background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; color: #6ee7b7; }
+    .status.err { display: block; background: rgba(225, 29, 72, 0.2); border: 1px solid #f43f5e; color: #fda4af; }
     .sources-list { margin-top: 12px; }
-    .src-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      padding: 10px 14px;
-      border-radius: 16px;
-      margin-bottom: 8px;
-      font-size: 14px;
-    }
-    .src-row span {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      max-width: 72%;
-      direction: ltr;
-      color: rgba(235, 235, 245, 0.78);
-    }
-    .src-del {
-      background: linear-gradient(180deg, #FF5172 0%, #FF375F 100%);
-      color: #ffffff;
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      border-radius: 999px;
-      padding: 4px 11px;
-      cursor: pointer;
-      font-weight: 700;
-    }
+    .src-row { display: flex; align-items: center; justify-content: space-between; background: #16213a; padding: 8px 12px; border-radius: 10px; margin-bottom: 6px; font-size: 14px; }
+    .src-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 75%; direction: ltr; }
+    .src-del { background: #e11d48; color: #fff; border: none; border-radius: 6px; padding: 3px 8px; cursor: pointer; font-weight: 800; }
   </style>
 </head>
 <body>
@@ -218,7 +39,7 @@
       <h1>העלאת M3U לטלוויזיה</h1>
       <span class="badge">LG webOS Sync</span>
     </div>
-    <p style="font-size: 14px; color: rgba(235, 235, 245, 0.68);">
+    <p style="font-size: 14px; color: #94a3b8;">
       הדבק כאן קישור M3U (או העלה קובץ M3U מהטלפון/מחשב) ולחץ <strong>"שלח לטלוויזיה"</strong>. הערוצים יופיעו בטלוויזיה תוך 2 שניות ללא הקלדה בשלט!
     </p>
 
@@ -233,7 +54,7 @@
     <div class="sources-list" id="sources-list"></div>
 
     <div class="file-box">
-      <div style="font-size: 14px; font-weight: 700; color: #64D2FF;">או בחר קובץ .m3u / .m3u8 ישירות מהמכשיר:</div>
+      <div style="font-size: 14px; font-weight: 800; color: #7dd3fc;">או בחר קובץ .m3u / .m3u8 ישירות מהמכשיר:</div>
       <input type="file" id="m3u-file" accept=".m3u,.m3u8,text/plain,audio/x-mpegurl" />
     </div>
 
