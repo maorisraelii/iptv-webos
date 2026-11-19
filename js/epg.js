@@ -423,6 +423,40 @@ class EPGService {
       });
   }
 
+  shouldUseAndroidProxy(url) {
+    if (
+      typeof window === 'undefined' ||
+      !window.location ||
+      window.location.hostname !== 'appassets.androidplatform.net'
+    ) {
+      return false;
+    }
+    if (!url || typeof url !== 'string') return false;
+    if (!/^https?:\/\//i.test(url)) return false;
+    if (/^https?:\/\/appassets\.androidplatform\.net(?:[:\/?#]|$)/i.test(url)) return false;
+    return true;
+  }
+
+  fetchWithProxyFallback(url) {
+    return fetch(url)
+      .then((res) => {
+        if (res && res.ok) return res;
+        throw new Error('EPG HTTP ' + (res ? res.status : 0));
+      })
+      .catch((err) => {
+        if (!this.shouldUseAndroidProxy(url)) {
+          throw err;
+        }
+        const proxyUrl = 'https://appassets.androidplatform.net/__proxy__?url=' + encodeURIComponent(url);
+        return fetch(proxyUrl).then((proxyRes) => {
+          if (!proxyRes || !proxyRes.ok) {
+            throw new Error('EPG HTTP ' + (proxyRes ? proxyRes.status : 0));
+          }
+          return proxyRes;
+        });
+      });
+  }
+
   /**
    * Fetches XMLTV from URL with hardware memory protection guards,
    * automatically decompresses if it is GZIP (.xml.gz).
@@ -436,10 +470,9 @@ class EPGService {
 
     const MAX_SAFE_EPG_BYTES = 35 * 1024 * 1024; // 35MB safety limit to prevent OOM on giant 300MB global feeds
 
-    return fetch(url)
+    return this.fetchWithProxyFallback(url)
       .then((res) => {
-        if (!res.ok) throw new Error('EPG HTTP ' + res.status);
-        const cl = res.headers.get('content-length');
+        const cl = res.headers && typeof res.headers.get === 'function' ? res.headers.get('content-length') : null;
         if (cl && parseInt(cl, 10) > MAX_SAFE_EPG_BYTES) {
           console.warn('EPG feed exceeds TV memory safety limit (>35MB), aborting:', url);
           return null;
@@ -451,7 +484,7 @@ class EPGService {
           if (url !== 'epg-il.xml') {
             console.warn('Remote EPG unavailable, falling back to bundled epg-il.xml:', err);
             return fetch('epg-il.xml').then((localRes) => {
-              if (!localRes.ok) throw err;
+              if (!localRes || !localRes.ok) throw err;
               return localRes.arrayBuffer();
             });
           }

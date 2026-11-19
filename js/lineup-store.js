@@ -382,6 +382,43 @@ class LineupStore {
     this.recompileLineup();
   }
 
+  shouldUseAndroidProxy(url) {
+    if (
+      typeof window === 'undefined' ||
+      !window.location ||
+      window.location.hostname !== 'appassets.androidplatform.net'
+    ) {
+      return false;
+    }
+    if (!url || typeof url !== 'string') return false;
+    if (!/^https?:\/\//i.test(url)) return false;
+    if (/^https?:\/\/appassets\.androidplatform\.net(?:[:\/?#]|$)/i.test(url)) return false;
+    return true;
+  }
+
+  fetchWithProxyFallback(url, options) {
+    const doFetch = (targetUrl) => (options ? fetch(targetUrl, options) : fetch(targetUrl));
+    return doFetch(url)
+      .then((res) => {
+        if (res && res.ok) return res;
+        const status = res ? res.status : 0;
+        throw new Error('HTTP ' + status);
+      })
+      .catch((err) => {
+        if (!this.shouldUseAndroidProxy(url)) {
+          throw err;
+        }
+        const proxyUrl = 'https://appassets.androidplatform.net/__proxy__?url=' + encodeURIComponent(url);
+        return doFetch(proxyUrl).then((proxyRes) => {
+          if (!proxyRes || !proxyRes.ok) {
+            const pStatus = proxyRes ? proxyRes.status : 0;
+            throw new Error('HTTP ' + pStatus);
+          }
+          return proxyRes;
+        });
+      });
+  }
+
   /**
    * Fetches all enabled M3U sources in parallel, merges them, and applies custom channel selections & numbers.
    */
@@ -402,10 +439,12 @@ class LineupStore {
         const encoded = commaIdx !== -1 ? normalizedUrl.substring(commaIdx + 1) : '';
         textPromise = Promise.resolve(decodeURIComponent(encoded));
       } else {
-        textPromise = fetch(normalizedUrl).then((res) => {
-          if (!res.ok) throw new Error('HTTP ' + res.status + ' (' + src.name + ')');
-          return res.text();
-        });
+        textPromise = this.fetchWithProxyFallback(normalizedUrl)
+          .then((res) => res.text())
+          .catch((err) => {
+            const msg = err && err.message ? err.message : 'Fetch error';
+            throw new Error(msg + ' (' + src.name + ')');
+          });
       }
 
       return textPromise
@@ -574,10 +613,13 @@ class LineupStore {
       target = target.replace(/\/$/, '') + '/api/lineup';
     }
 
-    return fetch(target, { cache: 'no-cache' })
-      .then((res) => {
-        if (!res.ok) throw new Error('שרת המחשב החזיר שגיאה: ' + res.status);
-        return res.json();
+    return this.fetchWithProxyFallback(target, { cache: 'no-cache' })
+      .then((res) => res.json())
+      .catch((err) => {
+        if (err && typeof err.message === 'string' && err.message.indexOf('HTTP ') === 0) {
+          throw new Error('שרת המחשב החזיר שגיאה: ' + err.message.slice(5));
+        }
+        throw err;
       })
       .then((data) => {
         const summary = this.importStudioConfig(data);
