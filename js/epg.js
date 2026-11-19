@@ -446,6 +446,18 @@ class EPGService {
         }
         return res.arrayBuffer();
       })
+      .catch((err) => {
+        if (url === this.DEFAULT_LIVE_EPG_URL || url.indexOf('epg-il.xml') !== -1) {
+          if (url !== 'epg-il.xml') {
+            console.warn('Remote EPG unavailable, falling back to bundled epg-il.xml:', err);
+            return fetch('epg-il.xml').then((localRes) => {
+              if (!localRes.ok) throw err;
+              return localRes.arrayBuffer();
+            });
+          }
+        }
+        throw err;
+      })
       .then((buffer) => {
         if (!buffer) return '';
         if (buffer.byteLength > MAX_SAFE_EPG_BYTES) {

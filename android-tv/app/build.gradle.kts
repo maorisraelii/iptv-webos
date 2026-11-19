@@ -11,8 +11,8 @@ android {
         applicationId = "com.iptv.livetv.androidtv"
         minSdk = 24
         targetSdk = 34
-        versionCode = 500
-        versionName = "5.0.0"
+        versionCode = 501
+        versionName = "5.0.1"
     }
 
     buildTypes {
@@ -37,7 +37,6 @@ android {
 
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.appcompat:appcompat:1.7.0")
 }
 
 val webRootDir = rootProject.projectDir.parentFile
@@ -50,6 +49,7 @@ tasks.register<Copy>("syncWebAssets") {
         File(webRootDir, "app-config.json"),
         File(webRootDir, "appinfo.json"),
         File(webRootDir, "ota-manifest.json"),
+        File(webRootDir, "epg-il.xml"),
         File(webRootDir, "icon.png"),
         File(webRootDir, "largeIcon.png")
     )

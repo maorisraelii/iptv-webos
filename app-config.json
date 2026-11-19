@@ -1,5 +1,5 @@
 {
-  "version": "5.0.0",
+  "version": "5.0.1",
   "remoteAppUrl": "https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/ota-manifest.json",
   "timeoutMs": 2500,
   "description": "Configuration for IPTV Live TV player on LG webOS."
