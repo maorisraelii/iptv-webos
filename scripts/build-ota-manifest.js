@@ -13,8 +13,10 @@ const version = appInfo.version;
 
 function extractClassBody(filePath, originalClassName, otaClassName) {
   let code = fs.readFileSync(path.join(process.cwd(), filePath), 'utf8');
-  // Remove module.exports and DOMContentLoaded bootstrap at bottom
-  code = code.replace(/if\s*\(\s*typeof\s+module\s*!==\s*'undefined'[\s\S]*$/m, '');
+  // Remove module.exports and DOMContentLoaded/boot bootstrap at bottom
+  code = code.replace(/^if\s*\(\s*typeof\s+module\s*!==\s*'undefined'[\s\S]*$/m, '');
+  code = code.replace(/^function\s+boot\s*\(\s*\)[\s\S]*$/m, '');
+  code = code.replace(/^if\s*\(\s*typeof\s+document\s*!==\s*'undefined'[\s\S]*$/m, '');
   code = code.replace(/window\.addEventListener\s*\(\s*'DOMContentLoaded'[\s\S]*$/m, '');
   // Rename class declaration to Ota* so it doesn't collide with lexical globals inside Function()
   code = code.replace(new RegExp('\\bclass\\s+' + originalClassName + '\\b'), 'class ' + otaClassName);
