@@ -11,8 +11,8 @@ android {
         applicationId = "com.iptv.livetv.androidtv"
         minSdk = 24
         targetSdk = 34
-        versionCode = 510
-        versionName = "5.1.0"
+        versionCode = 501
+        versionName = "5.0.1"
     }
 
     buildTypes {

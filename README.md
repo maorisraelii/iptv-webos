@@ -2,7 +2,7 @@
   <img src="https://files.catbox.moe/f4jrx8.png" alt="IPTV Live TV App Icon" width="128" height="128" />
 </div>
 
-<h1 align="center">📺 Live TV for LG webOS &amp; Android TV (v5.1.0)</h1>
+<h1 align="center">📺 Live TV for LG webOS &amp; Android TV (v5.0.1)</h1>
 
 <p align="center">
   <strong>Smart, ultra-fast, native-feeling Live TV &amp; Catch-Up IPTV player built for LG webOS Smart TVs (webOS 4.0 – webOS 24+) and Android TV / Google TV, complete with an Android One-Click webOS Installer Wizard!</strong>
@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-5.1.0%20Production-0284c7?style=for-the-badge" alt="Version 5.1.0" />
+  <img src="https://img.shields.io/badge/Version-5.0.1%20Production-0284c7?style=for-the-badge" alt="Version 5.0.1" />
   <img src="https://img.shields.io/badge/Platform-LG%20webOS%20TV-a50034?style=for-the-badge&logo=lg" alt="LG webOS" />
   <img src="https://img.shields.io/badge/Platform-Android%20TV%20%2F%20Google%20TV-16a34a?style=for-the-badge&logo=android" alt="Android TV" />
   <img src="https://img.shields.io/badge/Downloader%20Code-2606856-f97316?style=for-the-badge" alt="Downloader Code 2606856" />
@@ -23,30 +23,34 @@
   <img src="https://img.shields.io/badge/Language-RTL%20Hebrew%20%2F%20All%20Feeds-0284c7?style=for-the-badge" alt="RTL Hebrew" />
 </p>
 
+> ✨ **New Apple Liquid Glass UI Beta (`v5.1.0-beta`):** Want to try the new Apple tvOS / visionOS frosted glass redesign? Check out the **[`beta` branch](https://github.com/maorisraelii/iptv-webos/tree/beta)**, **[Beta Release v5.1.0](https://github.com/maorisraelii/iptv-webos/releases/tag/v5.1.0)**, or Android TV Beta APK (`da.gd/iptvil510` / [Direct Mirror](https://files.catbox.moe/hpx4ox.apk)). The `main` branch and Downloader code **`2606856`** stay on Stable **`v5.0.1`**.
+>
+> ✨ **גרסת בטא בעיצוב Apple Liquid Glass (`v5.1.0-beta`):** רוצים לנסות את העיצוב החדש בסגנון זכוכית חלבית של אפל? עברו ל**[ענף ה-`beta`](https://github.com/maorisraelii/iptv-webos/tree/beta)**, ל**[שחרור הבטא v5.1.0](https://github.com/maorisraelii/iptv-webos/releases/tag/v5.1.0)**, או הורידו את גרסת הבטא ל-Android TV (`da.gd/iptvil510` / [הורדה ישירה](https://files.catbox.moe/hpx4ox.apk)). הענף הראשי (`main`) וקוד ה-Downloader **`2606856`** נשארים על הגרסה היציבה **`v5.0.1`**.
+
 ---
 
-## 📸 Screenshots (v5.1.0)
+## 📸 Screenshots (v5.0.1)
 
 <p align="center">
-  <img src="https://files.catbox.moe/66chpb.png" alt="Live TV Main Split Workspace" width="90%" />
+  <img src="https://files.catbox.moe/fzplkt.png" alt="Live TV Main Split Workspace" width="90%" />
   <br />
-  <em>Main Split Workspace (Apple Liquid Glass): Right-side O(1) Channel List with Real-Time EPG, Mini Progress Bars, Start/End Times &amp; Remaining Minutes + Left-side 16:9 Live Preview &amp; 5-Program Start-Over Strip.</em>
+  <em>Main Split Workspace: Right-side O(1) Channel List with Real-Time EPG, Mini Progress Bars, Start/End Times &amp; Remaining Minutes + Left-side 16:9 Live Preview &amp; 5-Program Start-Over Strip.</em>
 </p>
 
 <p align="center">
-  <img src="https://files.catbox.moe/5s1a55.png" alt="Live TV Fullscreen Info Bar OSD" width="90%" />
+  <img src="https://files.catbox.moe/wnosf1.png" alt="Live TV Fullscreen Info Bar OSD" width="90%" />
   <br />
-  <em>Fullscreen Floating Liquid Glass OSD: Frosted glass dock with specular rim, glowing Live pulse badge, elapsed/total progress, previous &amp; next shows, seek speed multiplier badge, and instant remote shortcuts.</em>
+  <em>Fullscreen Unified Info Bar (OSD): Live &amp; Start-Over programme details, elapsed/total progress, previous &amp; next shows, seek speed multiplier badge, and instant remote shortcuts.</em>
 </p>
 
 <p align="center">
-  <img src="https://files.catbox.moe/673u1u.png" alt="7-Day Channel Program Guide Modal" width="90%" />
+  <img src="https://files.catbox.moe/57jh6j.png" alt="7-Day Channel Program Guide Modal" width="90%" />
   <br />
   <em>7-Day Channel Program Guide (Yellow / Menu / Guide): Instant day-by-day zapping and 1-click Start-Over on past or live broadcasts.</em>
 </p>
 
 <p align="center">
-  <img src="https://files.catbox.moe/g2giuw.png" alt="Multi-M3U & Phone QR Sync Settings" width="90%" />
+  <img src="https://files.catbox.moe/lxrrei.png" alt="Multi-M3U & Phone QR Sync Settings" width="90%" />
   <br />
   <em>Settings &amp; QR Phone Sync: Push M3U playlists and XMLTV feeds directly from your phone without typing on the TV remote.</em>
 </p>
@@ -56,19 +60,23 @@
 <a id="-english-documentation"></a>
 ## 🇬🇧 English Documentation
 
-### 🚀 What's New in v5.1.0 — Apple Liquid Glass Edition
+### 🚀 What's New in v5.0.1
 
-1. **Apple tvOS 18 / visionOS Liquid Glass UI Redesign (`css/style.css`, `index.html`)**:
-   - Complete visual overhaul featuring a deep midnight ambient mesh backdrop, frosted glass panels (`backdrop-filter` on top bar, overlays, modals, and OSD dock only — keeping list rows zero-blur for smooth `60fps` scrolling), crisp `1px` specular top rims, and SF Pro typography.
-   - Pill-shaped `999px` header tabs, channel badges, action buttons, and glowing `#FF375F` `.live-pulse` indicator.
-2. **Floating Fullscreen Liquid Glass OSD (`#fullscreen-osd`)**:
-   - Detached rounded frosted glass dock with specular top border, crisp Live/Start-Over capsule badges, live clock + `CH+ / CH-` controls, elapsed/total progress bar, and instant remote shortcuts.
-3. **Apple-Style Luminous &amp; White-Glass Focus System**:
-   - Bright white-glass focus state on buttons and settings/guide tabs with high-contrast dark text (`#090d16` / `#334155`), paired with luminous specular selection across channel rows, program guide items, and the 5-program Start-Over strip.
-4. **Liquid Glass Boot Splash, Phone Sync &amp; PC Manager (`index.html`, `remote.html`, `manager.html`)**:
-   - Upgraded `#boot-splash` frosted glass emblem and refreshed `remote.html` (phone QR M3U uploader) and `manager.html` (PC studio manager) with matching Apple Liquid Glass styling.
-5. **Full `60fps` Performance &amp; Android TV / Start-Over Parity**:
-   - Preserves `98px` fixed channel row geometry (`contain: layout style paint`), `960×540` live video preview alignment, native Android TV / Google TV edition (`IPTV-Live-AndroidTV.apk`), 7-day EPG sync, continuous Start-Over catch-up, and accelerated `×2 → ×16` seeking.
+1. **Native Android TV / Google TV Edition (`IPTV-Live-AndroidTV.apk`)**:
+   - Full native Android TV launcher app (`android-tv/`, Leanback TV banner + `LAUNCHER` / `LEANBACK_LAUNCHER` support, `1920px` responsive viewport, immersive fullscreen, keep-screen-on, hardware-accelerated WebView, and zero gray default video poster).
+   - Seamless D-Pad &amp; TV remote bridge forwarding `DPAD`, `CH+/CH-`, `Play/Pause`, `Rewind/Fast-Forward`, `Guide/Info/Menu`, `Color` buttons, and `0–9` digits — including **long-press `OK` (550ms)** in fullscreen to toggle Start-Over ON/OFF on remotes without color buttons!
+2. **Channel List EPG Sync Fix (`js/app.js`, `js/epg.js`)**:
+   - Loads cached EPG synchronously before channel filtering/rendering on cold boot, purges synthetic `gen_*` fallback entries whenever real XMLTV data is present, clears stale match caches, and refreshes **all** rendered channel rows (including offscreen rows and `timeRange`) so the channel list is never out of sync with the OSD.
+3. **Continuous Live Start-Over Playback (`js/player.js`)**:
+   - Fixed live Start-Over archive URLs (`buildCatchupUrl`) so `stopUnix` is never truncated at `nowUnix` — watching a currently airing show from the beginning now plays continuously to the end without freezing at the moment you pressed Start-Over.
+   - Catchup seeking (`seekCatchup`) seeks smoothly inside the existing HLS buffer when available and debounces (`220ms`) seamless stream reloads when jumping outside the buffer.
+4. **Seamless Auto-Advance &amp; Red Button Start-Over Toggle (`js/player.js`, `js/app.js`)**:
+   - When a Start-Over programme finishes, `handleCatchupStreamBoundary` automatically transitions `player.currentProgramme` and the OSD Info Bar (including true Previous/Next adjacent programmes) to the next show — or exits cleanly back to Live when catching up to real time.
+   - Pressing **Red** 🔴 (or long-pressing **OK**) while Start-Over is active toggles it **OFF** and returns immediately to Live broadcast via `exitStartOverToLive()`.
+5. **Hebrew RTL Seek Direction Swap (`js/app.js`)**:
+   - In Fullscreen RTL mode, pressing **Left (`◄`)** now seeks **Forward (`+15s`)** and pressing **Right (`►`)** seeks **Backward (`-15s`)** to match the RTL progress bar visually.
+6. **Accelerated Long-Press Seeking (`js/app.js`, `js/remote.js`)**:
+   - Holding `◄` / `►` (or Green/Blue / Rewind/Fast-Forward) continuously ramps seek speed smoothly through progressive tiers: **`15s → 30s (×2) → 60s (×4) → 180s (×8) → 300s (×16)`** with a live speed badge inside `#osd-live-badge`.
 
 ---
 
@@ -84,12 +92,12 @@ Compatible with NVIDIA Shield TV, Chromecast with Google TV, Xiaomi Mi Box / TV 
    ```text
    2606856
    ```
-   *(Resolves via `https://aftv.news/2606856` — Backups: `da.gd/iptvil510` / `is.gd/iptvil5` / `https://files.catbox.moe/hpx4ox.apk` / `https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk`)*
+   *(Resolves via `https://aftv.news/2606856` — Backups: `da.gd/iptv51` / `is.gd/iptvil5` / `https://files.catbox.moe/zq1y9a.apk` / `https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk`)*
 4. Press **Go** — Downloader automatically fetches `IPTV-Live-AndroidTV.apk`. When prompted, select **Install**, then **Open**.
 
 #### Method B (Wi-Fi Transfer from Phone via Send Files to TV)
 1. Install **Send Files to TV** on both your Android TV and your smartphone (Google Play Store).
-2. Download `IPTV-Live-AndroidTV.apk` on your phone ([Direct Mirror](https://files.catbox.moe/hpx4ox.apk) • [GitHub Releases](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk)).
+2. Download `IPTV-Live-AndroidTV.apk` on your phone ([Direct Mirror](https://files.catbox.moe/zq1y9a.apk) • [GitHub Releases](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk)).
 3. Open **Send Files to TV** and tap **Receive** on the TV and **Send** on your phone, select `IPTV-Live-AndroidTV.apk`, then open and install it from the TV notification/file manager.
 
 #### Method C (USB Flash Drive or PC `adb`)
@@ -127,7 +135,7 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 
 1. Install **Developer Mode** on your LG TV from the LG Apps Store and turn ON **Dev Mode Status** + **Key Server**.
 2. Download the latest `.ipk` from GitHub Releases:
-   👉 **[Download `com.iptv.livetv_5.1.0_all.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/com.iptv.livetv_5.1.0_all.ipk)** / **[`IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-webOS.ipk)**
+   👉 **[Download `com.iptv.livetv_5.0.1_all.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/com.iptv.livetv_5.0.1_all.ipk)** / **[`IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-webOS.ipk)**
 3. Open **webOS Dev Manager**, connect to your TV, click **Install App**, and select the downloaded `.ipk`.
 
 ---
@@ -135,19 +143,23 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 <a id="-תיעוד-והתקנה-בעברית"></a>
 ## 🇮🇱 תיעוד והתקנה בעברית
 
-### מה חדש בגרסה v5.1.0? (מהדורת Apple Liquid Glass)
+### מה חדש בגרסה v5.0.1?
 
-1. **עיצוב Apple tvOS 18 / visionOS Liquid Glass חדש בכל מסכי האפליקציה (`css/style.css`, `index.html`)**:
-   - שדרוג עיצובי מלא בסגנון הזכוכית הנוזלית של אפל: רקע עמוק עם תאורה מרחבית עדינה, חלונות זכוכית חלבית עם שוליים ספקולריים דקים, כפתורי קפסולה מעוגלים (`999px`), ותגית `שידור חי` זוהרת.
-   - טשטוש רקע ממוקד באלמנטים עליונים ומודאלים בלבד (ללא פגיעה בגלילת רשימת הערוצים ב-`60fps`).
-2. **פס מידע צף מזכוכית חלבית במסך מלא (`#fullscreen-osd`)**:
-   - דוק צף ומעוגל בתחתית המסך עם מסגרת ספקולרית, תגי שידור חי / סטארט אובר, שעון וכפתורי `ערוץ + / ערוץ -`, בר התקדמות וקיצורי שלט מהירים.
-3. **מיקוד שלט (Focus) בסגנון Apple עם הארת זכוכית לבנה**:
-   - כפתורים ולשוניות מקבלים הדגשת זכוכית לבנה מבריקה עם טקסט כהה חד וברור במיוחד, ושורות ערוצים ותוכניות במדריך מקבלות מסגרת מוארת.
-4. **מסך פתיחה וסנכרון מחדש לטלפון ולמחשב (`index.html`, `remote.html`, `manager.html`)**:
-   - חידוש עיצובי מלא גם למסך הפתיחה (`#boot-splash`), למסך העלאת ה-M3U מהטלפון (`remote.html`) ולממשק הניהול מהמחשב (`manager.html`).
-5. **שמירה מלאה על ביצועים וכל תכונות Android TV והסטארט אובר**:
-   - שמירה על מהדורת **Android TV / Google TV (`IPTV-Live-AndroidTV.apk`)**, סנכרון EPG מלא ל-7 ימים, סטארט אובר חי רציף, מעבר אוטומטי לתוכנית הבאה והאצת הרצה בלחיצה ארוכה (`×2` עד `×16`).
+1. **מהדורת Android TV / Google TV מלאה (`IPTV-Live-AndroidTV.apk`)**:
+   - אפליקציית Android TV מקורית עם באנר Leanback, תצוגת Fullscreen מותאמת למסכי טלוויזיה (`1920px`), מניעת כיבוי מסך והאצת חומרה.
+   - תמיכה מלאה בשלטי Android TV / Google TV / Mi Box / Shield כולל **לחיצה ארוכה על `OK` (כ-0.5 שנייה)** במסך מלא להפעלה וכיבוי של **סטארט אובר** (גם בשלטים ללא כפתור אדום) וכפתור **Menu / Guide** למדריך 7 ימים!
+2. **תיקון סנכרון לוח השידורים (EPG) ברשימת הערוצים**:
+   - טעינה סינכרונית של המטמון מיד בעליית האפליקציה לפני רינדור הרשימה, ניקוי רשומות דמה (`gen_*`) כשיש EPG אמיתי, ועדכון מלא של כל השורות וטווח השעות (`timeRange`) כדי שרשימת הערוצים ופס המידע יהיו מסונכרנים תמיד.
+3. **סטארט אובר חי רציף ללא קפיאות**:
+   - תיקון בניית כתובת ה-Catchup לתוכנית שמשודרת כעת (ללא קטיעה של זמן הסיום לזמן הנוכחי) כך שהתוכנית מתנגנת ברצף מ-`00:00` ועד סופה בלי לקפוא.
+   - הרצה חכמה בתוך הבאפר הקיים או טעינה מחודשת חלקה (`220ms` debounce) בקפיצות מחוץ לבאפר.
+4. **מעבר אוטומטי לתוכנית הבאה בסטארט אובר + כיבוי באדום 🔴**:
+   - כשמסיימים לצפות בתוכנית בסטארט אובר, הנגן ופס המידע ממשיכים אוטומטית לתוכנית הבאה ברצף (וחוזרים אוטומטית לשידור חי כשמדביקים את זמן האמת).
+   - לחיצה חוזרת על הכפתור האדום 🔴 (או לחיצה ארוכה על `OK`) מכבה את הסטארט אובר ומחזירה מיד לשידור החי.
+5. **התאמת כיווני הרצה לעברית (RTL)**:
+   - במסך מלא, חץ **שמאלה (`◄`)** מריץ **קדימה** (+15 שניות) וחץ **ימינה (`►`)** מריץ **אחורה** (-15 שניות) בהתאמה מלאה לכיוון ציר הזמן בעברית.
+6. **האצת הרצה בלחיצה ארוכה (`×2` עד `×16`)**:
+   - החזקה רציפה של `◄` / `►` (או ירוק/כחול) מאיצה את קפיצות ההרצה בהדרגה: **`15 שניות ← ×2 (30 ש') ← ×4 (דקה) ← ×8 (3 דק') ← ×16 (5 דק')`** עם חיווי מהירות ברור בפס המידע.
 
 ---
 
@@ -163,12 +175,12 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
    ```text
    2606856
    ```
-   *(מקושר ל-`https://aftv.news/2606856` — קישורי גיבוי: `da.gd/iptvil510` / `is.gd/iptvil5` / `https://files.catbox.moe/hpx4ox.apk` / `https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk`)*
+   *(מקושר ל-`https://aftv.news/2606856` — קישורי גיבוי: `da.gd/iptv51` / `is.gd/iptvil5` / `https://files.catbox.moe/zq1y9a.apk` / `https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk`)*
 4. לחץ **Go** — האפליקציה תוריד אוטומטית את `IPTV-Live-AndroidTV.apk`. כשיקפוץ חלון ההתקנה, לחץ **התקן (Install)** ובסיום **פתח (Open)**.
 
 #### שיטה 2 (העברה אלחוטית מהטלפון עם Send Files to TV)
 1. התקן את **Send Files to TV** מחנות Google Play גם בטלפון וגם בטלוויזיה (ודא ששניהם על אותו Wi-Fi).
-2. הורד בטלפון את קובץ ה-APK ([הורדה ישירה ממראה ציבורית](https://files.catbox.moe/hpx4ox.apk) • [GitHub Releases](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk)):
+2. הורד בטלפון את קובץ ה-APK ([הורדה ישירה ממראה ציבורית](https://files.catbox.moe/zq1y9a.apk) • [GitHub Releases](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk)):
 3. פתח את **Send Files to TV** ולחץ על **Receive** בטלוויזיה ועל **Send** בטלפון, בחר את הקובץ שהורדת, ובסיום לחץ עליו בטלוויזיה כדי להתקין.
 
 #### שיטה 3 (דיסק-און-קי USB או ADB מהמחשב)
@@ -208,7 +220,7 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 
 1. התקן **Developer Mode** מחנות LG בטלוויזיה, התחבר לחשבון LG, והפעל **Dev Mode Status** + **Key Server**.
 2. הורד את קובץ ההתקנה העדכני:
-   👉 **[הורד `com.iptv.livetv_5.1.0_all.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/com.iptv.livetv_5.1.0_all.ipk)** / **[`IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-webOS.ipk)**
+   👉 **[הורד `com.iptv.livetv_5.0.1_all.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/com.iptv.livetv_5.0.1_all.ipk)** / **[`IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-webOS.ipk)**
 3. התקן בעזרת **webOS Dev Manager** (לחיצה על **Install App** ובחירת קובץ ה-`.ipk`).
 
 ---
