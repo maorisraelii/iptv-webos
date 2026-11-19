@@ -548,14 +548,13 @@ class MainActivity : Activity() {
         if (targetUrlRaw.isNullOrEmpty()) {
             return proxyErrorResponse(400, "Bad Request")
         }
-        val parsedTarget = try {
+        val parsedTarget: URL = try {
             URL(targetUrlRaw)
         } catch (_: MalformedURLException) {
-            null
+            return proxyErrorResponse(400, "Bad Request")
         }
-        val targetProtocol = parsedTarget?.protocol?.lowercase(Locale.US)
-        if (parsedTarget == null ||
-            (targetProtocol != "http" && targetProtocol != "https") ||
+        val targetProtocol = parsedTarget.protocol?.lowercase(Locale.US)
+        if ((targetProtocol != "http" && targetProtocol != "https") ||
             parsedTarget.host.isNullOrBlank()
         ) {
             return proxyErrorResponse(400, "Bad Request")
@@ -573,7 +572,7 @@ class MainActivity : Activity() {
             ?.takeIf { it.isNotEmpty() }
         val userAgent = incomingUa ?: PROXY_USER_AGENT
 
-        var currentUrl = parsedTarget
+        var currentUrl: URL = parsedTarget
         var currentMethod = method
         var conn: HttpURLConnection? = null
         var statusCode = -1
