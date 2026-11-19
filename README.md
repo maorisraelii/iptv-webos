@@ -84,12 +84,12 @@ Compatible with NVIDIA Shield TV, Chromecast with Google TV, Xiaomi Mi Box / TV 
    ```text
    2606856
    ```
-   *(Resolves via `https://aftv.news/2606856` — Backups: `da.gd/iptv51` / `is.gd/iptvil5` / `https://files.catbox.moe/zq1y9a.apk` / `https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk`)*
+   *(Resolves via `https://aftv.news/2606856` — Backups: `da.gd/iptvil510` / `is.gd/iptvil5` / `https://files.catbox.moe/hpx4ox.apk` / `https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk`)*
 4. Press **Go** — Downloader automatically fetches `IPTV-Live-AndroidTV.apk`. When prompted, select **Install**, then **Open**.
 
 #### Method B (Wi-Fi Transfer from Phone via Send Files to TV)
 1. Install **Send Files to TV** on both your Android TV and your smartphone (Google Play Store).
-2. Download `IPTV-Live-AndroidTV.apk` on your phone ([Direct Mirror](https://files.catbox.moe/zq1y9a.apk) • [GitHub Releases](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk)).
+2. Download `IPTV-Live-AndroidTV.apk` on your phone ([Direct Mirror](https://files.catbox.moe/hpx4ox.apk) • [GitHub Releases](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk)).
 3. Open **Send Files to TV** and tap **Receive** on the TV and **Send** on your phone, select `IPTV-Live-AndroidTV.apk`, then open and install it from the TV notification/file manager.
 
 #### Method C (USB Flash Drive or PC `adb`)
@@ -163,12 +163,12 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
    ```text
    2606856
    ```
-   *(מקושר ל-`https://aftv.news/2606856` — קישורי גיבוי: `da.gd/iptv51` / `is.gd/iptvil5` / `https://files.catbox.moe/zq1y9a.apk` / `https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk`)*
+   *(מקושר ל-`https://aftv.news/2606856` — קישורי גיבוי: `da.gd/iptvil510` / `is.gd/iptvil5` / `https://files.catbox.moe/hpx4ox.apk` / `https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk`)*
 4. לחץ **Go** — האפליקציה תוריד אוטומטית את `IPTV-Live-AndroidTV.apk`. כשיקפוץ חלון ההתקנה, לחץ **התקן (Install)** ובסיום **פתח (Open)**.
 
 #### שיטה 2 (העברה אלחוטית מהטלפון עם Send Files to TV)
 1. התקן את **Send Files to TV** מחנות Google Play גם בטלפון וגם בטלוויזיה (ודא ששניהם על אותו Wi-Fi).
-2. הורד בטלפון את קובץ ה-APK ([הורדה ישירה ממראה ציבורית](https://files.catbox.moe/zq1y9a.apk) • [GitHub Releases](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk)):
+2. הורד בטלפון את קובץ ה-APK ([הורדה ישירה ממראה ציבורית](https://files.catbox.moe/hpx4ox.apk) • [GitHub Releases](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-AndroidTV.apk)):
 3. פתח את **Send Files to TV** ולחץ על **Receive** בטלוויזיה ועל **Send** בטלפון, בחר את הקובץ שהורדת, ובסיום לחץ עליו בטלוויזיה כדי להתקין.
 
 #### שיטה 3 (דיסק-און-קי USB או ADB מהמחשב)
