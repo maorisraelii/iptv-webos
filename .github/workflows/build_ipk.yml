@@ -65,29 +65,44 @@ jobs:
           APP_VER=$(node -p "require('./appinfo.json').version")
           TAG="v${APP_VER}"
           RELEASE_TITLE="Live TV v${APP_VER} — LG webOS & Android TV (Build #${{ github.run_number }})"
-          
-          NOTES=$(cat << 'EOF'
-          ## 📺 Live TV for LG webOS & Android TV (v5.0.0)
 
-          ### 🚀 מה חדש בעדכון זה:
-          - **מהדורת Android TV / Google TV ייעודית (`IPTV-Live-AndroidTV.apk`):** תמיכה מלאה בשלטי Android TV (D-Pad, Play/Pause, Back, Media & Color keys) כולל לחיצה ארוכה על `OK` להפעלה/כיבוי של סטארט אובר.
-          - **תיקון סנכרון לוח השידורים (EPG) ברשימת הערוצים:** טעינה מיידית מהמטמון בעלייה ועדכון מלא של כל השורות וטווח השעות.
-          - **סטארט אובר חי רציף ללא תקיעות:** תיקון שידור הארכיון לתוכניות משודרות כך שהניגון נמשך ברצף עד סוף התוכנית.
-          - **מעבר אוטומטי לתוכנית הבאה + כיבוי באדום 🔴:** בסטארט אובר הנגן מתעדכן אוטומטית לתוכנית הבאה וממשיך ברצף; לחיצה חוזרת על האדום מחזירה לשידור החי.
-          - **התאמת חצי הרצה ל-RTL והאצה בלחיצה ארוכה:** שמאלה ◀ = קדימה, ימינה ▶ = אחורה, והחזקה רציפה מאיצה בהדרגה `×2 → ×4 → ×8 → ×16`.
+          APP_VER="$APP_VER" node -e '
+            const fs = require("fs");
+            const ver = process.env.APP_VER;
+            let meta = { title: "", releaseNotes: [] };
+            try {
+              meta = JSON.parse(fs.readFileSync("ota-release-notes.json", "utf8"));
+            } catch (e) {}
+            const notes = Array.isArray(meta.releaseNotes) && meta.releaseNotes.length
+              ? meta.releaseNotes.map((line) => "- " + line).join("\n")
+              : "- שיפורי ביצועים, יציבות שידור ועדכוני ממשק.";
+            const heading = meta.title ? `### 🚀 ${meta.title}` : `### 🚀 מה חדש בגרסה v${ver}:`;
+            const body = [
+              `## 📺 Live TV for LG webOS, Android TV & Web (v${ver})`,
+              "",
+              heading,
+              notes,
+              "",
+              "---",
+              "📦 **הורדות וגישה:**",
+              "- **Web Player (לפטופ / דפדפן):** https://maorisraelii.github.io/iptv-webos/",
+              "- **Android TV / Google TV:** `IPTV-Live-AndroidTV.apk` (קוד Downloader: `2606856`)",
+              "- **LG webOS (אשף התקנה מטלפון אנדרואיד):** `IPTV-webOS-Installer.apk`",
+              `- **LG webOS (התקנה ממחשב):** \`IPTV-Live-webOS.ipk\` / \`com.iptv.livetv_${ver}_all.ipk\``,
+              "- **גרסת בטא (Apple Liquid Glass):** https://github.com/maorisraelii/iptv-webos/releases/tag/beta-latest"
+            ].join("\n");
+            fs.writeFileSync("/tmp/release_notes.md", body, "utf8");
+          '
 
-          ---
-          📦 **הורדות:**
-          - **Android TV / Google TV:** `IPTV-Live-AndroidTV.apk`
-          - **LG webOS (התקנה מטלפון אנדרואיד):** `IPTV-webOS-Installer.apk`
-          - **LG webOS (התקנה ממחשב):** `IPTV-Live-webOS.ipk` / `com.iptv.livetv_5.0.0_all.ipk`
-          EOF
-          )
-
-          gh release create "$TAG" "IPTV-Live-webOS.ipk" "${{ env.IPK_FILE }}" \
-            --title "$RELEASE_TITLE" \
-            --notes "$NOTES" \
-            --latest || gh release upload "$TAG" "IPTV-Live-webOS.ipk" "${{ env.IPK_FILE }}" --clobber
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "IPTV-Live-webOS.ipk" "${{ env.IPK_FILE }}" --clobber
+            gh release edit "$TAG" --title "$RELEASE_TITLE" --notes-file /tmp/release_notes.md --latest
+          else
+            gh release create "$TAG" "IPTV-Live-webOS.ipk" "${{ env.IPK_FILE }}" \
+              --title "$RELEASE_TITLE" \
+              --notes-file /tmp/release_notes.md \
+              --latest
+          fi
 
       - name: Prepare Pages Deployment Directory
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
