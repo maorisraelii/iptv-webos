@@ -113,7 +113,7 @@
         </div>
         <span id="active-category-title" class="header-view-label">כל הערוצים</span>
         <span id="channel-list-count" class="header-count-pill">0 ערוצים</span>
-        <span id="header-version-badge" class="header-version-pill">v5.0.2</span>
+        <span id="header-version-badge" class="header-version-pill">v5.0.3</span>
       </div>
 
       <div class="header-left">
@@ -265,7 +265,7 @@
             <h2 id="osd-channel-name" class="osd-channel-title">שם הערוץ</h2>
             <span id="osd-live-badge" class="osd-live-tag">שידור חי</span>
             <span id="osd-channel-category" class="osd-quality-tag">HD</span>
-            <span id="osd-version-badge" class="osd-version-tag">v5.0.2</span>
+            <span id="osd-version-badge" class="osd-version-tag">v5.0.3</span>
           </div>
 
           <!-- OSD EPG Current Programme with Start & End Time -->
@@ -303,7 +303,7 @@
           <!-- OSD Remote Legend Line & Active Version Info -->
           <div class="osd-sub-line">
             <span class="osd-hint">▲▼ זפזופ • <strong>◀ קדימה / ▶ אחורה</strong> (החזק להאצה) • <strong>OK</strong> פאוז/נגן (ארוך: סטארט אובר) • <strong>אדום</strong> סטארט אובר / יציאה • <strong>צהוב</strong> מדריך 7 ימים</span>
-            <span id="osd-footer-version" class="osd-footer-ver">גרסה v5.0.2</span>
+            <span id="osd-footer-version" class="osd-footer-ver">גרסה v5.0.3</span>
           </div>
         </div>
 
@@ -418,7 +418,7 @@
             באפר וקאש (נגד תקיעות)
           </button>
           <button id="tab-btn-about" class="settings-tab-btn focusable" data-settings-tab="about">
-            אודות
+            עדכונים (Stable / Beta) ואודות
           </button>
         </div>
         <button class="modal-close-btn focusable" data-action="close-modal">✕ סגור</button>
@@ -631,9 +631,24 @@
             <div class="about-app-icon">TV</div>
             <div class="about-title-col" style="flex:1;">
               <div class="about-app-name">Live TV — LG webOS Broadcast Player</div>
-              <div id="about-version-text" class="about-app-version">גרסה v5.0.2 Production • מנגנון עדכוני OTA פעיל (LG webOS 4.0 - 24+)</div>
+              <div id="about-version-text" class="about-app-version">גרסה v5.0.3 Production (ערוץ Stable יציב) • עדכוני OTA פעילים</div>
             </div>
             <button id="btn-check-ota-now" class="btn-tv-primary focusable">בדוק עדכוני OTA כעת</button>
+          </div>
+
+          <div id="ota-channel-card" class="perf-section-card">
+            <h3>ערוץ עדכונים אוטומטיים (OTA Channel)</h3>
+            <p id="ota-channel-status-text" class="perf-desc">בחר אם לקבל עדכוני מערכת מגרסת Stable (יציבה) או מגרסת Beta (Apple Liquid Glass). ההחלפה מתבצעת מיידית דרך OTA.</p>
+            <div class="perf-options-grid" id="ota-channel-options">
+              <button id="btn-ota-channel-stable" class="perf-option-btn focusable active-option" data-ota-channel="stable">
+                <span class="perf-opt-title">Stable — גרסה יציבה (ברירת מחדל)</span>
+                <span class="perf-opt-sub">ממשק קלאסי מהיר ויציב • עדכוני Main רשמיים</span>
+              </button>
+              <button id="btn-ota-channel-beta" class="perf-option-btn focusable" data-ota-channel="beta">
+                <span class="perf-opt-title">Beta — Apple Liquid Glass (גרסת ניסיון)</span>
+                <span class="perf-opt-sub">עיצוב זכוכית חלבית בסגנון אפל • מתעדכן אוטומטית דרך OTA</span>
+              </button>
+            </div>
           </div>
 
           <div class="about-developer-box">

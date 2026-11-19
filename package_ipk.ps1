@@ -17,10 +17,29 @@ Copy-Item -Recurse "css", "js" -Destination "dist"
 
 # Sync OTA Manifest, Live EPG & Remote Portal to Public Cloud Gist if gh is available
 if (Get-Command gh -ErrorAction SilentlyContinue) {
-    Write-Host "`n[OTA] Syncing ota-manifest.json, epg-il.xml & remote.html to Cloud OTA Gist..." -ForegroundColor Cyan
-    gh gist edit b4408ca1c31143ed2f50164629f53f1c --filename ota-manifest.json ota-manifest.json 2>$null
-    gh gist edit b4408ca1c31143ed2f50164629f53f1c --filename epg-il.xml epg-il.xml 2>$null
-    gh gist edit b4408ca1c31143ed2f50164629f53f1c --filename remote.html remote.html 2>$null
+    $otaChannel = "stable"
+    if (Test-Path "app-config.json") {
+        try {
+            $cfg = Get-Content "app-config.json" -Raw | ConvertFrom-Json
+            if ($cfg -and $cfg.channel -eq "beta") { $otaChannel = "beta" }
+        } catch {}
+    }
+
+    if ($otaChannel -eq "beta") {
+        Write-Host "`n[OTA] Syncing Beta ota-manifest-beta.json to Cloud OTA Gist (preserving Stable manifest)..." -ForegroundColor Cyan
+        $tempBeta = Join-Path $env:TEMP "ota-manifest-beta.json"
+        Copy-Item "ota-manifest.json" -Destination $tempBeta -Force
+        gh gist edit b4408ca1c31143ed2f50164629f53f1c --filename ota-manifest-beta.json $tempBeta 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            gh gist edit b4408ca1c31143ed2f50164629f53f1c --add $tempBeta 2>$null
+        }
+        Remove-Item $tempBeta -Force -ErrorAction SilentlyContinue
+    } else {
+        Write-Host "`n[OTA] Syncing ota-manifest.json, epg-il.xml & remote.html to Cloud OTA Gist..." -ForegroundColor Cyan
+        gh gist edit b4408ca1c31143ed2f50164629f53f1c --filename ota-manifest.json ota-manifest.json 2>$null
+        gh gist edit b4408ca1c31143ed2f50164629f53f1c --filename epg-il.xml epg-il.xml 2>$null
+        gh gist edit b4408ca1c31143ed2f50164629f53f1c --filename remote.html remote.html 2>$null
+    }
 }
 
 # 2. Package IPK
