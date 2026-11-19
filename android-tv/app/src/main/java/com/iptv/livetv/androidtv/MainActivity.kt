@@ -1,32 +1,35 @@
 package com.iptv.livetv.androidtv
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
+import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsets
+import android.view.WindowInsetsController
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.activity.OnBackPressedCallback
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
+import android.widget.FrameLayout
+import android.widget.TextView
 import org.json.JSONObject
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : Activity() {
 
     private data class MappedWebKey(
         val keyCode: Int,
@@ -42,7 +45,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private lateinit var webView: WebView
+    private lateinit var rootContainer: FrameLayout
+    private var webView: WebView? = null
 
     @Volatile
     private var isWebInputFocused: Boolean = false
@@ -51,6 +55,7 @@ class MainActivity : AppCompatActivity() {
     private var isPageLoaded: Boolean = false
 
     private var suppressNextKeyUpKeyCode: Int = -1
+    private var renderRecoveryCount: Int = 0
 
     private val defaultVideoPoster: Bitmap by lazy {
         Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply {
@@ -58,116 +63,189 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        window.setBackgroundDrawable(ColorDrawable(BACKGROUND_COLOR))
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        applyImmersiveFullscreen()
+        try {
+            window.setBackgroundDrawable(ColorDrawable(BACKGROUND_COLOR))
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } catch (t: Throwable) {
+            Log.w(TAG, "Window setup notice", t)
+        }
 
-        webView = WebView(this).apply {
+        rootContainer = FrameLayout(this).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
             setBackgroundColor(BACKGROUND_COLOR)
-            setLayerType(View.LAYER_TYPE_HARDWARE, null)
-            isFocusable = true
-            isFocusableInTouchMode = true
-            keepScreenOn = true
-            isHorizontalScrollBarEnabled = false
-            isVerticalScrollBarEnabled = false
-            overScrollMode = View.OVER_SCROLL_NEVER
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
-            }
-
-            configureWebSettings(settings)
-
-            addJavascriptInterface(AndroidTvHostInterface(), "AndroidTvHost")
-
-            webViewClient = object : WebViewClient() {
-                override fun shouldOverrideUrlLoading(
-                    view: WebView?,
-                    request: WebResourceRequest?
-                ): Boolean {
-                    val scheme = request?.url?.scheme?.lowercase() ?: return false
-                    return scheme !in ALLOWED_SCHEMES
-                }
-
-                override fun onPageFinished(view: WebView?, url: String?) {
-                    super.onPageFinished(view, url)
-                    isPageLoaded = true
-                    installWebKeyBridge()
-                    requestFocus()
-                }
-            }
-
-            webChromeClient = object : WebChromeClient() {
-                override fun getDefaultVideoPoster(): Bitmap = defaultVideoPoster
-            }
         }
+        setContentView(rootContainer)
 
-        CookieManager.getInstance().apply {
-            setAcceptCookie(true)
-            setAcceptThirdPartyCookies(webView, true)
-        }
+        // Apply fullscreen flags strictly after setContentView to avoid AppCompat/decor crashes
+        applyImmersiveFullscreen()
 
-        setContentView(webView)
-        webView.requestFocus()
+        initWebView()
+    }
 
-        onBackPressedDispatcher.addCallback(
-            this,
-            object : OnBackPressedCallback(true) {
-                override fun handleOnBackPressed() {
-                    if (isPageLoaded) {
-                        handleAndroidBackKeyDown()
-                    } else {
-                        isEnabled = false
-                        onBackPressedDispatcher.onBackPressed()
+    @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
+    private fun initWebView() {
+        try {
+            isPageLoaded = false
+            val wv = WebView(this).apply {
+                layoutParams = FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+                setBackgroundColor(BACKGROUND_COLOR)
+                // Keep default LAYER_TYPE_NONE so window hardware acceleration handles video/MSE
+                // safely on all Android TV GPU drivers (avoids GL_OUT_OF_MEMORY / Mali/Amlogic crashes).
+                isFocusable = true
+                isFocusableInTouchMode = true
+                keepScreenOn = true
+                isHorizontalScrollBarEnabled = false
+                isVerticalScrollBarEnabled = false
+                overScrollMode = View.OVER_SCROLL_NEVER
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    try {
+                        setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
+                    } catch (t: Throwable) {
+                        Log.w(TAG, "setRendererPriorityPolicy skipped", t)
                     }
                 }
-            }
-        )
 
-        webView.loadUrl(ENTRY_URL)
+                configureWebSettings(settings)
+
+                addJavascriptInterface(AndroidTvHostInterface(), "AndroidTvHost")
+
+                webViewClient = object : WebViewClient() {
+                    override fun shouldOverrideUrlLoading(
+                        view: WebView?,
+                        request: WebResourceRequest?
+                    ): Boolean {
+                        val scheme = request?.url?.scheme?.lowercase() ?: return false
+                        return scheme !in ALLOWED_SCHEMES
+                    }
+
+                    override fun onPageFinished(view: WebView?, url: String?) {
+                        super.onPageFinished(view, url)
+                        isPageLoaded = true
+                        installWebKeyBridge()
+                        requestFocus()
+                    }
+
+                    override fun onRenderProcessGone(
+                        view: WebView?,
+                        detail: RenderProcessGoneDetail?
+                    ): Boolean {
+                        Log.e(TAG, "WebView render process gone — recovering safely")
+                        isPageLoaded = false
+                        if (renderRecoveryCount < 3) {
+                            renderRecoveryCount++
+                            view?.post { recoverWebView() }
+                        }
+                        return true
+                    }
+                }
+
+                webChromeClient = object : WebChromeClient() {
+                    override fun getDefaultVideoPoster(): Bitmap = defaultVideoPoster
+                }
+            }
+
+            try {
+                CookieManager.getInstance().apply {
+                    setAcceptCookie(true)
+                    setAcceptThirdPartyCookies(wv, true)
+                }
+            } catch (t: Throwable) {
+                Log.w(TAG, "CookieManager notice", t)
+            }
+
+            rootContainer.removeAllViews()
+            rootContainer.addView(wv)
+            webView = wv
+            wv.requestFocus()
+            wv.loadUrl(ENTRY_URL)
+        } catch (t: Throwable) {
+            Log.e(TAG, "WebView initialization failed", t)
+            showFallbackMessage("Android System WebView is unavailable or updating on this TV.")
+        }
+    }
+
+    private fun recoverWebView() {
+        destroyWebView()
+        initWebView()
+    }
+
+    private fun showFallbackMessage(message: String) {
+        try {
+            rootContainer.removeAllViews()
+            val tv = TextView(this).apply {
+                text = message
+                setTextColor(Color.WHITE)
+                textSize = 20f
+                gravity = Gravity.CENTER
+                setPadding(48, 48, 48, 48)
+            }
+            rootContainer.addView(
+                tv,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            )
+        } catch (t: Throwable) {
+            Log.e(TAG, "Fallback UI error", t)
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
     @Suppress("DEPRECATION")
     private fun configureWebSettings(settings: WebSettings) {
-        settings.javaScriptEnabled = true
-        settings.domStorageEnabled = true
-        settings.databaseEnabled = true
-        settings.useWideViewPort = true
-        settings.loadWithOverviewMode = true
-        settings.mediaPlaybackRequiresUserGesture = false
-        settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-        settings.allowFileAccess = true
-        settings.allowContentAccess = true
-        settings.allowFileAccessFromFileURLs = true
-        settings.allowUniversalAccessFromFileURLs = true
-        settings.builtInZoomControls = false
-        settings.displayZoomControls = false
-        settings.setSupportZoom(false)
-        settings.cacheMode = WebSettings.LOAD_DEFAULT
+        try {
+            settings.javaScriptEnabled = true
+            settings.domStorageEnabled = true
+            settings.databaseEnabled = true
+            settings.useWideViewPort = true
+            settings.loadWithOverviewMode = true
+            settings.mediaPlaybackRequiresUserGesture = false
+            settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            settings.allowFileAccess = true
+            settings.allowContentAccess = true
+            settings.allowFileAccessFromFileURLs = true
+            settings.allowUniversalAccessFromFileURLs = true
+            settings.builtInZoomControls = false
+            settings.displayZoomControls = false
+            settings.setSupportZoom(false)
+            settings.cacheMode = WebSettings.LOAD_DEFAULT
+        } catch (t: Throwable) {
+            Log.w(TAG, "configureWebSettings notice", t)
+        }
     }
 
     override fun onResume() {
         super.onResume()
         applyImmersiveFullscreen()
-        if (::webView.isInitialized) {
-            webView.onResume()
-            webView.resumeTimers()
-            webView.requestFocus()
+        webView?.let { wv ->
+            try {
+                wv.onResume()
+                wv.resumeTimers()
+                wv.requestFocus()
+            } catch (t: Throwable) {
+                Log.w(TAG, "onResume notice", t)
+            }
         }
     }
 
     override fun onPause() {
-        if (::webView.isInitialized) {
-            webView.onPause()
+        webView?.let { wv ->
+            try {
+                wv.onPause()
+            } catch (t: Throwable) {
+                Log.w(TAG, "onPause notice", t)
+            }
         }
         super.onPause()
     }
@@ -176,24 +254,44 @@ class MainActivity : AppCompatActivity() {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
             applyImmersiveFullscreen()
-            if (::webView.isInitialized && !isWebInputFocused) {
-                webView.requestFocus()
+            val wv = webView
+            if (wv != null && !isWebInputFocused) {
+                wv.requestFocus()
             }
         }
     }
 
-    override fun onDestroy() {
-        if (::webView.isInitialized) {
-            webView.removeJavascriptInterface("AndroidTvHost")
-            (webView.parent as? ViewGroup)?.removeView(webView)
-            webView.stopLoading()
-            webView.destroy()
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (isPageLoaded && webView != null) {
+            handleAndroidBackKeyDown()
+        } else {
+            @Suppress("DEPRECATION")
+            super.onBackPressed()
         }
+    }
+
+    private fun destroyWebView() {
+        val wv = webView ?: return
+        webView = null
+        try {
+            wv.removeJavascriptInterface("AndroidTvHost")
+            (wv.parent as? ViewGroup)?.removeView(wv)
+            wv.stopLoading()
+            wv.destroy()
+        } catch (t: Throwable) {
+            Log.w(TAG, "destroyWebView notice", t)
+        }
+    }
+
+    override fun onDestroy() {
+        destroyWebView()
         super.onDestroy()
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (!::webView.isInitialized || !isPageLoaded) {
+        val wv = webView
+        if (wv == null || !isPageLoaded) {
             return super.dispatchKeyEvent(event)
         }
 
@@ -253,8 +351,8 @@ class MainActivity : AppCompatActivity() {
 
         val mapped = mapKeyEvent(androidKeyCode) ?: return super.dispatchKeyEvent(event)
 
-        if (!webView.hasFocus()) {
-            webView.requestFocus()
+        if (!wv.hasFocus()) {
+            wv.requestFocus()
         }
 
         if (isDown) {
@@ -290,29 +388,39 @@ class MainActivity : AppCompatActivity() {
     private fun blurActiveWebInput() {
         isWebInputFocused = false
         hideSoftKeyboard()
-        webView.evaluateJavascript(
-            """
-            (function() {
-              if (typeof window.__blurActiveAndroidTvInput === 'function') {
-                window.__blurActiveAndroidTvInput();
-                return;
-              }
-              try {
-                var el = document.activeElement;
-                if (el && el.tagName && (el.tagName.toUpperCase() === 'INPUT' || el.tagName.toUpperCase() === 'TEXTAREA')) {
-                  el.blur();
-                }
-                if (document.body) document.body.focus();
-              } catch (e) {}
-            })();
-            """.trimIndent(),
-            null
-        )
+        val wv = webView ?: return
+        try {
+            wv.evaluateJavascript(
+                """
+                (function() {
+                  if (typeof window.__blurActiveAndroidTvInput === 'function') {
+                    window.__blurActiveAndroidTvInput();
+                    return;
+                  }
+                  try {
+                    var el = document.activeElement;
+                    if (el && el.tagName && (el.tagName.toUpperCase() === 'INPUT' || el.tagName.toUpperCase() === 'TEXTAREA')) {
+                      el.blur();
+                    }
+                    if (document.body) document.body.focus();
+                  } catch (e) {}
+                })();
+                """.trimIndent(),
+                null
+            )
+        } catch (t: Throwable) {
+            Log.w(TAG, "blurActiveWebInput notice", t)
+        }
     }
 
     private fun hideSoftKeyboard() {
-        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager ?: return
-        imm.hideSoftInputFromWindow(webView.windowToken, 0)
+        val wv = webView ?: return
+        try {
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager ?: return
+            imm.hideSoftInputFromWindow(wv.windowToken, 0)
+        } catch (t: Throwable) {
+            Log.w(TAG, "hideSoftKeyboard notice", t)
+        }
     }
 
     private fun mapKeyEvent(androidKeyCode: Int): MappedWebKey? {
@@ -370,10 +478,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun installWebKeyBridge() {
-        webView.evaluateJavascript(BRIDGE_BOOTSTRAP_JS, null)
+        val wv = webView ?: return
+        try {
+            wv.evaluateJavascript(BRIDGE_BOOTSTRAP_JS, null)
+        } catch (t: Throwable) {
+            Log.w(TAG, "installWebKeyBridge notice", t)
+        }
     }
 
     private fun dispatchWebKey(type: String, keyCode: Int, key: String, isRepeat: Boolean) {
+        val wv = webView ?: return
         val safeType = if (type == "keyup") "keyup" else "keydown"
         val escapedKey = JSONObject.quote(key)
         val js = """
@@ -386,18 +500,40 @@ class MainActivity : AppCompatActivity() {
               }
             })();
         """.trimIndent()
-        webView.evaluateJavascript(js, null)
+        try {
+            wv.evaluateJavascript(js, null)
+        } catch (t: Throwable) {
+            Log.w(TAG, "dispatchWebKey notice", t)
+        }
     }
 
+    @Suppress("DEPRECATION")
     private fun applyImmersiveFullscreen() {
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        controller.systemBarsBehavior =
-            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        controller.hide(WindowInsetsCompat.Type.systemBars())
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                window.setDecorFitsSystemWindows(false)
+                window.insetsController?.let { controller ->
+                    controller.systemBarsBehavior =
+                        WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    controller.hide(WindowInsets.Type.systemBars())
+                }
+            } else {
+                window.decorView.systemUiVisibility = (
+                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                        or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_FULLSCREEN
+                    )
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "applyImmersiveFullscreen notice", t)
+        }
     }
 
     companion object {
+        private const val TAG = "IPTVAndroidTV"
         private const val ENTRY_URL = "file:///android_asset/www/index.html"
         private const val BACKGROUND_COLOR = 0xFF070B14.toInt()
         private const val WEB_KEY_ENTER = 13
