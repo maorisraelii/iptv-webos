@@ -105,6 +105,20 @@ class VideoPlayer {
     this.startWatchdogAndQualityRamp();
   }
 
+  isAndroidTvWebView() {
+    if (typeof window === 'undefined') return false;
+    try {
+      return (
+        Boolean(window.__IPTV_ANDROID_TV) ||
+        Boolean(window.__IPTV_IS_ANDROID_TV) ||
+        (window.location && window.location.hostname === 'appassets.androidplatform.net') ||
+        Boolean(window.AndroidTvHost)
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
   loadBufferMode() {
     try {
       const saved = localStorage.getItem(BUFFER_STORAGE_KEY);
@@ -124,9 +138,13 @@ class VideoPlayer {
 
     if (this.hls && this.hls.config) {
       const prof = BUFFER_PROFILES[mode];
-      this.hls.config.maxBufferLength = prof.maxBufferLength;
-      this.hls.config.maxMaxBufferLength = prof.maxMaxBufferLength;
-      this.hls.config.backBufferLength = prof.backBufferLength;
+      const isAndroidTv = this.isAndroidTvWebView();
+      this.hls.config.maxBufferLength = isAndroidTv ? Math.min(prof.maxBufferLength, 24) : prof.maxBufferLength;
+      this.hls.config.maxMaxBufferLength = isAndroidTv ? Math.min(prof.maxMaxBufferLength, 45) : prof.maxMaxBufferLength;
+      this.hls.config.backBufferLength = isAndroidTv ? Math.min(prof.backBufferLength, 15) : prof.backBufferLength;
+      if (isAndroidTv) {
+        this.hls.config.maxBufferSize = 30 * 1000 * 1000;
+      }
       this.hls.config.liveSyncDurationCount = prof.liveSyncDurationCount;
       this.hls.config.liveMaxLatencyDurationCount = prof.liveMaxLatencyDurationCount;
       if (!prof.progressiveQuality) {
@@ -618,7 +636,8 @@ class VideoPlayer {
       }
 
       this._hlsReused = false;
-      this.hls = new window.Hls({
+      const isAndroidTv = this.isAndroidTvWebView();
+      const hlsConfig = {
         enableWorker: false,
         // For Start-Over / Catch-up, begin playback from the start of the event
         startPosition: isCatchup ? 0 : -1,
@@ -628,10 +647,10 @@ class VideoPlayer {
         // Audio Synchronization & Codec Support
         maxAudioFramesDrift: 1,
         forceKeyFrameOnDiscontinuity: true,
-        // Buffer Configuration
-        maxBufferLength: prof.maxBufferLength,
-        maxMaxBufferLength: prof.maxMaxBufferLength,
-        backBufferLength: prof.backBufferLength,
+        // Buffer Configuration (capped on Android TV WebView to prevent 1.5GB/2GB renderer OOM)
+        maxBufferLength: isAndroidTv ? Math.min(prof.maxBufferLength, 24) : prof.maxBufferLength,
+        maxMaxBufferLength: isAndroidTv ? Math.min(prof.maxMaxBufferLength, 45) : prof.maxMaxBufferLength,
+        backBufferLength: isAndroidTv ? Math.min(prof.backBufferLength, 15) : prof.backBufferLength,
         liveSyncDurationCount: isCatchup ? 99999 : prof.liveSyncDurationCount,
         liveMaxLatencyDurationCount: isCatchup ? Infinity : prof.liveMaxLatencyDurationCount,
         lowLatencyMode: false,
@@ -656,7 +675,11 @@ class VideoPlayer {
         fragLoadingTimeOut: 14000,
         fragLoadingMaxRetry: 6,
         fragLoadingRetryDelay: 700
-      });
+      };
+      if (isAndroidTv) {
+        hlsConfig.maxBufferSize = 30 * 1000 * 1000;
+      }
+      this.hls = new window.Hls(hlsConfig);
 
       const hlsInstance = this.hls;
       hlsInstance.attachMedia(this.video);
@@ -1027,6 +1050,7 @@ class VideoPlayer {
       this._hlsIsCatchup = false;
       this._isNativePlayback = false;
       this._isPlaying = false;
+      const hadHls = Boolean(this.hls);
       if (this.hls) {
         try {
           this.hls.stopLoad();
@@ -1037,10 +1061,19 @@ class VideoPlayer {
       }
       if (this.video) {
         try {
-          this.video.pause();
-          this.video.removeAttribute('src');
-          if (this.video.srcObject) this.video.srcObject = null;
-          this.video.load(); // Forces webOS to release ALSA hardware audio decoder pipeline!
+          const hadMediaAttached = Boolean(
+            hadHls ||
+              this.video.currentSrc ||
+              this.video.src ||
+              (typeof this.video.getAttribute === 'function' && this.video.getAttribute('src')) ||
+              this.video.srcObject
+          );
+          if (hadMediaAttached) {
+            this.video.pause();
+            this.video.removeAttribute('src');
+            if (this.video.srcObject) this.video.srcObject = null;
+            this.video.load(); // Forces webOS/Android TV to release hardware decoder pipeline only when media was attached
+          }
           this.video.muted = false;
           this.video.volume = 1.0;
         } catch (e) {}

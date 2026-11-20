@@ -229,11 +229,6 @@ class RemoteController {
     if (code === 461 || key === 'Back' || key === 'GoBack' || key === 'XF86Back') {
       if (typeof e.preventDefault === 'function') e.preventDefault();
       if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
-      const now = Date.now();
-      if (now - this.lastBackTime > 350) {
-        this.lastBackTime = now;
-        this.app.handleBack();
-      }
       return;
     }
 
@@ -305,40 +300,6 @@ class RemoteController {
     // Unmute & unlock hardware audio on user gesture (fixes webOS silent autoplay policy bug)
     this.unlockAudioOnGesture();
 
-    // Laptop / Desktop browser keyboard shortcuts (guarded against inputs & open modals)
-    const activeEl = document.activeElement;
-    const activeTag = activeEl && activeEl.tagName ? activeEl.tagName.toUpperCase() : '';
-    const isTextInput = activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT';
-    const isInteractiveBtn = activeTag === 'BUTTON' || activeTag === 'A';
-    if (!isTextInput && !e.ctrlKey && !e.altKey && !e.metaKey && this.app && !this.app.isModalOpen()) {
-      if ((code === 32 || key === ' ') && (this.app.mode === 'FULLSCREEN' || !isInteractiveBtn)) {
-        if (typeof e.preventDefault === 'function') e.preventDefault();
-        if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
-        this.app.togglePlayPause();
-        return;
-      }
-      if (code === 70 || key === 'f' || key === 'F') {
-        if (typeof e.preventDefault === 'function') e.preventDefault();
-        if (this.app.mode === 'FULLSCREEN') {
-          this.app.exitFullscreen();
-        } else {
-          this.app.enterFullscreen();
-        }
-        return;
-      }
-      if (code === 77 || key === 'm' || key === 'M') {
-        if (typeof e.preventDefault === 'function') e.preventDefault();
-        if (this.app.player && this.app.player.video) {
-          const v = this.app.player.video;
-          v.muted = !v.muted;
-          if (typeof this.app.showToast === 'function') {
-            this.app.showToast(v.muted ? 'שמע הושתק' : 'שמע הופעל');
-          }
-        }
-        return;
-      }
-    }
-
     // Number keys (0-9): 48-57 or 96-105
     if ((code >= 48 && code <= 57) || (code >= 96 && code <= 105)) {
       const num = code >= 96 ? (code - 96).toString() : (code - 48).toString();
@@ -401,12 +362,22 @@ class RemoteController {
 
     // Back key (webOS 461, Escape 27, Backspace 8)
     if (code === 461 || code === 27 || key === 'Back' || key === 'GoBack' || key === 'Escape' || key === 'XF86Back') {
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+      if (now - this.lastBackTime < 350) {
+        return;
+      }
       this.lastBackTime = now;
       this.app.handleBack();
       return;
     }
     if (code === 8 || key === 'Backspace') {
       if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+        return;
+      }
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+      if (now - this.lastBackTime < 350) {
         return;
       }
       this.lastBackTime = now;
