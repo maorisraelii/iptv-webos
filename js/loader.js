@@ -28,6 +28,35 @@
   var splashDismissed = false;
   var safetyTimer = null;
 
+  function detectPlatformAndSafeMode() {
+    try {
+      var search = window.location && window.location.search ? window.location.search : '';
+      if (/[?&]safeMode=1(?:&|#|$)/.test(search)) {
+        window.__IPTV_SAFE_MODE = true;
+      }
+      var ua = (navigator && navigator.userAgent) ? navigator.userAgent : '';
+      var isWebOS = /Web0S|webOS|LG NetCast/i.test(ua) || Boolean(window.webOS);
+      var isAndroidTv =
+        Boolean(window.__IPTV_ANDROID_TV) ||
+        Boolean(window.AndroidTvHost) ||
+        (window.location && window.location.hostname === 'appassets.androidplatform.net') ||
+        (/Android/i.test(ua) && /TV|AFT|BRAVIA|SmartTV|GoogleTV/i.test(ua));
+      var isTv = isWebOS || isAndroidTv;
+
+      var doc = document.documentElement;
+      if (doc) {
+        if (isTv) doc.classList.add('tv-platform');
+        if (isWebOS) doc.classList.add('platform-webos');
+        if (isAndroidTv) doc.classList.add('platform-androidtv');
+        if (window.__IPTV_SAFE_MODE) doc.classList.add('safe-mode');
+      }
+      window.__IPTV_IS_TV = isTv;
+      window.__IPTV_IS_WEBOS = isWebOS;
+      window.__IPTV_IS_ANDROID_TV = isAndroidTv;
+    } catch (e) {}
+  }
+  detectPlatformAndSafeMode();
+
   function applyTvViewportScale() {
     try {
       var docEl = document.documentElement;

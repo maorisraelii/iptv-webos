@@ -1092,6 +1092,9 @@ body {
   overflow: hidden;
   z-index: 30;
   cursor: pointer;
+  contain: strict;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
 }
 
 .video-surface.preview-mode {
@@ -3211,4 +3214,49 @@ body {
 .ota-btn-sub {
   font-size: 21px !important;
   padding: 14px 26px !important;
+}
+
+/* ==========================================================================
+   10-Iteration 60fps Hardware Performance Engine for webOS & Android TV Glass
+   ========================================================================== */
+.tv-platform .top-header,
+.tv-platform .color-bar,
+.tv-platform .osd-card,
+.tv-platform .modal-card,
+.tv-platform .jump-banner,
+.tv-platform .toast,
+.tv-platform #video-pause-badge,
+.tv-platform .boot-glass-card {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.03) 100%),
+    rgba(14, 18, 30, 0.92) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border-top-color: rgba(255, 255, 255, 0.38) !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Layer Isolation & Containment for high-speed 60fps scrolling & zero reflows */
+.channel-list-panel,
+.timeline-card,
+.top-header,
+.color-bar {
+  contain: layout style;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.channel-item {
+  contain: content;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Safe mode banner styling */
+.safe-mode #header-version-badge {
+  background: #FF375F !important;
+  color: #ffffff !important;
 }

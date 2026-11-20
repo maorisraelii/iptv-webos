@@ -64,6 +64,7 @@ class IPTVApp {
     this.surfingIndex = 0;
 
     this.previewDebounceTimer = null;
+    this.initialPreviewTimer = null;
     this.osdTimer = null;
     this.toastTimer = null;
     this.jumpTimer = null;
@@ -76,6 +77,58 @@ class IPTVApp {
     this._seekBadgeClearTimer = null;
 
     this.init();
+  }
+
+  isSafeMode() {
+    if (typeof window === 'undefined') return false;
+    try {
+      if (window.__IPTV_SAFE_MODE === true) return true;
+      const search = window.location && window.location.search ? window.location.search : '';
+      if (/[?&]safeMode=1(?:&|#|$)/.test(search)) {
+        window.__IPTV_SAFE_MODE = true;
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  isAndroidTvWebView() {
+    if (typeof window === 'undefined') return false;
+    try {
+      return (
+        Boolean(window.__IPTV_ANDROID_TV) ||
+        Boolean(window.__IPTV_IS_ANDROID_TV) ||
+        (window.location && window.location.hostname === 'appassets.androidplatform.net') ||
+        Boolean(window.AndroidTvHost)
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
+  cancelInitialPreviewTimer() {
+    if (this.initialPreviewTimer) {
+      clearTimeout(this.initialPreviewTimer);
+      this.initialPreviewTimer = null;
+    }
+  }
+
+  scheduleInitialPreviewPlayback(channel, delayMs) {
+    this.cancelInitialPreviewTimer();
+    if (!channel || this.isSafeMode()) return;
+    const waitMs = typeof delayMs === 'number' && delayMs >= 0 ? delayMs : 900;
+    this.initialPreviewTimer = setTimeout(() => {
+      this.initialPreviewTimer = null;
+      if (this.isSafeMode() || !this.player) return;
+      if (this.player.currentChannel) return;
+      const target = this.selectedChannel || channel;
+      if (target) {
+        try {
+          localStorage.setItem(STORAGE_KEYS.LAST_CHANNEL, target.id);
+        } catch (e) {}
+        this.player.play(target);
+      }
+    }, waitMs);
   }
 
   init() {
@@ -462,7 +515,17 @@ class IPTVApp {
     this.updateChannelFocusFast();
     const startCh = this.visibleChannels[this.focusedChannelIndex];
     if (startCh) {
-      this.highlightChannel(startCh, true);
+      if (this.isSafeMode()) {
+        this.cancelInitialPreviewTimer();
+        this.highlightChannel(startCh, false);
+        return;
+      }
+      if (this.isAndroidTvWebView()) {
+        this.highlightChannel(startCh, false);
+        this.scheduleInitialPreviewPlayback(startCh, 900);
+      } else {
+        this.highlightChannel(startCh, true);
+      }
       if (openFullscreen) {
         this.enterFullscreen();
       }
@@ -856,12 +919,17 @@ class IPTVApp {
     }
 
     clearTimeout(this.previewDebounceTimer);
+    this.cancelInitialPreviewTimer();
     if (immediatePlay) {
-      localStorage.setItem(STORAGE_KEYS.LAST_CHANNEL, channel.id);
+      try {
+        localStorage.setItem(STORAGE_KEYS.LAST_CHANNEL, channel.id);
+      } catch (e) {}
       this.player.play(channel);
     } else {
       this.previewDebounceTimer = setTimeout(() => {
-        localStorage.setItem(STORAGE_KEYS.LAST_CHANNEL, channel.id);
+        try {
+          localStorage.setItem(STORAGE_KEYS.LAST_CHANNEL, channel.id);
+        } catch (e) {}
         this.player.play(channel);
       }, 150);
     }
@@ -1637,9 +1705,8 @@ class IPTVApp {
       return;
     }
 
-    if (this.selectedChannel) {
-      this.enterFullscreen();
-    }
+    // In Browse mode, staying on the channel list is the expected TV behavior.
+    // Do NOT bounce or re-enter fullscreen on Back key!
   }
 
   /* --------------------------------------------------------------------------
@@ -1653,30 +1720,44 @@ class IPTVApp {
     this.endSeekHold();
     this._activeSeekSpeedLabel = '';
     clearTimeout(this._seekBadgeClearTimer);
-    this.updateVideoSurfacePosition();
+    this.updateVideoSurfacePosition(true);
     this.updateOSD(this.selectedChannel, false);
     this.showOSD(4500);
   }
 
   exitFullscreen() {
-    this.mode = 'BROWSE';
-    this.isSurfing = false;
-    this.focusArea = 'channels';
-    this.endSeekHold();
-    this._activeSeekSpeedLabel = '';
-    clearTimeout(this._seekBadgeClearTimer);
-    clearTimeout(this.osdTimer);
-    clearInterval(this.osdTickTimer);
-    const osd = document.getElementById('fullscreen-osd');
-    if (osd) osd.classList.add('hidden');
-    if (this.selectedChannel) {
-      const idx = this.visibleChannels.findIndex((c) => c.id === this.selectedChannel.id);
-      if (idx !== -1) this.focusedChannelIndex = idx;
-      this.previewChannelInfo(this.selectedChannel);
+    try {
+      this.mode = 'BROWSE';
+      this.isSurfing = false;
+      this.focusArea = 'channels';
+      this.endSeekHold();
+      this._activeSeekSpeedLabel = '';
+      clearTimeout(this._seekBadgeClearTimer);
+      clearTimeout(this.osdTimer);
+      clearInterval(this.osdTickTimer);
+      const osd = document.getElementById('fullscreen-osd');
+      if (osd) osd.classList.add('hidden');
+      if (this.selectedChannel) {
+        const idx = this.visibleChannels.findIndex((c) => c.id === this.selectedChannel.id);
+        if (idx !== -1) this.focusedChannelIndex = idx;
+        this.previewChannelInfo(this.selectedChannel);
+      }
+      this.updateVideoSurfacePosition(true);
+      // Asynchronously update DOM focus & EPG labels on next animation frame
+      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(() => {
+          try {
+            this.refreshVisibleEPGLabels();
+            this.updateChannelFocusFast();
+          } catch (e) {}
+        });
+      } else {
+        this.refreshVisibleEPGLabels();
+        this.updateChannelFocusFast();
+      }
+    } catch (err) {
+      console.warn('exitFullscreen notice:', err);
     }
-    this.refreshVisibleEPGLabels();
-    this.updateVideoSurfacePosition();
-    this.updateChannelFocusFast();
   }
 
   changeChannelByOffset(offset) {

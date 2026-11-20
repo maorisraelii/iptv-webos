@@ -3,7 +3,7 @@
  * Designed for LG webOS 4.0 - 24+ (Chromium 53+)
  */
 
-const APP_BUNDLE_VERSION = '5.1.2';
+const APP_BUNDLE_VERSION = '5.1.3';
 const APP_BUNDLE_CHANNEL = 'beta';
 const OTA_GIST_RAW_BASE = 'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw';
 const OTA_GITHUB_RAW_STABLE = 'https://raw.githubusercontent.com/maorisraelii/iptv-webos/main/ota-manifest.json';
@@ -305,10 +305,11 @@ class OTACloudManager {
     this.pendingManifest = null;
     this.otaAutoTimer = null;
     this._isInstallingOta = false;
+    this._appliedBundleSignature = null;
 
     if (typeof window !== 'undefined') {
       if (!window.__ZENPLAY_BASE_BUNDLE_VERSION) {
-        window.__ZENPLAY_BASE_BUNDLE_VERSION = typeof APP_BUNDLE_VERSION !== 'undefined' ? APP_BUNDLE_VERSION : '5.0.3';
+        window.__ZENPLAY_BASE_BUNDLE_VERSION = typeof APP_BUNDLE_VERSION !== 'undefined' ? APP_BUNDLE_VERSION : '5.1.3';
       }
       if (!window.__ZENPLAY_BASE_BUNDLE_CHANNEL) {
         window.__ZENPLAY_BASE_BUNDLE_CHANNEL = typeof APP_BUNDLE_CHANNEL !== 'undefined' ? APP_BUNDLE_CHANNEL : 'stable';
@@ -323,7 +324,7 @@ class OTACloudManager {
     if (typeof window !== 'undefined' && window.__ZENPLAY_BASE_BUNDLE_VERSION) {
       return window.__ZENPLAY_BASE_BUNDLE_VERSION;
     }
-    return typeof APP_BUNDLE_VERSION !== 'undefined' ? APP_BUNDLE_VERSION : '5.0.3';
+    return typeof APP_BUNDLE_VERSION !== 'undefined' ? APP_BUNDLE_VERSION : '5.1.3';
   }
 
   getBaseBundleChannel() {
@@ -590,12 +591,64 @@ class OTACloudManager {
     } catch (e) {}
   }
 
+  isSafeMode() {
+    if (typeof window === 'undefined') return false;
+    try {
+      if (window.__IPTV_SAFE_MODE === true) return true;
+      const search = window.location && window.location.search ? window.location.search : '';
+      if (/[?&]safeMode=1(?:&|#|$)/.test(search)) {
+        window.__IPTV_SAFE_MODE = true;
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  isAndroidTvWebView() {
+    if (typeof window === 'undefined') return false;
+    try {
+      return (
+        Boolean(window.__IPTV_ANDROID_TV) ||
+        Boolean(window.__IPTV_IS_ANDROID_TV) ||
+        (window.location && window.location.hostname === 'appassets.androidplatform.net') ||
+        Boolean(window.AndroidTvHost)
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
+  stripBackdropFilterCss(css) {
+    if (!css || typeof css !== 'string') return css || '';
+    return css.replace(/(?:-webkit-)?backdrop-filter\s*:[^;}]*;?/gi, '');
+  }
+
+  getBundleSignature(bundle) {
+    if (!bundle) return '';
+    return [
+      bundle.version || '',
+      bundle.channel || '',
+      bundle.updatedAt || 0,
+      bundle.cssPatch ? bundle.cssPatch.length : 0,
+      bundle.jsPatch ? bundle.jsPatch.length : 0
+    ].join('|');
+  }
+
   /**
    * Applies any OTA CSS/JS patches stored in localStorage from previous OTA updates or channel switches
    */
   applySavedOTABundle() {
     if (typeof document === 'undefined') return;
     try {
+      if (this.isSafeMode()) {
+        this.setBaseStylesheetDisabled(false);
+        const safeOtaStyle = document.getElementById('zenplay-ota-css');
+        if (safeOtaStyle && safeOtaStyle.parentNode) {
+          safeOtaStyle.parentNode.removeChild(safeOtaStyle);
+        }
+        return;
+      }
+
       const bundle = this.getSavedBundle();
       if (!this.isSavedBundleActive(bundle)) {
         this.setBaseStylesheetDisabled(false);
@@ -606,14 +659,21 @@ class OTACloudManager {
         return;
       }
 
+      const signature = this.getBundleSignature(bundle);
+      if (this._appliedBundleSignature === signature) return;
+      this._appliedBundleSignature = signature;
+
       if (bundle.cssPatch) {
+        const cssToApply = this.isAndroidTvWebView()
+          ? this.stripBackdropFilterCss(bundle.cssPatch)
+          : bundle.cssPatch;
         let styleEl = document.getElementById('zenplay-ota-css');
         if (!styleEl) {
           styleEl = document.createElement('style');
           styleEl.id = 'zenplay-ota-css';
           document.head.appendChild(styleEl);
         }
-        styleEl.textContent = bundle.cssPatch;
+        styleEl.textContent = cssToApply;
         if (bundle.cssPatch.length > 1000) {
           this.setBaseStylesheetDisabled(true);
         }
@@ -646,6 +706,8 @@ class OTACloudManager {
     this.ensureOTAChannelControlsDOM();
     this.updateVersionBadgesUI();
     this.renderPairingQR();
+
+    if (this.isSafeMode()) return;
 
     // Check if an OTA update was just installed
     try {

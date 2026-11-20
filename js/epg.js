@@ -137,15 +137,16 @@ class EPGService {
     return result;
   }
 
-  registerChannelAlias(rawAlias, targetChannelId) {
+  registerChannelAlias(rawAlias, targetChannelId, targetMap) {
     if (!rawAlias || !targetChannelId) return;
     const trimmed = rawAlias.trim();
     if (!trimmed) return;
-    this.channelAliasMap.set(trimmed, targetChannelId);
-    this.channelAliasMap.set(trimmed.toLowerCase(), targetChannelId);
+    const map = targetMap || this.channelAliasMap;
+    map.set(trimmed, targetChannelId);
+    map.set(trimmed.toLowerCase(), targetChannelId);
     const norm = this.normalizeChannelKey(trimmed);
     if (norm) {
-      this.channelAliasMap.set(norm, targetChannelId);
+      map.set(norm, targetChannelId);
     }
   }
 
@@ -402,20 +403,33 @@ class EPGService {
 
     Promise.all(fetchPromises)
       .then((xmlList) => {
-        const validXmls = xmlList.filter(Boolean);
+        let idx = 0;
         let parsedAny = false;
-        for (let i = 0; i < validXmls.length; i++) {
-          // First valid XML replaces stale cached data cleanly; subsequent feeds append
-          this.parseXMLTV(validXmls[i], i > 0);
+        const parseNext = () => {
+          while (idx < xmlList.length && !xmlList[idx]) {
+            idx++;
+          }
+          if (idx >= xmlList.length) {
+            xmlList = null;
+            const anySuccess = parsedAny && this.programmesByChannel.size > 0;
+            if (anySuccess) {
+              this.saveToLocalCache(cacheKeyUrl);
+              this.dayBucketsCache.clear();
+            }
+            this.isLoading = false;
+            if (onComplete) onComplete(anySuccess);
+            return;
+          }
+          const currentIdx = idx++;
+          const xmlText = xmlList[currentIdx];
+          xmlList[currentIdx] = null; // Promptly release large XML string reference
+          const isAppend = parsedAny;
           parsedAny = true;
-        }
-        const anySuccess = parsedAny && this.programmesByChannel.size > 0;
-        if (anySuccess) {
-          this.saveToLocalCache(cacheKeyUrl);
-          this.dayBucketsCache.clear();
-        }
-        this.isLoading = false;
-        if (onComplete) onComplete(anySuccess);
+          this.parseXMLTVAsync(xmlText, null, isAppend)
+            .then(() => parseNext())
+            .catch(() => parseNext());
+        };
+        parseNext();
       })
       .catch(() => {
         this.isLoading = false;
@@ -497,19 +511,24 @@ class EPGService {
           console.warn('EPG feed buffer exceeded 35MB safe limit, skipped:', url);
           return '';
         }
-        const bytes = new Uint8Array(buffer);
+        let bytes = new Uint8Array(buffer);
+        buffer = null;
         // Check GZIP magic header (0x1f 0x8b)
         if (bytes.length > 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
           if (typeof DecompressionStream !== 'undefined') {
             try {
               const ds = new DecompressionStream('gzip');
-              const decompressedStream = new Blob([bytes]).stream().pipeThrough(ds);
+              const blob = new Blob([bytes]);
+              bytes = null;
+              const decompressedStream = blob.stream().pipeThrough(ds);
               return new Response(decompressedStream).text();
             } catch (e) {}
           }
         }
         if (typeof TextDecoder !== 'undefined') {
-          return new TextDecoder('utf-8').decode(bytes);
+          const decoded = new TextDecoder('utf-8').decode(bytes);
+          bytes = null;
+          return decoded;
         }
         // Fallback for very old engines
         let str = '';
@@ -517,6 +536,7 @@ class EPGService {
         for (let i = 0; i < bytes.length; i += chunk) {
           str += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
         }
+        bytes = null;
         try {
           return decodeURIComponent(escape(str));
         } catch (e) {
@@ -591,37 +611,117 @@ class EPGService {
 
   /**
    * High-speed, fault-tolerant XMLTV parser that extracts <channel> display-names and <programme> schedules.
-   * Uses native indexOf scanning instead of backtracking regexes for minimal CPU & memory on webOS TVs.
+   * Uses native indexOf scanning instead of backtracking regexes for minimal CPU & memory on webOS & Android TVs.
+   *
+   * Implemented as a resumable state machine (_xmltvBegin / _xmltvStep / _xmltvFinish) powering both:
+   *  - parseXMLTV(xmlString, appendMode)                    : synchronous single-pass
+   *  - parseXMLTVAsync(xmlText, filterChannels, appendMode) : yields every ~2000 <programme> blocks via setTimeout(..., 0)
    */
   parseXMLTV(xmlString, appendMode) {
     if (!xmlString || typeof xmlString !== 'string') return;
+    let ctx = null;
     try {
-      const now = Date.now();
-      const minAllowedTime = now - (this.MAX_PAST_DAYS * this.DAY_MS);
-      const maxAllowedTime = now + (7 * this.DAY_MS);
-
-      if (!appendMode) {
-        this.programmesByChannel.clear();
-        this.channelAliasMap.clear();
-      } else {
-        this._purgeSyntheticChannels();
+      ctx = this._xmltvBegin(xmlString, appendMode);
+      while (!this._xmltvStep(ctx, Infinity)) {
+        // single synchronous pass
       }
-      if (this.dayBucketsCache) this.dayBucketsCache.clear();
-      if (this._channelMatchCache) this._channelMatchCache.clear();
+    } catch (e) {
+      console.warn('XMLTV parse error:', e);
+      if (ctx) ctx.failed = true;
+    }
+    if (ctx) this._xmltvFinish(ctx);
+  }
 
-      const matchedChannelIds = new Set();
-      const hasFilter = Boolean(this.targetChannelKeys && this.targetChannelKeys.size > 0);
-      const xmlLen = xmlString.length;
+  /**
+   * Async chunked XMLTV parser yielding every ~2000 <programme> blocks so 10MB XML feeds
+   * never block the Android TV main thread for 600ms+.
+   */
+  parseXMLTVAsync(xmlText, filterChannelsOrAppend, appendModeArg) {
+    if (!xmlText || typeof xmlText !== 'string') return Promise.resolve(false);
+    let appendMode = Boolean(appendModeArg);
+    if (Array.isArray(filterChannelsOrAppend)) {
+      if (filterChannelsOrAppend.length > 0) {
+        this.setTargetChannels(filterChannelsOrAppend);
+      }
+    } else if (typeof filterChannelsOrAppend === 'boolean') {
+      appendMode = filterChannelsOrAppend;
+    }
 
-      // 1. Scan <channel id="..."> blocks and their <display-name> tags
-      let chPos = xmlString.indexOf('<channel');
+    let ctx = null;
+    try {
+      ctx = this._xmltvBegin(xmlText, appendMode);
+    } catch (e) {
+      console.warn('XMLTV parse error:', e);
+      return Promise.resolve(false);
+    }
+    // Promptly drop caller parameter reference (ctx.xml is cleared in _xmltvFinish)
+    xmlText = null;
+
+    return new Promise((resolve) => {
+      const CHUNK_BLOCKS = 2000;
+      const run = () => {
+        let done = false;
+        try {
+          done = this._xmltvStep(ctx, CHUNK_BLOCKS);
+        } catch (e) {
+          console.warn('XMLTV parse error:', e);
+          ctx.failed = true;
+          done = true;
+        }
+        if (!done) {
+          setTimeout(run, 0);
+          return;
+        }
+        resolve(this._xmltvFinish(ctx));
+      };
+      setTimeout(run, 0);
+    });
+  }
+
+  _xmltvBegin(xmlString, appendMode) {
+    const now = Date.now();
+    return {
+      xml: xmlString,
+      xmlLen: xmlString.length,
+      append: Boolean(appendMode),
+      minAllowedTime: now - (this.MAX_PAST_DAYS * this.DAY_MS),
+      maxAllowedTime: now + (7 * this.DAY_MS),
+      hasFilter: Boolean(this.targetChannelKeys && this.targetChannelKeys.size > 0),
+      matchedChannelIds: new Set(),
+      progs: new Map(),
+      aliasMap: new Map(),
+      phase: 'channels',
+      chPos: xmlString.indexOf('<channel'),
+      pPos: -1,
+      channelBlocks: 0,
+      programmeBlocks: 0,
+      accepted: 0,
+      zeroMatch: false,
+      failed: false
+    };
+  }
+
+  _xmltvStep(ctx, budget) {
+    const xmlString = ctx.xml;
+    const hasFilter = ctx.hasFilter;
+    let remaining = budget;
+
+    // 1. Scan <channel id="..."> blocks and their <display-name> tags
+    if (ctx.phase === 'channels') {
+      let chPos = ctx.chPos;
       while (chPos !== -1) {
+        if (remaining <= 0) {
+          ctx.chPos = chPos;
+          return false;
+        }
         const afterTag = xmlString.charCodeAt(chPos + 8);
         if (afterTag === 62 || afterTag <= 32) {
+          remaining--;
           const openEnd = xmlString.indexOf('>', chPos + 8);
           if (openEnd === -1) break;
           const closeIdx = xmlString.indexOf('</channel>', openEnd + 1);
           if (closeIdx === -1) break;
+          ctx.channelBlocks++;
 
           const chAttrs = xmlString.slice(chPos + 8, openEnd);
           const rawId = this.extractXmlAttr(chAttrs, 'id');
@@ -663,10 +763,10 @@ class EPGService {
               }
 
               if (isMatch) {
-                matchedChannelIds.add(chId);
-                this.registerChannelAlias(chId, chId);
+                ctx.matchedChannelIds.add(chId);
+                this.registerChannelAlias(chId, chId, ctx.aliasMap);
                 for (let d = 0; d < displayNames.length; d++) {
-                  this.registerChannelAlias(displayNames[d], chId);
+                  this.registerChannelAlias(displayNames[d], chId, ctx.aliasMap);
                 }
               }
             }
@@ -677,11 +777,31 @@ class EPGService {
         }
       }
 
-      // 2. Scan <programme ...> blocks
-      let pPos = xmlString.indexOf('<programme');
+      // Filter guard: when active channels filter is enabled and 0 <channel> tags matched,
+      // return early instead of parsing all 30,816 programmes from all 263 channels into RAM!
+      if (hasFilter && ctx.matchedChannelIds.size === 0 && ctx.channelBlocks > 0) {
+        ctx.zeroMatch = true;
+        ctx.phase = 'done';
+        return true;
+      }
+      ctx.phase = 'programmes';
+      ctx.pPos = xmlString.indexOf('<programme');
+    }
+
+    // 2. Scan <programme ...> blocks
+    if (ctx.phase === 'programmes') {
+      const matchedChannelIds = ctx.matchedChannelIds;
+      const xmlLen = ctx.xmlLen;
+      let pPos = ctx.pPos;
       while (pPos !== -1 && pPos < xmlLen) {
+        if (remaining <= 0) {
+          ctx.pPos = pPos;
+          return false;
+        }
         const afterTag = xmlString.charCodeAt(pPos + 10);
         if (afterTag === 62 || afterTag <= 32) {
+          remaining--;
+          ctx.programmeBlocks++;
           const openEnd = xmlString.indexOf('>', pPos + 10);
           if (openEnd === -1) break;
           const closeIdx = xmlString.indexOf('</programme>', openEnd + 1);
@@ -696,7 +816,7 @@ class EPGService {
             if (channelId) {
               // SYSTEMIC FILTER: Skip programmes for channels not in user's active playlist
               let keepChannel = true;
-              if (hasFilter && matchedChannelIds.size > 0 && !matchedChannelIds.has(channelId)) {
+              if (hasFilter && !matchedChannelIds.has(channelId)) {
                 const lowerChId = channelId.toLowerCase();
                 if (!this.targetChannelKeys.has(lowerChId)) {
                   const normChId = this.normalizeChannelKey(channelId);
@@ -708,7 +828,7 @@ class EPGService {
 
               if (keepChannel) {
                 const startMs = this.parseDateMs(startStr);
-                if (!isNaN(startMs) && startMs >= minAllowedTime && startMs <= maxAllowedTime) {
+                if (!isNaN(startMs) && startMs >= ctx.minAllowedTime && startMs <= ctx.maxAllowedTime) {
                   const stopStr = this.extractXmlAttr(attrs, 'stop');
                   const rawStopMs = stopStr ? this.parseDateMs(stopStr) : NaN;
                   const stopMs = (!isNaN(rawStopMs) && rawStopMs > startMs) ? rawStopMs : startMs + 3600000;
@@ -723,11 +843,11 @@ class EPGService {
                     if (rawSub) desc = this.decodeXmlEntities(rawSub);
                   }
 
-                  let list = this.programmesByChannel.get(channelId);
+                  let list = ctx.progs.get(channelId);
                   if (!list) {
                     list = [];
-                    this.programmesByChannel.set(channelId, list);
-                    this.registerChannelAlias(channelId, channelId);
+                    ctx.progs.set(channelId, list);
+                    this.registerChannelAlias(channelId, channelId, ctx.aliasMap);
                   }
 
                   list.push({
@@ -737,6 +857,7 @@ class EPGService {
                     startMs: startMs,
                     stopMs: stopMs
                   });
+                  ctx.accepted++;
                 }
               }
             }
@@ -746,31 +867,63 @@ class EPGService {
           pPos = xmlString.indexOf('<programme', pPos + 10);
         }
       }
+      ctx.phase = 'done';
+    }
 
-      // Sort each channel's schedule chronologically and deduplicate identical start times
-      this.programmesByChannel.forEach((list, chKey) => {
-        list.sort((a, b) => a.startMs - b.startMs);
-        if (list.length > 1) {
-          const deduped = [list[0]];
-          for (let i = 1; i < list.length; i++) {
-            if (list[i].startMs !== list[i - 1].startMs) {
-              deduped.push(list[i]);
-            } else {
-              // Prefer the entry with longer description/title
-              const prev = deduped[deduped.length - 1];
-              if ((list[i].desc || '').length > (prev.desc || '').length) {
-                deduped[deduped.length - 1] = list[i];
-              }
-            }
-          }
-          this.programmesByChannel.set(chKey, deduped);
+    return true;
+  }
+
+  _sortDedupeProgrammes(list) {
+    list.sort((a, b) => a.startMs - b.startMs);
+    if (list.length <= 1) return list;
+    const deduped = [list[0]];
+    for (let i = 1; i < list.length; i++) {
+      if (list[i].startMs !== list[i - 1].startMs) {
+        deduped.push(list[i]);
+      } else {
+        const prev = deduped[deduped.length - 1];
+        if ((list[i].desc || '').length > (prev.desc || '').length) {
+          deduped[deduped.length - 1] = list[i];
         }
+      }
+    }
+    return deduped;
+  }
+
+  _xmltvFinish(ctx) {
+    ctx.xml = null; // Promptly release large temporary XML string reference
+    try {
+      if (ctx.failed && ctx.progs.size === 0 && ctx.aliasMap.size === 0) {
+        return false;
+      }
+
+      if (!ctx.append) {
+        this.programmesByChannel.clear();
+        this.channelAliasMap.clear();
+      } else {
+        this._purgeSyntheticChannels();
+      }
+
+      ctx.progs.forEach((list, chKey) => {
+        const existing = ctx.append ? this.programmesByChannel.get(chKey) : null;
+        const merged = existing && existing.length > 0 ? existing.concat(list) : list;
+        this.programmesByChannel.set(chKey, this._sortDedupeProgrammes(merged));
+      });
+      ctx.aliasMap.forEach((target, alias) => {
+        this.channelAliasMap.set(alias, target);
       });
 
-      this._purgeSyntheticChannels();
+      if (this.dayBucketsCache) this.dayBucketsCache.clear();
       if (this._channelMatchCache) this._channelMatchCache.clear();
+      this._purgeSyntheticChannels();
+      return ctx.accepted > 0 || ctx.aliasMap.size > 0;
     } catch (e) {
       console.warn('XMLTV parse error:', e);
+      return false;
+    } finally {
+      ctx.progs = null;
+      ctx.aliasMap = null;
+      ctx.matchedChannelIds = null;
     }
   }
 

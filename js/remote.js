@@ -229,11 +229,6 @@ class RemoteController {
     if (code === 461 || key === 'Back' || key === 'GoBack' || key === 'XF86Back') {
       if (typeof e.preventDefault === 'function') e.preventDefault();
       if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
-      const now = Date.now();
-      if (now - this.lastBackTime > 350) {
-        this.lastBackTime = now;
-        this.app.handleBack();
-      }
       return;
     }
 
@@ -367,12 +362,22 @@ class RemoteController {
 
     // Back key (webOS 461, Escape 27, Backspace 8)
     if (code === 461 || code === 27 || key === 'Back' || key === 'GoBack' || key === 'Escape' || key === 'XF86Back') {
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+      if (now - this.lastBackTime < 350) {
+        return;
+      }
       this.lastBackTime = now;
       this.app.handleBack();
       return;
     }
     if (code === 8 || key === 'Backspace') {
       if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+        return;
+      }
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+      if (now - this.lastBackTime < 350) {
         return;
       }
       this.lastBackTime = now;

@@ -11,8 +11,8 @@ android {
         applicationId = "com.iptv.livetv.androidtv"
         minSdk = 24
         targetSdk = 34
-        versionCode = 512
-        versionName = "5.1.2"
+        versionCode = 513
+        versionName = "5.1.3"
     }
 
     signingConfigs {
@@ -51,7 +51,7 @@ android {
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.13.1")
+    // 100% pure Android SDK Activity / WebView (zero androidx overhead)
 }
 
 val webRootDir = rootProject.projectDir.parentFile
