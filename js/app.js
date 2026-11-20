@@ -65,6 +65,10 @@ class IPTVApp {
 
     this.previewDebounceTimer = null;
     this.initialPreviewTimer = null;
+    this._pendingInitialPreviewChannel = null;
+    this._deferredEpgTimer = null;
+    this._bootSplashSafetyTimer = null;
+    this._appReadyNotified = false;
     this.osdTimer = null;
     this.toastTimer = null;
     this.jumpTimer = null;
@@ -107,6 +111,7 @@ class IPTVApp {
   }
 
   cancelInitialPreviewTimer() {
+    this._pendingInitialPreviewChannel = null;
     if (this.initialPreviewTimer) {
       clearTimeout(this.initialPreviewTimer);
       this.initialPreviewTimer = null;
@@ -116,7 +121,7 @@ class IPTVApp {
   scheduleInitialPreviewPlayback(channel, delayMs) {
     this.cancelInitialPreviewTimer();
     if (!channel || this.isSafeMode()) return;
-    const waitMs = typeof delayMs === 'number' && delayMs >= 0 ? delayMs : 900;
+    const waitMs = typeof delayMs === 'number' && delayMs >= 0 ? delayMs : 1800;
     this.initialPreviewTimer = setTimeout(() => {
       this.initialPreviewTimer = null;
       if (this.isSafeMode() || !this.player) return;
@@ -129,6 +134,24 @@ class IPTVApp {
         this.player.play(target);
       }
     }, waitMs);
+  }
+
+  scheduleBootEPGLoad(forceRefresh) {
+    if (this.isSafeMode()) return;
+    if (this._deferredEpgTimer) {
+      clearTimeout(this._deferredEpgTimer);
+      this._deferredEpgTimer = null;
+    }
+    if (this.isAndroidTvWebView()) {
+      this._deferredEpgTimer = setTimeout(() => {
+        this._deferredEpgTimer = null;
+        if (!this.isSafeMode()) {
+          this.loadActiveEPGSources(Boolean(forceRefresh));
+        }
+      }, 2500);
+    } else {
+      this.loadActiveEPGSources(Boolean(forceRefresh));
+    }
   }
 
   init() {
@@ -162,11 +185,16 @@ class IPTVApp {
 
       if (cached && cached.length > 0) {
         this.allChannels = cached;
-        this.loadActiveEPGSources(false);
+        if (!this.isSafeMode() && !this.isAndroidTvWebView()) {
+          this.loadActiveEPGSources(false);
+        }
         this.applyChannelFilter();
         this.restoreLastWatchedChannel(false);
         this.updateVideoSurfacePosition(true);
         this.hideBootSplash();
+        if (!this.isSafeMode() && this.isAndroidTvWebView()) {
+          this.scheduleBootEPGLoad(false);
+        }
 
         // Only refresh M3U in background if the cache TTL (24h / 3d / 7d) has expired!
         const ttlHours = this.epg.getCacheTtlHours();
@@ -177,7 +205,7 @@ class IPTVApp {
         const splashText = document.getElementById('boot-splash-text');
         if (splashText) splashText.textContent = 'טוען רשימת ערוצים ראשונית...';
         this.refreshAllSources(false);
-        setTimeout(() => this.hideBootSplash(), 3500);
+        this._bootSplashSafetyTimer = setTimeout(() => this.hideBootSplash(), 4500);
       }
 
       this.updateVideoSurfacePosition(true);
@@ -199,46 +227,43 @@ class IPTVApp {
       if (this.otaManager && typeof this.otaManager.applySavedOTABundle === 'function') {
         this.otaManager.applySavedOTABundle();
       }
-
-      if (cached && cached.length > 0 && window.dismissBootSplash) {
-        window.dismissBootSplash();
-      }
-      if (!this._bootSplashHidden && window.AndroidTvHost && typeof window.AndroidTvHost.notifyAppReady === 'function') {
-        try {
-          window.AndroidTvHost.notifyAppReady();
-        } catch (e) {}
-      }
     } catch (initErr) {
       console.error('IPTVApp init error:', initErr);
-      if (window.dismissBootSplash) {
-        window.dismissBootSplash();
-      } else {
-        this.hideBootSplash();
-      }
-      if (window.AndroidTvHost && typeof window.AndroidTvHost.notifyAppReady === 'function') {
-        try {
-          window.AndroidTvHost.notifyAppReady();
-        } catch (e) {}
-      }
+      this.hideBootSplash();
     }
   }
 
   hideBootSplash() {
     if (this._bootSplashHidden) return;
     this._bootSplashHidden = true;
+    if (this._bootSplashSafetyTimer) {
+      clearTimeout(this._bootSplashSafetyTimer);
+      this._bootSplashSafetyTimer = null;
+    }
     if (window.dismissBootSplash) {
       window.dismissBootSplash();
-      return;
+    } else {
+      const splash = document.getElementById('boot-splash');
+      if (splash) {
+        splash.classList.add('fade-out');
+        splash.classList.add('hidden');
+      }
     }
-    const splash = document.getElementById('boot-splash');
-    if (splash) {
-      splash.classList.add('fade-out');
-      splash.classList.add('hidden');
-    }
-    if (window.AndroidTvHost && typeof window.AndroidTvHost.notifyAppReady === 'function') {
+    if (!this._appReadyNotified && !window.__IPTV_APP_READY_NOTIFIED && window.AndroidTvHost && typeof window.AndroidTvHost.notifyAppReady === 'function') {
+      this._appReadyNotified = true;
+      window.__IPTV_APP_READY_NOTIFIED = true;
       try {
         window.AndroidTvHost.notifyAppReady();
       } catch (e) {}
+    } else if (window.__IPTV_APP_READY_NOTIFIED) {
+      this._appReadyNotified = true;
+    }
+    if (this._pendingInitialPreviewChannel && !this.isSafeMode() && this.isAndroidTvWebView()) {
+      const pendingCh = this._pendingInitialPreviewChannel;
+      this._pendingInitialPreviewChannel = null;
+      if (!this.player || !this.player.currentChannel) {
+        this.scheduleInitialPreviewPlayback(pendingCh, 1800);
+      }
     }
   }
 
@@ -248,6 +273,9 @@ class IPTVApp {
    * and loads them into EPGService.
    */
   loadActiveEPGSources(forceRefresh) {
+    if (this.isSafeMode() && !forceRefresh) {
+      return;
+    }
     const urls = [];
     const savedEpgUrl = localStorage.getItem(STORAGE_KEYS.EPG_URL);
     if (savedEpgUrl && savedEpgUrl.trim()) {
@@ -456,18 +484,18 @@ class IPTVApp {
       .fetchAllSources()
       .then((res) => {
         if (!res.compiledChannels || res.compiledChannels.length === 0) {
-          this.loadActiveEPGSources(false);
           if (!silentBackground) {
+            this.allChannels = [];
+            this.applyChannelFilter();
             this.showToast('לא נמצאו ערוצים פעילים במקורות ה-M3U');
             if (statusText) statusText.textContent = 'לא נמצאו ערוצים פעילים.';
             this.hideBootSplash();
           }
+          this.scheduleBootEPGLoad(false);
           return;
         }
 
         this.allChannels = res.compiledChannels;
-        // Load any M3U-discovered EPG URLs + user-configured EPG URL + real-time Cloud EPG
-        this.loadActiveEPGSources(false);
         if (statusText) {
           statusText.textContent =
             'נטענו בהצלחה ' +
@@ -484,7 +512,12 @@ class IPTVApp {
           this.restoreLastWatchedChannel(shouldFullscreen);
           this.updateVideoSurfacePosition();
           this.hideBootSplash();
+          // Load EPG after initial channel list paints (skipped in Safe Mode, deferred 2500ms on Android TV)
+          this.scheduleBootEPGLoad(false);
         } else {
+          if (!this.isSafeMode()) {
+            this.loadActiveEPGSources(false);
+          }
           // Silent background update: preserve current channel & focus index
           const curId = this.selectedChannel ? this.selectedChannel.id : null;
           this.applyChannelFilter();
@@ -500,6 +533,7 @@ class IPTVApp {
       .catch((err) => {
         console.warn('refreshAllSources error:', err);
         if (!silentBackground) {
+          this.applyChannelFilter();
           this.hideBootSplash();
           this.showToast('שגיאה בטעינת מקורות M3U. בדוק את ההגדרות.');
           if (statusText) statusText.textContent = 'שגיאה: ' + err.message;
@@ -517,12 +551,16 @@ class IPTVApp {
     if (startCh) {
       if (this.isSafeMode()) {
         this.cancelInitialPreviewTimer();
-        this.highlightChannel(startCh, false);
+        this.highlightChannel(startCh, false, true);
         return;
       }
       if (this.isAndroidTvWebView()) {
-        this.highlightChannel(startCh, false);
-        this.scheduleInitialPreviewPlayback(startCh, 900);
+        this.highlightChannel(startCh, false, true);
+        if (this._bootSplashHidden) {
+          this.scheduleInitialPreviewPlayback(startCh, 1800);
+        } else {
+          this._pendingInitialPreviewChannel = startCh;
+        }
       } else {
         this.highlightChannel(startCh, true);
       }
@@ -872,7 +910,7 @@ class IPTVApp {
   /**
    * Switches the active playing video stream to `channel` (triggered on OK press or initial boot).
    */
-  highlightChannel(channel, immediatePlay) {
+  highlightChannel(channel, immediatePlay, skipPlayback) {
     if (!channel) return;
     this.selectedChannel = channel;
     this.previewedChannel = channel;
@@ -919,13 +957,17 @@ class IPTVApp {
     }
 
     clearTimeout(this.previewDebounceTimer);
+    this.previewDebounceTimer = null;
     this.cancelInitialPreviewTimer();
-    if (immediatePlay) {
+    if (skipPlayback === true) {
+      return;
+    }
+    if (immediatePlay === true) {
       try {
         localStorage.setItem(STORAGE_KEYS.LAST_CHANNEL, channel.id);
       } catch (e) {}
       this.player.play(channel);
-    } else {
+    } else if (!this.isSafeMode()) {
       this.previewDebounceTimer = setTimeout(() => {
         try {
           localStorage.setItem(STORAGE_KEYS.LAST_CHANNEL, channel.id);

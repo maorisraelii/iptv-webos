@@ -1,6 +1,6 @@
 {
   "name": "iptv-live-webos",
-  "version": "5.0.6",
+  "version": "5.0.7",
   "description": "High-performance IPTV Live TV & Catch-Up Player for LG webOS Smart TVs with Multi-M3U Merger, 7-Day Guide, Anti-Freeze HLS Buffer, and PC Web Studio",
   "main": "index.html",
   "scripts": {
