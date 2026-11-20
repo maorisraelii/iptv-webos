@@ -10,7 +10,7 @@
         var doc = document.documentElement;
         var loc = window.location || {};
         var ua = (navigator && navigator.userAgent) ? navigator.userAgent : '';
-        var isWebOS = /Web0S|webOS|LG NetCast/i.test(ua) || Boolean(window.webOS);
+        var isWebOS = /Web0S|webOS|LG NetCast/i.test(ua) || Boolean(window.webOS || window.webOSSystem || window.PalmSystem);
         var isAndroidTv =
           Boolean(window.__IPTV_ANDROID_TV) ||
           Boolean(window.AndroidTvHost) ||
@@ -92,12 +92,44 @@
       align-items: center;
       text-align: center;
     }
+    .tv-platform #boot-splash.boot-splash,
+    .tv-platform .boot-splash {
+      background: linear-gradient(180deg, #0b1326 0%, #060913 42%, #05070e 100%) !important;
+      transition: opacity 0.14s ease-out !important;
+    }
     .tv-platform .boot-glass-card {
       -webkit-backdrop-filter: none !important;
       backdrop-filter: none !important;
       background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.13) 0%, rgba(255, 255, 255, 0.04) 100%),
-        rgba(14, 18, 30, 0.92) !important;
+        linear-gradient(180deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.0) 42%),
+        rgba(14, 19, 32, 0.96) !important;
+      border: 1px solid rgba(255, 255, 255, 0.18) !important;
+      border-top-color: rgba(255, 255, 255, 0.36) !important;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.24) !important;
+    }
+    .tv-platform .boot-emblem {
+      background: linear-gradient(145deg, #1b2d4d 0%, #11192d 100%) !important;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.40), inset 0 1px 0 rgba(255, 255, 255, 0.30) !important;
+    }
+    .tv-platform .splash-ring,
+    .tv-platform .boot-spinner,
+    .tv-platform .splash-dot,
+    .tv-platform .splash-bar-fill {
+      box-shadow: none !important;
+    }
+    .tv-platform .splash-logo,
+    .tv-platform .boot-logo,
+    .tv-platform .splash-bar-fill {
+      animation: none !important;
+    }
+    .tv-platform .splash-bar-fill {
+      width: 100%;
+    }
+    .boot-splash.hidden *,
+    .boot-splash.fade-out *,
+    .boot-splash.hidden .splash-ring,
+    .boot-splash.hidden .boot-spinner {
+      animation: none !important;
     }
     .boot-emblem {
       position: relative;
@@ -248,7 +280,7 @@
         </div>
         <span id="active-category-title" class="header-view-label">כל הערוצים</span>
         <span id="channel-list-count" class="header-count-pill">0 ערוצים</span>
-        <span id="header-version-badge" class="header-version-pill">v5.1.4</span>
+        <span id="header-version-badge" class="header-version-pill">v5.1.5</span>
       </div>
 
       <div class="header-left">
@@ -400,7 +432,7 @@
             <h2 id="osd-channel-name" class="osd-channel-title">שם הערוץ</h2>
             <span id="osd-live-badge" class="osd-live-tag">שידור חי</span>
             <span id="osd-channel-category" class="osd-quality-tag">HD</span>
-            <span id="osd-version-badge" class="osd-version-tag">v5.1.4</span>
+            <span id="osd-version-badge" class="osd-version-tag">v5.1.5</span>
           </div>
 
           <!-- OSD EPG Current Programme with Start & End Time -->
@@ -438,7 +470,7 @@
           <!-- OSD Remote Legend Line & Active Version Info -->
           <div class="osd-sub-line">
             <span class="osd-hint">▲▼ זפזופ • <strong>◀ קדימה / ▶ אחורה</strong> (החזק להאצה) • <strong>OK</strong> פאוז/נגן (ארוך: סטארט אובר) • <strong>אדום</strong> סטארט אובר / יציאה • <strong>צהוב</strong> מדריך 7 ימים</span>
-            <span id="osd-footer-version" class="osd-footer-ver">גרסה v5.1.4</span>
+            <span id="osd-footer-version" class="osd-footer-ver">גרסה v5.1.5</span>
           </div>
         </div>
 
@@ -766,7 +798,7 @@
             <div class="about-app-icon">TV</div>
             <div class="about-title-col" style="flex:1;">
               <div class="about-app-name">Live TV — LG webOS Broadcast Player</div>
-              <div id="about-version-text" class="about-app-version">גרסה v5.1.4-beta (ערוץ Beta — Apple Liquid Glass) • עדכוני OTA פעילים</div>
+              <div id="about-version-text" class="about-app-version">גרסה v5.1.5-beta (ערוץ Beta — Apple Liquid Glass) • עדכוני OTA פעילים</div>
             </div>
             <button id="btn-check-ota-now" class="btn-tv-primary focusable">בדוק עדכוני OTA כעת</button>
           </div>
