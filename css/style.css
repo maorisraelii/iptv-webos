@@ -3357,6 +3357,42 @@ html.tv-platform body {
   box-shadow: none !important;
 }
 
+/* Zero-Layout Focus Pill/Badge on TV Channel List: avoid display:none<->inline-block reflows on every D-pad step */
+.tv-platform #channel-list .channel-item {
+  position: relative;
+  padding-left: 156px;
+}
+
+.tv-platform #channel-list .channel-playing-badge,
+.tv-platform #channel-list .channel-ok-pill {
+  display: inline-block;
+  position: absolute;
+  left: 16px;
+  margin-right: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.tv-platform #channel-list .channel-playing-badge {
+  top: 32px;
+  z-index: 2;
+}
+
+.tv-platform #channel-list .channel-ok-pill {
+  top: 31px;
+  z-index: 3;
+}
+
+.tv-platform #channel-list .channel-item.active:not(.focused) .channel-playing-badge {
+  display: inline-block;
+  visibility: visible;
+}
+
+.tv-platform #channel-list .channel-item.focused .channel-ok-pill {
+  display: inline-block;
+  visibility: visible;
+}
+
 .tv-platform .channel-item.active {
   background: linear-gradient(135deg, #163058 0%, #101e38 100%) !important;
   border: 2px solid rgba(100, 210, 255, 0.56) !important;
@@ -3515,6 +3551,21 @@ html.tv-platform body {
 .tv-platform .osd-overlay,
 .tv-platform .boot-splash {
   transition: opacity 0.14s ease-out !important;
+}
+
+/* Zero-Layout GPU-Composited OSD Show/Hide (avoids display:none layout thrash on showOSD/hideOSD) */
+.tv-platform #fullscreen-osd {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  contain: layout style;
+}
+
+.tv-platform #fullscreen-osd.hidden {
+  display: block !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 /* Iteration 5: Zero Idle 60Hz Keyframe Repaints */
