@@ -26,9 +26,9 @@
   <img src="https://img.shields.io/badge/Language-RTL%20Hebrew%20%2F%20All%20Feeds-0284c7?style=for-the-badge" alt="RTL Hebrew" />
 </p>
 
-> ✨ **New Apple Liquid Glass UI Beta (`v5.1.4-beta`):** Downloader Code: **`2087324`** • Or switch directly inside **Settings → Updates (Stable / Beta) & About** via OTA, or install the permanent rolling Beta Android TV APK link **[`beta-latest` Direct APK](https://github.com/maorisraelii/iptv-webos/releases/download/beta-latest/IPTV-Live-AndroidTV.apk)** (**[Beta Release v5.1.4](https://github.com/maorisraelii/iptv-webos/releases/tag/v5.1.4)** / **[`beta` branch](https://github.com/maorisraelii/iptv-webos/tree/beta)**). The Stable channel Downloader code is **`2606856`** (`v5.0.7`).
+> ✨ **New Apple Liquid Glass UI Beta (`v5.1.5-beta`):** Downloader Code: **`2087324`** • Or switch directly inside **Settings → Updates (Stable / Beta) & About** via OTA, or install the permanent rolling Beta Android TV APK link **[`beta-latest` Direct APK](https://github.com/maorisraelii/iptv-webos/releases/download/beta-latest/IPTV-Live-AndroidTV.apk)** (**[Beta Release v5.1.5](https://github.com/maorisraelii/iptv-webos/releases/tag/v5.1.5)** / **[`beta` branch](https://github.com/maorisraelii/iptv-webos/tree/beta)**). The Stable channel Downloader code is **`2606856`** (`v5.0.7`).
 >
-> ✨ **גרסת בטא בעיצוב Apple Liquid Glass (`v5.1.4-beta`):** קוד Downloader לבטא: **`2087324`** • או מעבר מהאפליקציה עצמה תחת **הגדרות ← עדכונים (Stable / Beta) ואודות** דרך OTA, או הורדת קובץ ה-APK ישירות דרך **[קישור ישיר קבוע (`beta-latest`)](https://github.com/maorisraelii/iptv-webos/releases/download/beta-latest/IPTV-Live-AndroidTV.apk)** (**[שחרור הבטא v5.1.4](https://github.com/maorisraelii/iptv-webos/releases/tag/v5.1.4)** / **[ענף `beta`](https://github.com/maorisraelii/iptv-webos/tree/beta)**). קוד הגרסה היציבה נשאר **`2606856`** (`v5.0.7`).
+> ✨ **גרסת בטא בעיצוב Apple Liquid Glass (`v5.1.5-beta`):** קוד Downloader לבטא: **`2087324`** • או מעבר מהאפליקציה עצמה תחת **הגדרות ← עדכונים (Stable / Beta) ואודות** דרך OTA, או הורדת קובץ ה-APK ישירות דרך **[קישור ישיר קבוע (`beta-latest`)](https://github.com/maorisraelii/iptv-webos/releases/download/beta-latest/IPTV-Live-AndroidTV.apk)** (**[שחרור הבטא v5.1.5](https://github.com/maorisraelii/iptv-webos/releases/tag/v5.1.5)** / **[ענף `beta`](https://github.com/maorisraelii/iptv-webos/tree/beta)**). קוד הגרסה היציבה נשאר **`2606856`** (`v5.0.7`).
 
 ---
 
@@ -103,7 +103,7 @@ Compatible with NVIDIA Shield TV, Chromecast with Google TV, Xiaomi Mi Box / TV 
      ```text
      2606856
      ```
-   - **Beta Release — Apple Liquid Glass UI (v5.1.4):**
+   - **Beta Release — Apple Liquid Glass UI (v5.1.5):**
      ```text
      2087324
      ```
@@ -198,7 +198,7 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
      ```text
      2606856
      ```
-   - **גרסת בטא בעיצוב Apple Liquid Glass (Beta - v5.1.4):**
+   - **גרסת בטא בעיצוב Apple Liquid Glass (Beta - v5.1.5):**
      ```text
      2087324
      ```
