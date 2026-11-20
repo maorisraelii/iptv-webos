@@ -21,6 +21,25 @@ class RemoteController {
     this._okLongPressTimer = null;
     this._okLongPressFired = false;
 
+    // Precomputed O(1) key lookup maps (zero per-keydown array allocations on TV)
+    this._tvKeyCodeMap = {
+      13: true, 19: true, 27: true, 33: true, 34: true, 37: true, 38: true, 39: true, 40: true,
+      179: true, 403: true, 404: true, 405: true, 406: true, 412: true, 413: true, 415: true,
+      417: true, 427: true, 428: true, 457: true, 458: true, 461: true
+    };
+    this._tvKeyNameMap = {
+      ArrowUp: true, ArrowDown: true, ArrowLeft: true, ArrowRight: true,
+      Up: true, Down: true, Left: true, Right: true,
+      Enter: true, Select: true, Accept: true, DPAD_CENTER: true,
+      Back: true, GoBack: true, Escape: true, XF86Back: true,
+      Red: true, ColorF0Red: true, Green: true, ColorF1Green: true,
+      Yellow: true, ColorF2Yellow: true, Blue: true, ColorF3Blue: true,
+      Rewind: true, MediaRewind: true, MediaTrackPrevious: true,
+      FastForward: true, MediaFastForward: true, MediaTrackNext: true,
+      Play: true, Pause: true, MediaPlayPause: true, Stop: true, MediaStop: true,
+      ChannelUp: true, ChannelDown: true, Info: true, Guide: true
+    };
+
     this.bindEvents();
     this.exposeAndroidTVBridge();
     this.ensureFocus();
@@ -282,12 +301,23 @@ class RemoteController {
       this.clearSeekHold();
     }
 
-    // Deduplication guard: 110ms for held seek keys, 75ms for arrow keys, 140ms for OK/Back/Color buttons
+    // Deduplication guard: 110ms for held seek keys, 30ms for arrow keys (blocks double-jump while supporting rapid LG Magic Remote holds), 140ms for OK/Back/Color buttons
+    const isVerticalArrow =
+      code === 38 || code === 40 ||
+      key === 'ArrowUp' || key === 'ArrowDown' || key === 'Up' || key === 'Down';
     const isArrow =
-      (code >= 37 && code <= 40) ||
-      key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight' ||
-      key === 'Up' || key === 'Down' || key === 'Left' || key === 'Right';
-    const minGap = seekInfo ? 110 : (isArrow ? 75 : 140);
+      isVerticalArrow ||
+      code === 37 || code === 39 ||
+      key === 'ArrowLeft' || key === 'ArrowRight' || key === 'Left' || key === 'Right';
+
+    // Immediately cancel any pending preview playback timer on rapid vertical D-pad holds
+    if (isVerticalArrow && this.app && this.app.mode === 'BROWSE') {
+      if (typeof this.app.cancelPendingPreviewPlayback === 'function') {
+        this.app.cancelPendingPreviewPlayback();
+      }
+    }
+
+    const minGap = seekInfo ? 110 : (isArrow ? 30 : 140);
     const keySig = code !== 0 ? code : key;
 
     if (keySig && keySig === this.lastKeySig && (now - this.lastKeyTime) < minGap) {
@@ -447,17 +477,8 @@ class RemoteController {
   }
 
   isTvControlKey(code, key) {
-    const tvKeyCodes = [13, 19, 27, 33, 34, 37, 38, 39, 40, 179, 403, 404, 405, 406, 412, 413, 415, 417, 427, 428, 457, 458, 461];
-    if (tvKeyCodes.indexOf(code) !== -1) return true;
-    if ([
-      'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Up', 'Down', 'Left', 'Right',
-      'Enter', 'Select', 'Accept', 'DPAD_CENTER',
-      'Back', 'GoBack', 'Escape', 'XF86Back',
-      'Red', 'ColorF0Red', 'Green', 'ColorF1Green', 'Yellow', 'ColorF2Yellow', 'Blue', 'ColorF3Blue',
-      'Rewind', 'MediaRewind', 'MediaTrackPrevious', 'FastForward', 'MediaFastForward', 'MediaTrackNext',
-      'Play', 'Pause', 'MediaPlayPause', 'Stop', 'MediaStop',
-      'ChannelUp', 'ChannelDown', 'Info', 'Guide'
-    ].indexOf(key) !== -1) return true;
+    if (this._tvKeyCodeMap && this._tvKeyCodeMap[code]) return true;
+    if (key && this._tvKeyNameMap && this._tvKeyNameMap[key]) return true;
     return false;
   }
 

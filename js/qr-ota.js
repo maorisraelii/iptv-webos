@@ -3,11 +3,10 @@
  * Designed for LG webOS 4.0 - 24+ (Chromium 53+)
  */
 
-const APP_BUNDLE_VERSION = '5.0.7';
+const APP_BUNDLE_VERSION = '5.2.0';
 const APP_BUNDLE_CHANNEL = 'stable';
 const OTA_GIST_RAW_BASE = 'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw';
 const OTA_GITHUB_RAW_STABLE = 'https://raw.githubusercontent.com/maorisraelii/iptv-webos/main/ota-manifest.json';
-const OTA_GITHUB_RAW_BETA = 'https://raw.githubusercontent.com/maorisraelii/iptv-webos/beta/ota-manifest.json';
 const REMOTE_PORTAL_BASE_URL = 'https://gist.githack.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/remote.html';
 
 const OTA_STORAGE_KEYS = {
@@ -310,10 +309,10 @@ class OTACloudManager {
 
     if (typeof window !== 'undefined') {
       if (!window.__ZENPLAY_BASE_BUNDLE_VERSION) {
-        window.__ZENPLAY_BASE_BUNDLE_VERSION = typeof APP_BUNDLE_VERSION !== 'undefined' ? APP_BUNDLE_VERSION : '5.0.7';
+        window.__ZENPLAY_BASE_BUNDLE_VERSION = typeof APP_BUNDLE_VERSION !== 'undefined' ? APP_BUNDLE_VERSION : '5.2.0';
       }
       if (!window.__ZENPLAY_BASE_BUNDLE_CHANNEL) {
-        window.__ZENPLAY_BASE_BUNDLE_CHANNEL = typeof APP_BUNDLE_CHANNEL !== 'undefined' ? APP_BUNDLE_CHANNEL : 'stable';
+        window.__ZENPLAY_BASE_BUNDLE_CHANNEL = 'stable';
       }
     }
 
@@ -326,18 +325,11 @@ class OTACloudManager {
     if (typeof window !== 'undefined' && window.__ZENPLAY_BASE_BUNDLE_VERSION) {
       return window.__ZENPLAY_BASE_BUNDLE_VERSION;
     }
-    return typeof APP_BUNDLE_VERSION !== 'undefined' ? APP_BUNDLE_VERSION : '5.0.7';
+    return typeof APP_BUNDLE_VERSION !== 'undefined' ? APP_BUNDLE_VERSION : '5.2.0';
   }
 
   getBaseBundleChannel() {
-    if (typeof window !== 'undefined' && window.__ZENPLAY_BASE_BUNDLE_CHANNEL) {
-      return window.__ZENPLAY_BASE_BUNDLE_CHANNEL === 'beta' ? 'beta' : 'stable';
-    }
-    if (typeof APP_BUNDLE_CHANNEL !== 'undefined') {
-      return APP_BUNDLE_CHANNEL === 'beta' ? 'beta' : 'stable';
-    }
-    const baseVer = String(this.getBaseBundleVersion() || '5.0.0');
-    return /^5\.1\./.test(baseVer) ? 'beta' : 'stable';
+    return 'stable';
   }
 
   isSafeMode() {
@@ -383,13 +375,15 @@ class OTACloudManager {
     return css.replace(/(?:-webkit-)?backdrop-filter\s*:[^;}]*;?/gi, '');
   }
 
-  getBundleSignature(bundle) {
+  getBundleSignature(bundle, themeOverride) {
     if (!bundle) return '';
+    const activeTheme = themeOverride || (this.app && typeof this.app.getTheme === 'function' ? this.app.getTheme() : 'classic');
     return [
       bundle.version || '',
-      bundle.channel || '',
+      activeTheme,
       bundle.updatedAt || 0,
       bundle.cssPatch ? bundle.cssPatch.length : 0,
+      bundle.cssGlassPatch ? bundle.cssGlassPatch.length : 0,
       bundle.jsPatch ? bundle.jsPatch.length : 0
     ].join('|');
   }
@@ -410,10 +404,7 @@ class OTACloudManager {
       const bundle = this.getSavedBundle();
 
       if (bundle) {
-        const isStale = this.isSavedBundleStaleForBase(bundle);
-        if (isStale) {
-          this.clearSavedBundleStorage();
-        } else if (isUpgraded && this.compareSemver(bundle.version, baseVer) <= 0) {
+        if (this.isSavedBundleStaleForBase(bundle)) {
           this.clearSavedBundleStorage();
         }
       } else if (isUpgraded) {
@@ -442,25 +433,11 @@ class OTACloudManager {
   }
 
   isSavedBundleStaleForBase(bundle) {
-    if (!bundle || !bundle.version || (!bundle.cssPatch && !bundle.jsPatch)) {
+    if (!bundle || !bundle.version || (!bundle.cssPatch && !bundle.cssGlassPatch && !bundle.jsPatch)) {
       return true;
     }
     const baseVer = this.getBaseBundleVersion();
-    const baseCh = this.getBaseBundleChannel();
-    const bundleCh = bundle.channel === 'beta' || bundle.channel === 'stable' ? bundle.channel : 'stable';
-
-    if (bundleCh === baseCh) {
-      return this.compareSemver(bundle.version, baseVer) <= 0;
-    }
-
-    // Cross-channel bundle: only activate if user explicitly switched channels on this base APK/IPK version (or newer)
-    if (bundle.explicitChannelSwitch !== true) {
-      return true;
-    }
-    if (!bundle.appliedOnBaseVersion || this.compareSemver(bundle.appliedOnBaseVersion, baseVer) < 0) {
-      return true;
-    }
-    return false;
+    return this.compareSemver(bundle.version, baseVer) <= 0;
   }
 
   isSavedBundleActive(bundle) {
@@ -471,14 +448,7 @@ class OTACloudManager {
   }
 
   getRunningChannel() {
-    if (this.isSafeMode()) {
-      return this.getBaseBundleChannel();
-    }
-    const bundle = this.getSavedBundle();
-    if (this.isSavedBundleActive(bundle)) {
-      return bundle.channel === 'beta' || bundle.channel === 'stable' ? bundle.channel : 'stable';
-    }
-    return this.getBaseBundleChannel();
+    return 'stable';
   }
 
   getRunningVersion() {
@@ -491,8 +461,7 @@ class OTACloudManager {
     }
     try {
       const otaVer = localStorage.getItem(OTA_STORAGE_KEYS.INSTALLED_VERSION);
-      const otaCh = localStorage.getItem(OTA_STORAGE_KEYS.INSTALLED_CHANNEL);
-      if (otaVer && !otaCh && this.compareSemver(otaVer, this.getBaseBundleVersion()) > 0) {
+      if (otaVer && this.compareSemver(otaVer, this.getBaseBundleVersion()) > 0) {
         return otaVer;
       }
     } catch (e) {}
@@ -500,31 +469,15 @@ class OTACloudManager {
   }
 
   getUpdateChannel() {
-    try {
-      const ch = localStorage.getItem(OTA_STORAGE_KEYS.UPDATE_CHANNEL);
-      if (ch === 'beta' || ch === 'stable') {
-        return ch;
-      }
-    } catch (e) {}
-    return this.getRunningChannel();
+    return 'stable';
   }
 
-  setUpdateChannel(channel, triggerOtaCheck) {
-    const target = channel === 'beta' ? 'beta' : 'stable';
-    try {
-      localStorage.setItem(OTA_STORAGE_KEYS.UPDATE_CHANNEL, target);
-    } catch (e) {}
+  setUpdateChannel(channel) {
+    const targetTheme = channel === 'beta' || channel === 'glass' ? 'glass' : 'classic';
+    if (this.app && typeof this.app.applyTheme === 'function') {
+      this.app.applyTheme(targetTheme, false);
+    }
     this.updateVersionBadgesUI();
-    if (this.app && typeof this.app.showToast === 'function') {
-      this.app.showToast(
-        target === 'beta'
-          ? 'ערוץ העדכונים הוגדר ל-Beta (Apple Liquid Glass) • בודק עדכון OTA...'
-          : 'ערוץ העדכונים הוגדר ל-Stable (גרסה יציבה) • בודק עדכון OTA...'
-      );
-    }
-    if (triggerOtaCheck !== false) {
-      return this.checkForOTAUpdate(true, true);
-    }
     return Promise.resolve(null);
   }
 
@@ -584,60 +537,27 @@ class OTACloudManager {
 
     const aboutTabBtn = document.getElementById('tab-btn-about');
     if (aboutTabBtn) {
-      aboutTabBtn.textContent = 'עדכונים (Stable / Beta) ואודות';
+      aboutTabBtn.textContent = 'עדכונים ואודות';
     }
 
-    const aboutCard = document.querySelector('#settings-tab-about .about-card');
-    if (aboutCard && !document.getElementById('ota-channel-card')) {
-      const card = document.createElement('div');
-      card.id = 'ota-channel-card';
-      card.className = 'perf-section-card';
-      card.innerHTML =
-        '<h3>ערוץ עדכונים אוטומטיים (OTA Channel)</h3>' +
-        '<p id="ota-channel-status-text" class="perf-desc">בחר אם לקבל עדכוני מערכת מגרסת Stable (יציבה) או מגרסת Beta (Apple Liquid Glass). ההחלפה מתבצעת מיידית דרך OTA.</p>' +
-        '<div class="perf-options-grid" id="ota-channel-options">' +
-          '<button id="btn-ota-channel-stable" class="perf-option-btn focusable" data-ota-channel="stable">' +
-            '<span class="perf-opt-title">Stable — גרסה יציבה (ברירת מחדל)</span>' +
-            '<span class="perf-opt-sub">ממשק קלאסי מהיר ויציב • עדכוני Main רשמיים</span>' +
-          '</button>' +
-          '<button id="btn-ota-channel-beta" class="perf-option-btn focusable" data-ota-channel="beta">' +
-            '<span class="perf-opt-title">Beta — Apple Liquid Glass (גרסת ניסיון)</span>' +
-            '<span class="perf-opt-sub">עיצוב זכוכית חלבית בסגנון אפל • מתעדכן אוטומטית דרך OTA</span>' +
-          '</button>' +
-        '</div>';
-
-      const headerRow = aboutCard.querySelector('.about-header-row');
-      if (headerRow && headerRow.nextSibling) {
-        aboutCard.insertBefore(card, headerRow.nextSibling);
-      } else {
-        aboutCard.appendChild(card);
-      }
+    const legacyCard = document.getElementById('ota-channel-card');
+    if (legacyCard && legacyCard.parentNode) {
+      legacyCard.parentNode.removeChild(legacyCard);
     }
 
-    const channelBtns = document.querySelectorAll('#ota-channel-options .perf-option-btn');
-    for (let i = 0; i < channelBtns.length; i++) {
-      const btn = channelBtns[i];
-      if (btn && btn.dataset && btn.dataset.otaBound !== '1') {
-        btn.dataset.otaBound = '1';
-        btn.addEventListener('click', () => {
-          const ch = btn.dataset.otaChannel === 'beta' ? 'beta' : 'stable';
-          this.setUpdateChannel(ch, true);
-        });
-      }
+    if (this.app && typeof this.app.ensureThemeControlsDOM === 'function') {
+      this.app.ensureThemeControlsDOM();
     }
   }
 
   /**
-   * Updates all version labels and OTA channel selector UI across screens
+   * Updates all version labels across screens
    */
   updateVersionBadgesUI() {
     this.ensureOTAChannelControlsDOM();
 
     const runningVer = this.getRunningVersion();
-    const runningCh = this.getRunningChannel();
-    const selectedCh = this.getUpdateChannel();
-    const ver = 'v' + runningVer;
-    const verLabel = runningCh === 'beta' && ver.indexOf('beta') === -1 ? ver + '-beta' : ver;
+    const verLabel = 'v' + runningVer;
 
     const osdVer = document.getElementById('osd-version-badge');
     const osdFooterVer = document.getElementById('osd-footer-version');
@@ -651,51 +571,77 @@ class OTACloudManager {
       aboutVer.textContent =
         'גרסה ' +
         verLabel +
-        (runningCh === 'beta' ? ' (ערוץ Beta — Apple Liquid Glass)' : ' Production (ערוץ Stable יציב)') +
-        ' • עדכוני OTA פעילים';
-    }
-
-    const btnStable = document.getElementById('btn-ota-channel-stable');
-    const btnBeta = document.getElementById('btn-ota-channel-beta');
-    if (btnStable) {
-      if (selectedCh === 'stable') btnStable.classList.add('active-option');
-      else btnStable.classList.remove('active-option');
-    }
-    if (btnBeta) {
-      if (selectedCh === 'beta') btnBeta.classList.add('active-option');
-      else btnBeta.classList.remove('active-option');
-    }
-
-    const statusText = document.getElementById('ota-channel-status-text');
-    if (statusText) {
-      const runningDesc = runningCh === 'beta' ? 'Beta (Apple Liquid Glass)' : 'Stable (יציב)';
-      const selectedDesc = selectedCh === 'beta' ? 'Beta (Apple Liquid Glass)' : 'Stable (יציב)';
-      statusText.textContent =
-        'גרסה פעילה כעת: ' +
-        verLabel +
-        ' (' +
-        runningDesc +
-        ') • ערוץ עדכונים נבחר: ' +
-        selectedDesc +
-        '. לחיצה על ערוץ מחליפה גרסה מידית דרך OTA.';
+        ' • גרסה מאוחדת (קלאסי + Apple Liquid Glass) • עדכוני OTA פעילים';
     }
   }
 
   setBaseStylesheetDisabled(disabled) {
     if (typeof document === 'undefined') return;
     try {
+      const activeTheme =
+        this.app && typeof this.app.getTheme === 'function'
+          ? this.app.getTheme()
+          : (typeof window !== 'undefined' && window.__IPTV_THEME === 'glass' ? 'glass' : 'classic');
       const links = document.querySelectorAll('link[rel="stylesheet"]');
       for (let i = 0; i < links.length; i++) {
         const href = links[i].getAttribute('href') || '';
-        if (href.indexOf('css/style.css') !== -1) {
-          links[i].disabled = Boolean(disabled);
+        const isClassic = href.indexOf('css/style.css') !== -1;
+        const isGlass = href.indexOf('css/theme-glass.css') !== -1;
+        if (!isClassic && !isGlass) continue;
+        if (disabled) {
+          links[i].disabled = true;
+          links[i].media = 'none';
+        } else {
+          const shouldDisable = isGlass ? activeTheme !== 'glass' : activeTheme === 'glass';
+          links[i].disabled = shouldDisable;
+          links[i].media = shouldDisable ? 'none' : 'all';
         }
       }
     } catch (e) {}
   }
 
+  hasActiveOtaCss() {
+    if (this.isSafeMode()) return false;
+    const bundle = this.getSavedBundle();
+    if (!this.isSavedBundleActive(bundle)) return false;
+    return Boolean(bundle && (bundle.cssPatch || bundle.cssGlassPatch));
+  }
+
+  applyThemeStylesheet(themeOverride) {
+    if (typeof document === 'undefined') return false;
+    try {
+      if (this.isSafeMode()) return false;
+      const bundle = this.getSavedBundle();
+      if (!this.isSavedBundleActive(bundle)) return false;
+      const activeTheme =
+        themeOverride || (this.app && typeof this.app.getTheme === 'function' ? this.app.getTheme() : 'classic');
+      const rawCss =
+        activeTheme === 'glass' && bundle.cssGlassPatch
+          ? bundle.cssGlassPatch
+          : (bundle.cssPatch || '');
+      if (!rawCss) {
+        this.setBaseStylesheetDisabled(false);
+        return false;
+      }
+      const cssToApply = this.isTvPlatform() ? this.stripBackdropFilterCss(rawCss) : rawCss;
+      let styleEl = document.getElementById('zenplay-ota-css');
+      if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = 'zenplay-ota-css';
+        document.head.appendChild(styleEl);
+      }
+      styleEl.textContent = cssToApply;
+      if (rawCss.length > 1000) {
+        this.setBaseStylesheetDisabled(true);
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   /**
-   * Applies any OTA CSS/JS patches stored in localStorage from previous OTA updates or channel switches
+   * Applies any OTA CSS/JS patches stored in localStorage from previous OTA updates
    */
   applySavedOTABundle() {
     if (typeof document === 'undefined') return;
@@ -724,22 +670,15 @@ class OTACloudManager {
 
       const signature = this.getBundleSignature(bundle);
       if (this._appliedBundleSignature === signature) return;
+      const jsSig = [
+        bundle.version || '',
+        bundle.updatedAt || 0,
+        bundle.jsPatch ? bundle.jsPatch.length : 0
+      ].join('|');
       this._appliedBundleSignature = signature;
 
-      if (bundle.cssPatch) {
-        const cssToApply = this.isTvPlatform()
-          ? this.stripBackdropFilterCss(bundle.cssPatch)
-          : bundle.cssPatch;
-        let styleEl = document.getElementById('zenplay-ota-css');
-        if (!styleEl) {
-          styleEl = document.createElement('style');
-          styleEl.id = 'zenplay-ota-css';
-          document.head.appendChild(styleEl);
-        }
-        styleEl.textContent = cssToApply;
-        if (bundle.cssPatch.length > 1000) {
-          this.setBaseStylesheetDisabled(true);
-        }
+      if (bundle.cssPatch || bundle.cssGlassPatch) {
+        this.applyThemeStylesheet();
         if (this.app && typeof this.app.updateVideoSurfacePosition === 'function') {
           setTimeout(() => this.app.updateVideoSurfacePosition(true), 60);
         }
@@ -747,7 +686,8 @@ class OTACloudManager {
         this.setBaseStylesheetDisabled(false);
       }
 
-      if (bundle.jsPatch) {
+      if (bundle.jsPatch && this._appliedJsSignature !== jsSig) {
+        this._appliedJsSignature = jsSig;
         try {
           const fn = new Function(bundle.jsPatch);
           fn();
@@ -796,28 +736,21 @@ class OTACloudManager {
     }, 900);
   }
 
-  getManifestCandidateUrls(channelOverride) {
+  getManifestCandidateUrls() {
     try {
       const custom = localStorage.getItem(OTA_STORAGE_KEYS.CUSTOM_OTA_URL);
       if (custom && custom.trim()) return [custom.trim()];
     } catch (e) {}
 
-    const targetChannel = (channelOverride || this.getUpdateChannel()) === 'beta' ? 'beta' : 'stable';
     const ts = Date.now();
-    if (targetChannel === 'beta') {
-      return [
-        OTA_GIST_RAW_BASE + '/ota-manifest-beta.json?t=' + ts,
-        OTA_GITHUB_RAW_BETA + '?t=' + ts
-      ];
-    }
     return [
       OTA_GIST_RAW_BASE + '/ota-manifest.json?t=' + ts,
       OTA_GITHUB_RAW_STABLE + '?t=' + ts
     ];
   }
 
-  getManifestUrl(channelOverride) {
-    return this.getManifestCandidateUrls(channelOverride)[0];
+  getManifestUrl() {
+    return this.getManifestCandidateUrls()[0];
   }
 
   fetchManifestJson(url) {
@@ -843,8 +776,8 @@ class OTACloudManager {
       });
   }
 
-  fetchManifestWithFallback(channelOverride) {
-    const urls = this.getManifestCandidateUrls(channelOverride);
+  fetchManifestWithFallback() {
+    const urls = this.getManifestCandidateUrls();
     let idx = 0;
 
     const tryNext = (lastErr) => {
@@ -863,16 +796,12 @@ class OTACloudManager {
     return tryNext(null);
   }
 
-  checkForOTAUpdate(manualTrigger, isChannelSwitch) {
-    const targetChannel = this.getUpdateChannel();
-    const runningChannel = this.getRunningChannel();
-    const channelTitle = targetChannel === 'beta' ? 'Beta' : 'Stable';
-
-    if (manualTrigger && !isChannelSwitch) {
-      this.app.showToast('בודק עדכוני OTA (' + channelTitle + ') מול שרת הענן...');
+  checkForOTAUpdate(manualTrigger) {
+    if (manualTrigger) {
+      this.app.showToast('בודק עדכוני OTA מול שרת הענן...');
     }
 
-    return this.fetchManifestWithFallback(targetChannel)
+    return this.fetchManifestWithFallback()
       .then((manifest) => {
         if (!manifest || !manifest.version) {
           if (manualTrigger) this.app.showToast('לא נמצא מניפסט עדכון בשרת');
@@ -880,22 +809,16 @@ class OTACloudManager {
         }
 
         const currentVer = this.getRunningVersion();
-        const manifestChannel = manifest.channel === 'beta' || manifest.channel === 'stable' ? manifest.channel : targetChannel;
-        const isCrossChannel = manifestChannel !== runningChannel;
         const isNewer = this.compareSemver(manifest.version, currentVer) > 0;
 
-        if (isCrossChannel || isNewer) {
-          manifest._targetChannel = manifestChannel;
-          manifest._isChannelSwitch = isCrossChannel;
+        if (isNewer) {
           this.pendingManifest = manifest;
           this.showOTAUpdateAvailablePopup(manifest, currentVer);
           return manifest;
         }
 
         if (manualTrigger) {
-          this.app.showToast(
-            'האפליקציה מעודכנת לגרסה האחרונה בערוץ ' + channelTitle + ' (v' + currentVer + ') ✓'
-          );
+          this.app.showToast('האפליקציה מעודכנת לגרסה האחרונה (v' + currentVer + ') ✓');
         }
         return null;
       })
@@ -921,11 +844,8 @@ class OTACloudManager {
     this.app.previousModeBeforeModal = this.app.mode === 'FULLSCREEN' ? 'FULLSCREEN' : 'BROWSE';
     this.app.mode = 'OTA';
 
-    const targetCh = (manifest._targetChannel || manifest.channel || this.getUpdateChannel()) === 'beta' ? 'beta' : 'stable';
-    const isSwitch = Boolean(manifest._isChannelSwitch);
-    const runningCh = this.getRunningChannel();
-    const fromLabel = 'v' + currentVer + (runningCh === 'beta' ? '-beta' : ' Stable');
-    const toLabel = 'v' + manifest.version + (targetCh === 'beta' ? '-beta' : ' Stable');
+    const fromLabel = 'v' + currentVer;
+    const toLabel = 'v' + manifest.version;
 
     const badgeEl = document.getElementById('ota-modal-badge');
     const titleEl = document.getElementById('ota-modal-title');
@@ -936,9 +856,7 @@ class OTACloudManager {
     const btnLater = document.getElementById('btn-ota-later');
 
     if (badgeEl) {
-      badgeEl.textContent = isSwitch
-        ? 'מעבר ערוץ OTA ל-' + (targetCh === 'beta' ? 'Beta (Apple Liquid Glass)' : 'Stable (גרסה יציבה)')
-        : 'עדכון גרסה חדש זמין (OTA)';
+      badgeEl.textContent = 'עדכון גרסה חדש זמין (OTA)';
       badgeEl.className = 'ota-status-pill pill-available';
     }
     if (titleEl) {
@@ -960,9 +878,7 @@ class OTACloudManager {
     }
     if (progressWrap) progressWrap.classList.add('hidden');
     if (btnConfirm) {
-      btnConfirm.textContent = isSwitch
-        ? 'התקן כעת ועבור ל-' + toLabel + ' (OK)'
-        : 'עדכן עכשיו לגרסה ' + toLabel + ' (OK)';
+      btnConfirm.textContent = 'עדכן עכשיו לגרסה ' + toLabel + ' (OK)';
       btnConfirm.onclick = () => this.performOTAUpdate(manifest);
     }
     if (btnLater) {
@@ -981,7 +897,6 @@ class OTACloudManager {
     if (!manifest || this._isInstallingOta) return;
     this._isInstallingOta = true;
 
-    const targetChannel = (manifest._targetChannel || manifest.channel || this.getUpdateChannel()) === 'beta' ? 'beta' : 'stable';
     const previousVer = this.getRunningVersion();
 
     const progressWrap = document.getElementById('ota-progress-wrap');
@@ -996,7 +911,7 @@ class OTACloudManager {
 
     let pct = 20;
     if (progressFill) progressFill.style.width = pct + '%';
-    if (progressText) progressText.textContent = 'מוריד חבילת עדכון v' + manifest.version + ' (' + targetChannel + ')... (20%)';
+    if (progressText) progressText.textContent = 'מוריד חבילת עדכון v' + manifest.version + '... (20%)';
 
     const stepTimer = setInterval(() => {
       pct = Math.min(95, pct + 25);
@@ -1012,22 +927,20 @@ class OTACloudManager {
 
         try {
           const baseVer = this.getBaseBundleVersion();
-          const isExplicitSwitch = Boolean(manifest._isChannelSwitch || targetChannel !== this.getBaseBundleChannel());
           localStorage.setItem(OTA_STORAGE_KEYS.INSTALLED_VERSION, manifest.version);
-          localStorage.setItem(OTA_STORAGE_KEYS.INSTALLED_CHANNEL, targetChannel);
-          localStorage.setItem(OTA_STORAGE_KEYS.UPDATE_CHANNEL, targetChannel);
+          localStorage.setItem(OTA_STORAGE_KEYS.INSTALLED_CHANNEL, 'stable');
+          localStorage.setItem(OTA_STORAGE_KEYS.UPDATE_CHANNEL, 'stable');
           localStorage.setItem(OTA_STORAGE_KEYS.LAST_BASE_BUNDLE_VERSION, baseVer);
           localStorage.setItem(
             OTA_STORAGE_KEYS.INSTALLED_BUNDLE,
             JSON.stringify({
               version: manifest.version,
-              channel: targetChannel,
+              channel: 'stable',
               baseBundleVersion: baseVer,
               appliedOnBaseVersion: baseVer,
-              explicitChannelSwitch: isExplicitSwitch,
-              forcedChannelSwitch: isExplicitSwitch,
               updatedAt: Date.now(),
               cssPatch: manifest.cssPatch || '',
+              cssGlassPatch: manifest.cssGlassPatch || '',
               jsPatch: manifest.jsPatch || ''
             })
           );
@@ -1035,7 +948,7 @@ class OTACloudManager {
             OTA_STORAGE_KEYS.JUST_UPDATED_INFO,
             JSON.stringify({
               version: manifest.version,
-              channel: targetChannel,
+              channel: 'stable',
               previousVersion: previousVer,
               title: manifest.title || ('האפליקציה עודכנה לגרסה v' + manifest.version),
               releaseNotes: manifest.releaseNotes || []
@@ -1055,7 +968,7 @@ class OTACloudManager {
 
         this.showOTASuccessPopup({
           version: manifest.version,
-          channel: targetChannel,
+          channel: 'stable',
           title: manifest.title,
           releaseNotes: manifest.releaseNotes
         });
@@ -1080,9 +993,7 @@ class OTACloudManager {
     }
     this.app.mode = 'OTA';
 
-    const ch = (info && info.channel) || this.getRunningChannel();
-    const verLabel = 'v' + info.version + (ch === 'beta' ? '-beta' : '');
-    const chLabel = ch === 'beta' ? 'ערוץ Beta (Apple Liquid Glass)' : 'ערוץ Stable (יציב)';
+    const verLabel = 'v' + info.version;
 
     const badgeEl = document.getElementById('ota-modal-badge');
     const titleEl = document.getElementById('ota-modal-title');
@@ -1100,7 +1011,7 @@ class OTACloudManager {
       titleEl.textContent = 'האפליקציה עודכנה בהצלחה לגרסה ' + verLabel + '!';
     }
     if (verCompareEl) {
-      verCompareEl.textContent = 'גרסה פעילה כעת: ' + verLabel + ' • ' + chLabel;
+      verCompareEl.textContent = 'גרסה פעילה כעת: ' + verLabel + ' • גרסה מאוחדת';
     }
     if (notesListEl) {
       notesListEl.innerHTML = '';

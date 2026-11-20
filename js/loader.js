@@ -35,7 +35,9 @@
         window.__IPTV_SAFE_MODE = true;
       }
       var ua = (navigator && navigator.userAgent) ? navigator.userAgent : '';
-      var isWebOS = /Web0S|webOS|LG NetCast/i.test(ua) || Boolean(window.webOS);
+      var isWebOS =
+        Boolean(window.webOSSystem || window.PalmSystem || window.webOS) ||
+        /Web0S|webOS|LG NetCast/i.test(ua);
       var isAndroidTv =
         Boolean(window.__IPTV_ANDROID_TV) ||
         Boolean(window.AndroidTvHost) ||
@@ -57,23 +59,43 @@
   }
   detectPlatformAndSafeMode();
 
+  var lastAppliedZoom = null;
+  var resizeDebounceTimer = null;
+
   function applyTvViewportScale() {
     try {
       var docEl = document.documentElement;
       if (!docEl) return;
       var w = window.innerWidth || docEl.clientWidth || 0;
+      var nextZoom = '';
       if (w > 0 && w < 1800) {
-        docEl.style.zoom = String(w / 1920);
+        nextZoom = String(w / 1920);
       } else if (w >= 1800) {
-        docEl.style.zoom = '';
+        nextZoom = '';
+      } else {
+        return;
+      }
+      if (nextZoom !== lastAppliedZoom) {
+        lastAppliedZoom = nextZoom;
+        docEl.style.zoom = nextZoom;
       }
     } catch (e) {}
+  }
+
+  function scheduleTvViewportScale() {
+    if (resizeDebounceTimer) {
+      clearTimeout(resizeDebounceTimer);
+    }
+    resizeDebounceTimer = setTimeout(function() {
+      resizeDebounceTimer = null;
+      applyTvViewportScale();
+    }, 120);
   }
 
   window.applyTvViewportScale = applyTvViewportScale;
   applyTvViewportScale();
   window.addEventListener('load', applyTvViewportScale);
-  window.addEventListener('resize', applyTvViewportScale);
+  window.addEventListener('resize', scheduleTvViewportScale);
 
   function dismissBootSplash() {
     if (splashDismissed) return;

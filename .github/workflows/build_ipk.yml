@@ -89,7 +89,7 @@ jobs:
               "- **Android TV / Google TV:** `IPTV-Live-AndroidTV.apk` (קוד Downloader: `2606856`)",
               "- **LG webOS (אשף התקנה מטלפון אנדרואיד):** `IPTV-webOS-Installer.apk`",
               `- **LG webOS (התקנה ממחשב):** \`IPTV-Live-webOS.ipk\` / \`com.iptv.livetv_${ver}_all.ipk\``,
-              "- **גרסת בטא (Apple Liquid Glass):** https://github.com/maorisraelii/iptv-webos/releases/tag/beta-latest"
+              "- **ערכות נושא מובנות:** בחר בין הממשק הקלאסי לעיצוב **Apple Liquid Glass** בתפריט **הגדרות ← ערכת נושא, באפר וקאש**"
             ].join("\n");
             fs.writeFileSync("/tmp/release_notes.md", body, "utf8");
           '

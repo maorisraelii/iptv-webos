@@ -2865,3 +2865,135 @@ html, body {
   font-size: 22px !important;
   padding: 14px 26px !important;
 }
+
+/* ==========================================================================
+   60fps Hardware Performance Engine for LG webOS & Android TV (Classic Theme)
+   ========================================================================== */
+
+/* Zero-Layout Focus Pill/Badge on TV Channel List */
+.tv-platform #channel-list .channel-item {
+  position: relative;
+  padding-left: 218px;
+}
+
+.tv-platform #channel-list .channel-playing-badge,
+.tv-platform #channel-list .channel-ok-pill {
+  display: inline-block;
+  position: absolute;
+  left: 16px;
+  margin-right: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.tv-platform #channel-list .channel-playing-badge {
+  top: 32px;
+  z-index: 2;
+}
+
+.tv-platform #channel-list .channel-ok-pill {
+  top: 31px;
+  z-index: 3;
+}
+
+.tv-platform #channel-list .channel-item.active:not(.focused) .channel-playing-badge {
+  display: inline-block;
+  visibility: visible;
+}
+
+.tv-platform #channel-list .channel-item.focused .channel-ok-pill {
+  display: inline-block;
+  visibility: visible;
+}
+
+/* Instant Focus Transitions on D-pad Navigable Items */
+.tv-platform .channel-item,
+.tv-platform .top-nav-btn,
+.tv-platform .btn-card-guide,
+.tv-platform .program-strip-item,
+.tv-platform .timeline-slot,
+.tv-platform .epg-card,
+.tv-platform .modal-close-btn,
+.tv-platform .guide-day-tab,
+.tv-platform .guide-prog-item,
+.tv-platform .settings-tab-btn,
+.tv-platform .source-item-btn,
+.tv-platform .btn-tv-primary,
+.tv-platform .btn-tv-secondary,
+.tv-platform .editor-btn,
+.tv-platform .perf-option-btn,
+.tv-platform .kb-key,
+.tv-platform .tv-input,
+.tv-platform .color-hint,
+.tv-platform .color-btn,
+.tv-platform .cat-pill,
+.tv-platform .osd-exit-btn,
+.tv-platform .focusable {
+  transition: none !important;
+}
+
+.tv-platform .fullscreen-osd,
+.tv-platform .osd-overlay,
+.tv-platform .boot-splash {
+  transition: opacity 0.14s ease-out !important;
+}
+
+/* Zero-Layout GPU-Composited OSD Show/Hide */
+.tv-platform #fullscreen-osd {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  contain: layout style;
+  will-change: auto;
+}
+
+.tv-platform #fullscreen-osd.hidden {
+  display: block !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Zero Idle 60Hz Keyframe Repaints */
+.tv-platform .live-pulse,
+.tv-platform .osd-live-tag,
+.tv-platform .splash-logo,
+.tv-platform .boot-logo,
+.tv-platform .splash-bar-fill {
+  animation: none !important;
+}
+
+.boot-splash.hidden *,
+.boot-splash.fade-out *,
+.boot-splash.hidden .splash-ring,
+.boot-splash.hidden .boot-spinner,
+.video-loader.hidden .spinner {
+  animation: none !important;
+}
+
+/* Safe Paint Containment (NEVER contain: strict on video/preview) */
+.channel-list-panel,
+.channel-details-card,
+.timeline-card,
+.channel-item {
+  contain: layout style;
+}
+
+.tv-platform .channel-list-panel,
+.tv-platform .channel-details-card,
+.tv-platform .timeline-card,
+.tv-platform .channel-list,
+.tv-platform .channel-program-strip,
+.tv-platform .channel-item,
+.tv-platform .program-strip-item,
+.tv-platform .guide-prog-item,
+.tv-platform .editor-channel-row {
+  contain: layout style;
+  will-change: auto;
+}
+
+/* Safe mode banner styling */
+.safe-mode #header-version-badge {
+  background: #e11d48 !important;
+  color: #ffffff !important;
+}

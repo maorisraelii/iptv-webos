@@ -10,14 +10,7 @@ const path = require('path');
 
 const appInfo = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'appinfo.json'), 'utf8'));
 const version = appInfo.version;
-let channel = 'stable';
-try {
-  const appConfigPath = path.join(process.cwd(), 'app-config.json');
-  if (fs.existsSync(appConfigPath)) {
-    const appCfg = JSON.parse(fs.readFileSync(appConfigPath, 'utf8'));
-    if (appCfg && appCfg.channel === 'beta') channel = 'beta';
-  }
-} catch (e) {}
+const channel = 'stable';
 
 function extractClassBody(filePath, originalClassName, otaClassName) {
   let code = fs.readFileSync(path.join(process.cwd(), filePath), 'utf8');
@@ -46,6 +39,15 @@ const cssContent = fs
   .replace(/\/\*[\s\S]*?\*\//g, '')
   .replace(/\s+/g, ' ')
   .trim();
+
+const glassCssPath = path.join(process.cwd(), 'css/theme-glass.css');
+const cssGlassContent = fs.existsSync(glassCssPath)
+  ? fs
+      .readFileSync(glassCssPath, 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+  : '';
 
 const m3uCode = extractClassBody('js/m3u-parser.js', 'M3UParser', 'OtaM3UParser');
 const storeCode = extractClassBody('js/lineup-store.js', 'LineupStore', 'OtaLineupStore');
@@ -94,10 +96,7 @@ const jsPatch = `
             (typeof APP_BUNDLE_VERSION === 'string' && APP_BUNDLE_VERSION) ? APP_BUNDLE_VERSION : '${version}';
         }
         if (!window.__ZENPLAY_BASE_BUNDLE_CHANNEL) {
-          window.__ZENPLAY_BASE_BUNDLE_CHANNEL =
-            (typeof APP_BUNDLE_CHANNEL === 'string' && (APP_BUNDLE_CHANNEL === 'beta' || APP_BUNDLE_CHANNEL === 'stable'))
-              ? APP_BUNDLE_CHANNEL
-              : (/^5\\.1\\./.test(window.__ZENPLAY_BASE_BUNDLE_VERSION) ? 'beta' : 'stable');
+          window.__ZENPLAY_BASE_BUNDLE_CHANNEL = 'stable';
         }
       }
 
@@ -114,6 +113,13 @@ const jsPatch = `
         if (typeof app.otaManager.updateVersionBadgesUI === 'function') {
           app.otaManager.updateVersionBadgesUI();
         }
+      }
+
+      if (typeof app.ensureThemeControlsDOM === 'function') {
+        app.ensureThemeControlsDOM();
+      }
+      if (typeof app.applyTheme === 'function') {
+        app.applyTheme(app.getTheme(), true);
       }
 
       if (app.epg) {
@@ -220,11 +226,12 @@ const manifest = {
   title: releaseMeta.title,
   releaseNotes: releaseMeta.releaseNotes,
   cssPatch: cssContent,
+  cssGlassPatch: cssGlassContent,
   jsPatch: jsPatch
 };
 
 const outPath = path.join(process.cwd(), 'ota-manifest.json');
 fs.writeFileSync(outPath, JSON.stringify(manifest, null, 2), 'utf8');
 console.log(
-  `[OTA Builder] Wrote ota-manifest.json (v${version} [${channel}], CSS: ${(cssContent.length / 1024).toFixed(1)} KB, JS: ${(jsPatch.length / 1024).toFixed(1)} KB)`
+  `[OTA Builder] Wrote ota-manifest.json (v${version} [${channel}], Classic CSS: ${(cssContent.length / 1024).toFixed(1)} KB, Glass CSS: ${(cssGlassContent.length / 1024).toFixed(1)} KB, JS: ${(jsPatch.length / 1024).toFixed(1)} KB)`
 );

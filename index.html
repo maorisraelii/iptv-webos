@@ -10,7 +10,7 @@
         var doc = document.documentElement;
         var loc = window.location || {};
         var ua = (navigator && navigator.userAgent) ? navigator.userAgent : '';
-        var isWebOS = /Web0S|webOS|LG NetCast/i.test(ua) || Boolean(window.webOS);
+        var isWebOS = /Web0S|webOS|LG NetCast/i.test(ua) || Boolean(window.webOS || window.webOSSystem || window.PalmSystem);
         var isAndroidTv =
           Boolean(window.__IPTV_ANDROID_TV) ||
           Boolean(window.AndroidTvHost) ||
@@ -32,37 +32,173 @@
           doc.classList.add('safe-mode');
           window.__IPTV_SAFE_MODE = true;
         }
+        var savedTheme = '';
+        try {
+          savedTheme = localStorage.getItem('zenplay_ui_theme') || '';
+        } catch (themeErr) {}
+        if (savedTheme !== 'glass' && savedTheme !== 'classic') {
+          try {
+            var prevCh =
+              localStorage.getItem('zenplay_ota_update_channel') ||
+              localStorage.getItem('zenplay_ota_installed_channel') ||
+              '';
+            var prevBaseVer = localStorage.getItem('zenplay_last_base_bundle_version') || '';
+            savedTheme = (prevCh === 'beta' || /^5\.1\./.test(prevBaseVer)) ? 'glass' : 'classic';
+            localStorage.setItem('zenplay_ui_theme', savedTheme);
+          } catch (migrErr) {
+            savedTheme = 'classic';
+          }
+        }
+        doc.classList.add('theme-' + savedTheme);
+        window.__IPTV_THEME = savedTheme;
       } catch (e) {}
     })();
   </script>
   <style>
     html, body { background: #070b14; margin: 0; padding: 0; }
+    html.theme-glass, html.theme-glass body {
+      background: #05070e;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    }
+    #boot-splash.boot-splash,
     .boot-splash {
       position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 9999;
       background: radial-gradient(circle at 50% 40%, #0f1f3d 0%, #070b14 70%);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       transition: opacity 0.24s ease-out;
     }
+    html.theme-glass #boot-splash.boot-splash,
+    html.theme-glass .boot-splash {
+      background:
+        radial-gradient(ellipse 65% 55% at 86% 10%, rgba(10, 132, 255, 0.26) 0%, transparent 60%),
+        radial-gradient(ellipse 55% 60% at 14% 88%, rgba(94, 92, 230, 0.22) 0%, transparent 60%),
+        radial-gradient(circle at 50% 45%, rgba(100, 210, 255, 0.09) 0%, transparent 55%),
+        #05070e;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    }
+    #boot-splash.boot-splash.fade-out,
     .boot-splash.fade-out { opacity: 0; pointer-events: none; }
+    #boot-splash.boot-splash.hidden,
     .boot-splash.hidden { display: none !important; }
-    .splash-ring {
+    .boot-glass-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+    html.theme-glass .boot-glass-card {
+      min-width: 520px;
+      padding: 46px 56px 40px;
+      border-radius: 32px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.13) 0%, rgba(255, 255, 255, 0.04) 100%),
+        rgba(20, 25, 38, 0.70);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      backdrop-filter: blur(28px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-top-color: rgba(255, 255, 255, 0.34);
+      box-shadow:
+        0 28px 72px rgba(0, 0, 0, 0.62),
+        0 0 70px rgba(10, 132, 255, 0.14),
+        inset 0 1px 0 rgba(255, 255, 255, 0.24);
+    }
+    .tv-platform #boot-splash.boot-splash,
+    .tv-platform .boot-splash {
+      background: linear-gradient(180deg, #0b1326 0%, #060913 42%, #05070e 100%) !important;
+      transition: opacity 0.14s ease-out !important;
+    }
+    html.theme-glass.tv-platform .boot-glass-card {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.0) 42%),
+        rgba(14, 19, 32, 0.96) !important;
+      border: 1px solid rgba(255, 255, 255, 0.18) !important;
+      border-top-color: rgba(255, 255, 255, 0.36) !important;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.24) !important;
+    }
+    .boot-emblem {
+      position: relative;
+      width: 84px;
+      height: 84px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .boot-emblem-mark {
+      display: none;
+    }
+    html.theme-glass .boot-emblem {
+      width: 108px;
+      height: 108px;
+      border-radius: 28px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.18) 0%, rgba(10, 132, 255, 0.22) 100%),
+        rgba(20, 27, 45, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-top-color: rgba(255, 255, 255, 0.44);
+      box-shadow:
+        0 18px 38px rgba(0, 0, 0, 0.46),
+        0 0 34px rgba(10, 132, 255, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.32);
+    }
+    html.theme-glass.tv-platform .boot-emblem {
+      background: linear-gradient(145deg, #1b2d4d 0%, #11192d 100%) !important;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.40), inset 0 1px 0 rgba(255, 255, 255, 0.30) !important;
+    }
+    html.theme-glass .boot-emblem-mark {
+      display: block;
+      position: absolute;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 0.6px;
+      color: rgba(255, 255, 255, 0.94);
+    }
+    .splash-ring,
+    .boot-spinner {
       width: 84px; height: 84px; border-radius: 50%;
       border: 4px solid rgba(56, 189, 248, 0.18);
       border-top-color: #38bdf8;
       animation: splashSpin 0.85s linear infinite;
-      margin-bottom: 24px;
     }
-    .splash-logo {
+    html.theme-glass .splash-ring,
+    html.theme-glass .boot-spinner {
+      width: 68px;
+      height: 68px;
+      border: 3px solid rgba(100, 210, 255, 0.16);
+      border-top-color: #64D2FF;
+      border-right-color: #0A84FF;
+      box-shadow: 0 0 18px rgba(100, 210, 255, 0.35);
+    }
+    .splash-logo,
+    .boot-logo {
       display: flex; align-items: center;
       font-family: sans-serif; font-size: 52px; font-weight: 900; color: #ffffff;
       letter-spacing: 0.5px;
       animation: splashPulse 1.6s ease-in-out infinite;
+    }
+    html.theme-glass .splash-logo,
+    html.theme-glass .boot-logo {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+      font-size: 46px;
+      font-weight: 800;
+      letter-spacing: -0.4px;
     }
     .splash-dot {
       width: 16px; height: 16px; border-radius: 50%;
       background: #ef4444;
       margin-left: 14px;
       flex-shrink: 0;
+    }
+    html.theme-glass .splash-dot {
+      width: 12px;
+      height: 12px;
+      background: #FF375F;
+      box-shadow: 0 0 12px rgba(255, 55, 95, 0.85);
+      margin-left: 0;
+      margin-right: 14px;
     }
     html[dir="ltr"] .splash-dot {
       margin-left: 0;
@@ -72,32 +208,91 @@
       margin-top: 14px; font-family: sans-serif; font-size: 24px;
       font-weight: 600; color: #94a3b8;
     }
+    html.theme-glass .splash-status {
+      margin-top: 12px;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+      font-size: 22px;
+      font-weight: 500;
+      color: rgba(235, 235, 245, 0.72);
+    }
     .splash-bar {
       width: 280px; height: 4px; margin-top: 22px; border-radius: 999px;
       background: rgba(255, 255, 255, 0.1); overflow: hidden;
+    }
+    html.theme-glass .splash-bar {
+      margin-top: 24px;
+      background: rgba(255, 255, 255, 0.12);
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
     }
     .splash-bar-fill {
       width: 45%; height: 100%; border-radius: 999px;
       background: linear-gradient(90deg, #0284c7, #38bdf8);
       animation: splashBar 1.1s ease-in-out infinite alternate;
     }
+    html.theme-glass .splash-bar-fill {
+      background: linear-gradient(90deg, #0A84FF 0%, #64D2FF 100%);
+      box-shadow: 0 0 12px rgba(100, 210, 255, 0.55);
+    }
+    .tv-platform .splash-ring,
+    .tv-platform .boot-spinner,
+    .tv-platform .splash-dot,
+    .tv-platform .splash-bar-fill {
+      box-shadow: none !important;
+    }
+    .tv-platform .splash-logo,
+    .tv-platform .boot-logo,
+    .tv-platform .splash-bar-fill {
+      animation: none !important;
+    }
+    .tv-platform .splash-bar-fill {
+      width: 100%;
+    }
+    .boot-splash.hidden *,
+    .boot-splash.fade-out *,
+    .boot-splash.hidden .splash-ring,
+    .boot-splash.hidden .boot-spinner {
+      animation: none !important;
+    }
     @keyframes splashSpin { to { transform: rotate(360deg); } }
     @keyframes splashPulse { 0%, 100% { opacity: 0.88; transform: scale(0.99); } 50% { opacity: 1; transform: scale(1.02); } }
     @keyframes splashBar { from { transform: translateX(-30%); } to { transform: translateX(150%); } }
   </style>
-  <link rel="stylesheet" href="css/style.css">
+  <link id="theme-css-classic" rel="stylesheet" href="css/style.css">
+  <link id="theme-css-glass" rel="stylesheet" href="css/theme-glass.css" media="none" disabled>
+  <script>
+    (function () {
+      try {
+        var isGlass = window.__IPTV_THEME === 'glass';
+        var c = document.getElementById('theme-css-classic');
+        var g = document.getElementById('theme-css-glass');
+        if (c) {
+          c.disabled = isGlass;
+          c.media = isGlass ? 'none' : 'all';
+        }
+        if (g) {
+          g.disabled = !isGlass;
+          g.media = isGlass ? 'all' : 'none';
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body tabindex="0">
 
   <!-- Ultra-Fast Boot Splash Screen (visible at 0ms before scripts load) -->
   <div id="boot-splash" class="boot-splash">
-    <div class="splash-ring"></div>
-    <div class="splash-logo">
-      <span class="splash-dot"></span>
-      <span>Live TV</span>
+    <div class="boot-glass-card">
+      <div class="boot-emblem">
+        <div class="splash-ring boot-spinner"></div>
+        <span class="boot-emblem-mark" dir="ltr">TV</span>
+      </div>
+      <div class="splash-logo boot-logo">
+        <span class="splash-dot"></span>
+        <span>Live TV</span>
+      </div>
+      <div id="boot-splash-text" class="splash-status">מתחבר לשידורים חיים...</div>
+      <div class="splash-bar" dir="ltr"><div class="splash-bar-fill"></div></div>
     </div>
-    <div id="boot-splash-text" class="splash-status">מתחבר לשידורים חיים...</div>
-    <div class="splash-bar"><div class="splash-bar-fill"></div></div>
   </div>
 
   <!-- Shared Video Player Surface (Floats inside #preview-frame in Browse Mode, expands 100% in Fullscreen) -->
@@ -144,7 +339,7 @@
         </div>
         <span id="active-category-title" class="header-view-label">כל הערוצים</span>
         <span id="channel-list-count" class="header-count-pill">0 ערוצים</span>
-        <span id="header-version-badge" class="header-version-pill">v5.0.7</span>
+        <span id="header-version-badge" class="header-version-pill">v5.2.0</span>
       </div>
 
       <div class="header-left">
@@ -296,7 +491,7 @@
             <h2 id="osd-channel-name" class="osd-channel-title">שם הערוץ</h2>
             <span id="osd-live-badge" class="osd-live-tag">שידור חי</span>
             <span id="osd-channel-category" class="osd-quality-tag">HD</span>
-            <span id="osd-version-badge" class="osd-version-tag">v5.0.7</span>
+            <span id="osd-version-badge" class="osd-version-tag">v5.2.0</span>
           </div>
 
           <!-- OSD EPG Current Programme with Start & End Time -->
@@ -334,7 +529,7 @@
           <!-- OSD Remote Legend Line & Active Version Info -->
           <div class="osd-sub-line">
             <span class="osd-hint">▲▼ זפזופ • <strong>◀ קדימה / ▶ אחורה</strong> (החזק להאצה) • <strong>OK</strong> פאוז/נגן (ארוך: סטארט אובר) • <strong>אדום</strong> סטארט אובר / יציאה • <strong>צהוב</strong> מדריך 7 ימים</span>
-            <span id="osd-footer-version" class="osd-footer-ver">גרסה v5.0.7</span>
+            <span id="osd-footer-version" class="osd-footer-ver">גרסה v5.2.0</span>
           </div>
         </div>
 
@@ -447,10 +642,10 @@
             בחירת ערוצים ומספור
           </button>
           <button id="tab-btn-performance" class="settings-tab-btn focusable" data-settings-tab="performance">
-            באפר וקאש (נגד תקיעות)
+            ערכת נושא, באפר וקאש
           </button>
           <button id="tab-btn-about" class="settings-tab-btn focusable" data-settings-tab="about">
-            עדכונים (Stable / Beta) ואודות
+            עדכונים ואודות
           </button>
         </div>
         <button class="modal-close-btn focusable" data-action="close-modal">✕ סגור</button>
@@ -597,8 +792,23 @@
         </div>
       </div>
 
-      <!-- TAB 3: Stream Anti-Freeze Buffer & EPG/Playlist Cache Settings -->
+      <!-- TAB 3: Theme, Stream Anti-Freeze Buffer & EPG/Playlist Cache Settings -->
       <div id="settings-tab-performance" class="modal-body settings-tab-content hidden">
+        <div id="ui-theme-card" class="perf-section-card">
+          <h3>ערכת נושא ועיצוב ממשק (Theme)</h3>
+          <p class="perf-desc">החלף מיידית בין הממשק הקלאסי המהיר לבין עיצוב <strong>Apple Liquid Glass</strong> (מותאם ל-60fps ב-webOS וב-Android TV) — ללא הפעלה מחדש:</p>
+          <div class="perf-options-grid" id="theme-mode-options">
+            <button id="btn-theme-classic" class="perf-option-btn focusable active-option" data-ui-theme="classic">
+              <span class="perf-opt-title">קלאסי (Classic Broadcast)</span>
+              <span class="perf-opt-sub">ממשק כהה, חד ומהיר במיוחד • ברירת מחדל</span>
+            </button>
+            <button id="btn-theme-glass" class="perf-option-btn focusable" data-ui-theme="glass">
+              <span class="perf-opt-title">Apple Liquid Glass (זכוכית)</span>
+              <span class="perf-opt-sub">עיצוב זכוכית יוקרתי בסגנון אפל • 60fps מותאם לטלוויזיות</span>
+            </button>
+          </div>
+        </div>
+
         <div class="perf-section-card">
           <h3>מנגנון באפר ואיכות שידור חי (זפזופ מהיר + איכות מדורגת לפי באפר)</h3>
           <p class="perf-desc">במצב <strong>אוטומטי חכם</strong> (ברירת מחדל), הערוץ נפתח מיד באיכות קלה ומהירה לטעינה מיידית, והאיכות עולה בהדרגה ל-Full HD ככל שנצבר באפר בזיכרון — ללא עצירות וללא הודעות קופצות:</p>
@@ -665,24 +875,9 @@
             <div class="about-app-icon">TV</div>
             <div class="about-title-col" style="flex:1;">
               <div class="about-app-name">Live TV — LG webOS Broadcast Player</div>
-              <div id="about-version-text" class="about-app-version">גרסה v5.0.7 Production (ערוץ Stable יציב) • עדכוני OTA פעילים</div>
+              <div id="about-version-text" class="about-app-version">גרסה v5.2.0 • גרסה מאוחדת (קלאסי + Apple Liquid Glass) • עדכוני OTA פעילים</div>
             </div>
             <button id="btn-check-ota-now" class="btn-tv-primary focusable">בדוק עדכוני OTA כעת</button>
-          </div>
-
-          <div id="ota-channel-card" class="perf-section-card">
-            <h3>ערוץ עדכונים אוטומטיים (OTA Channel)</h3>
-            <p id="ota-channel-status-text" class="perf-desc">בחר אם לקבל עדכוני מערכת מגרסת Stable (יציבה) או מגרסת Beta (Apple Liquid Glass). ההחלפה מתבצעת מיידית דרך OTA.</p>
-            <div class="perf-options-grid" id="ota-channel-options">
-              <button id="btn-ota-channel-stable" class="perf-option-btn focusable active-option" data-ota-channel="stable">
-                <span class="perf-opt-title">Stable — גרסה יציבה (ברירת מחדל)</span>
-                <span class="perf-opt-sub">ממשק קלאסי מהיר ויציב • עדכוני Main רשמיים</span>
-              </button>
-              <button id="btn-ota-channel-beta" class="perf-option-btn focusable" data-ota-channel="beta">
-                <span class="perf-opt-title">Beta — Apple Liquid Glass (גרסת ניסיון)</span>
-                <span class="perf-opt-sub">עיצוב זכוכית חלבית בסגנון אפל • מתעדכן אוטומטית דרך OTA</span>
-              </button>
-            </div>
           </div>
 
           <div class="about-developer-box">
