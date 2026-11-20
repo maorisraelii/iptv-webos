@@ -34,12 +34,38 @@ class IPTVApp {
     this.visibleChannels = [];
     this.selectedChannel = null;
 
-    // Fast O(1) DOM node caches
+    // Fast O(1) DOM node caches & zero-reflow geometry caches
     this.channelRowNodes = [];
+    this._channelRowEls = this.channelRowNodes;
+    this._channelIndexById = Object.create(null);
     this.timelineItemNodes = [];
     this.timelineProgrammes = [];
     this.currentFocusedEl = null;
+    this._focusedChannelEl = null;
     this.currentActiveRowEl = null;
+    this._channelListEl = null;
+    this._cachedRowHeight = 0;
+    this._cachedRowBoxHeight = 0;
+    this._cachedListHeight = 0;
+    this._cachedListPaddingTop = 14;
+    this._cachedListScrollTop = 0;
+    this._epgRefreshEpoch = 0;
+    this._visibleEpgSyncTimer = null;
+    this._focusFlushRafId = null;
+    this._focusFlushPending = false;
+    this._miniTimelineTimer = null;
+    this._pendingMiniTimelineChannel = null;
+    this._lastMiniTimelineSig = '';
+    this._previewHeaderCache = Object.create(null);
+    this._osdLastCache = Object.create(null);
+    this._osdEls = null;
+    this._lastClockStr = '';
+    this._lastClockMinute = -1;
+    this._clockEls = null;
+    this._lastVideoSurfaceKey = '';
+    this._fullscreenRafId = null;
+    this._resizeDebounceTimer = null;
+    this._rowTemplate = null;
 
     this.focusedChannelIndex = 0;
     this.focusedTimelineIndex = 0;
@@ -108,6 +134,39 @@ class IPTVApp {
     } catch (e) {
       return false;
     }
+  }
+
+  isWebOSPlatform() {
+    if (typeof window === 'undefined') return false;
+    try {
+      if (window.__IPTV_IS_WEBOS === true) return true;
+      const doc = document.documentElement;
+      if (doc && doc.classList && doc.classList.contains('platform-webos')) return true;
+      const ua = navigator && navigator.userAgent ? navigator.userAgent : '';
+      return Boolean(window.webOSSystem || window.PalmSystem || window.webOS) || /Web0S|webOS|LG NetCast/i.test(ua);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  isTvPlatform() {
+    if (typeof window === 'undefined') return false;
+    try {
+      if (window.__IPTV_IS_TV === true) return true;
+      const doc = document.documentElement;
+      if (doc && doc.classList && doc.classList.contains('tv-platform')) return true;
+      return this.isWebOSPlatform() || this.isAndroidTvWebView();
+    } catch (e) {
+      return false;
+    }
+  }
+
+  cancelPendingPreviewPlayback() {
+    if (this.previewDebounceTimer) {
+      clearTimeout(this.previewDebounceTimer);
+      this.previewDebounceTimer = null;
+    }
+    this.cancelInitialPreviewTimer();
   }
 
   cancelInitialPreviewTimer() {
@@ -210,7 +269,18 @@ class IPTVApp {
 
       this.updateVideoSurfacePosition(true);
       setTimeout(() => this.updateVideoSurfacePosition(true), 150);
-      window.addEventListener('resize', () => this.updateVideoSurfacePosition(true));
+      window.addEventListener('resize', () => {
+        if (this._resizeDebounceTimer) {
+          clearTimeout(this._resizeDebounceTimer);
+        }
+        this._resizeDebounceTimer = setTimeout(() => {
+          this._resizeDebounceTimer = null;
+          this.cachedPreviewRect = null;
+          this._lastVideoSurfaceKey = '';
+          this.invalidateChannelListMetrics();
+          this.updateVideoSurfacePosition(true);
+        }, 120);
+      });
 
       // Restore hardware audio pipeline on resume from standby, sleep, or HDMI input switch
       document.addEventListener('visibilitychange', () => {
@@ -388,30 +458,41 @@ class IPTVApp {
   }
 
   initClock() {
-    let lastMinute = -1;
-    const updateTime = () => {
-      const now = new Date();
-      const hours = ('0' + now.getHours()).slice(-2);
-      const minNum = now.getMinutes();
-      const minutes = ('0' + minNum).slice(-2);
-      const timeStr = hours + ':' + minutes;
-
-      const headerClock = document.getElementById('clock');
-      const osdClock = document.getElementById('osd-clock');
-      if (headerClock) headerClock.textContent = timeStr;
-      if (osdClock) osdClock.textContent = timeStr;
-
-      if (minNum !== lastMinute && lastMinute !== -1) {
-        this.refreshVisibleEPGLabels();
-      }
-      lastMinute = minNum;
+    this._clockEls = {
+      header: document.getElementById('clock'),
+      osd: document.getElementById('osd-clock')
     };
-    updateTime();
-    setInterval(updateTime, 15000);
+    this.updateClock();
+    setInterval(() => this.updateClock(), 15000);
+  }
+
+  updateClock() {
+    const now = new Date();
+    const hours = ('0' + now.getHours()).slice(-2);
+    const minNum = now.getMinutes();
+    const minutes = ('0' + minNum).slice(-2);
+    const timeStr = hours + ':' + minutes;
+
+    if (timeStr !== this._lastClockStr) {
+      this._lastClockStr = timeStr;
+      if (!this._clockEls) {
+        this._clockEls = {
+          header: document.getElementById('clock'),
+          osd: document.getElementById('osd-clock')
+        };
+      }
+      if (this._clockEls.header) this._clockEls.header.textContent = timeStr;
+      if (this._clockEls.osd) this._clockEls.osd.textContent = timeStr;
+    }
+
+    if (minNum !== this._lastClockMinute && this._lastClockMinute !== -1) {
+      this.refreshVisibleEPGLabels();
+    }
+    this._lastClockMinute = minNum;
   }
 
   updateVideoSurfacePosition(forceRecalc) {
-    const surface = document.getElementById('video-surface');
+    const surface = this._videoSurfaceEl || (this._videoSurfaceEl = document.getElementById('video-surface'));
     if (!surface) return;
 
     const rawZoom =
@@ -421,13 +502,20 @@ class IPTVApp {
     const docZoom = rawZoom > 0 ? rawZoom : 1;
 
     if (this.mode === 'FULLSCREEN') {
-      surface.classList.remove('preview-mode');
-      surface.classList.add('fullscreen-mode');
+      const hasZoomDim = docZoom !== 1 && typeof window !== 'undefined' && window.innerWidth > 0 && window.innerHeight > 0;
+      const wVal = hasZoomDim ? Math.ceil(window.innerWidth / docZoom) + 'px' : '100vw';
+      const hVal = hasZoomDim ? Math.ceil(window.innerHeight / docZoom) + 'px' : '100vh';
+      const key = 'FS|' + wVal + '|' + hVal;
+      if (this._lastVideoSurfaceKey === key) return;
+      this._lastVideoSurfaceKey = key;
+
+      if (surface.classList.contains('preview-mode')) surface.classList.remove('preview-mode');
+      if (!surface.classList.contains('fullscreen-mode')) surface.classList.add('fullscreen-mode');
       surface.style.left = '0px';
       surface.style.top = '0px';
-      if (docZoom !== 1 && typeof window !== 'undefined' && window.innerWidth > 0 && window.innerHeight > 0) {
-        surface.style.setProperty('width', Math.ceil(window.innerWidth / docZoom) + 'px', 'important');
-        surface.style.setProperty('height', Math.ceil(window.innerHeight / docZoom) + 'px', 'important');
+      if (hasZoomDim) {
+        surface.style.setProperty('width', wVal, 'important');
+        surface.style.setProperty('height', hVal, 'important');
       } else {
         surface.style.removeProperty('width');
         surface.style.removeProperty('height');
@@ -436,37 +524,50 @@ class IPTVApp {
       }
       surface.style.borderRadius = '0px';
       surface.style.zIndex = '100';
-    } else {
-      surface.classList.remove('fullscreen-mode');
-      surface.classList.add('preview-mode');
-      surface.style.removeProperty('width');
-      surface.style.removeProperty('height');
-      surface.style.zIndex = this.isModalOpen() ? '5' : '30';
+      return;
+    }
 
-      if (forceRecalc || !this.cachedPreviewRect) {
-        const frame = document.getElementById('preview-frame');
-        if (frame) {
-          const rect = frame.getBoundingClientRect();
-          if (rect.width > 0 && rect.height > 0) {
-            const scale = frame.offsetWidth > 0 ? rect.width / frame.offsetWidth : docZoom;
-            const factor = scale > 0 ? scale : 1;
-            this.cachedPreviewRect = {
-              left: Math.round(rect.left / factor) + 'px',
-              top: Math.round(rect.top / factor) + 'px',
-              width: Math.round(rect.width / factor) + 'px',
-              height: Math.round(rect.height / factor) + 'px'
-            };
-          }
+    // READ-FIRST phase: measure #preview-frame BEFORE any class/style writes to avoid forced synchronous layout
+    if (forceRecalc || !this.cachedPreviewRect) {
+      const frame = this._previewFrameEl || (this._previewFrameEl = document.getElementById('preview-frame'));
+      if (frame) {
+        const rect = frame.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          const offsetW = frame.offsetWidth;
+          const scale = offsetW > 0 ? rect.width / offsetW : docZoom;
+          const factor = scale > 0 ? scale : 1;
+          this.cachedPreviewRect = {
+            left: Math.round(rect.left / factor) + 'px',
+            top: Math.round(rect.top / factor) + 'px',
+            width: Math.round(rect.width / factor) + 'px',
+            height: Math.round(rect.height / factor) + 'px'
+          };
         }
       }
+    }
 
-      if (this.cachedPreviewRect) {
-        surface.style.left = this.cachedPreviewRect.left;
-        surface.style.top = this.cachedPreviewRect.top;
-        surface.style.width = this.cachedPreviewRect.width;
-        surface.style.height = this.cachedPreviewRect.height;
-        surface.style.borderRadius = '18px';
-      }
+    const zIndexVal = this.isModalOpen() ? '5' : '30';
+    const r = this.cachedPreviewRect;
+    const key = r
+      ? 'PV|' + zIndexVal + '|' + r.left + '|' + r.top + '|' + r.width + '|' + r.height
+      : 'PV|' + zIndexVal + '|none';
+    if (this._lastVideoSurfaceKey === key) return;
+    this._lastVideoSurfaceKey = key;
+
+    // WRITE-ONLY phase
+    if (surface.classList.contains('fullscreen-mode')) surface.classList.remove('fullscreen-mode');
+    if (!surface.classList.contains('preview-mode')) surface.classList.add('preview-mode');
+    surface.style.zIndex = zIndexVal;
+
+    if (r) {
+      surface.style.left = r.left;
+      surface.style.top = r.top;
+      surface.style.width = r.width;
+      surface.style.height = r.height;
+      surface.style.borderRadius = '18px';
+    } else {
+      surface.style.removeProperty('width');
+      surface.style.removeProperty('height');
     }
   }
 
@@ -677,73 +778,227 @@ class IPTVApp {
     };
   }
 
+  _handleRowLogoLoad() {
+    if (this.naturalWidth > 2) {
+      this.style.display = 'block';
+      if (this.nextElementSibling) this.nextElementSibling.style.display = 'none';
+    }
+  }
+
+  _handleRowLogoError() {
+    this.style.display = 'none';
+    if (this.nextElementSibling) this.nextElementSibling.style.display = 'block';
+  }
+
+  _getChannelRowTemplate() {
+    if (this._rowTemplate) return this._rowTemplate;
+    const tpl = document.createElement('div');
+    tpl.className = 'channel-item focusable';
+    tpl.innerHTML =
+      '<span class="channel-number"></span>' +
+      '<div class="channel-logo-thumb">' +
+        '<span class="channel-thumb-placeholder"></span>' +
+      '</div>' +
+      '<div class="channel-text-col">' +
+        '<div class="channel-row-top">' +
+          '<span class="channel-title"></span>' +
+          '<span class="channel-epg-sub"></span>' +
+        '</div>' +
+        '<div class="channel-mini-bar-row">' +
+          '<span class="channel-mini-time"></span>' +
+          '<div class="channel-mini-progress-track">' +
+            '<div class="channel-mini-progress-fill"></div>' +
+          '</div>' +
+          '<span class="channel-mini-rem-badge"></span>' +
+        '</div>' +
+      '</div>' +
+      '<span class="channel-ok-pill">לחץ OK למעבר</span>';
+    this._rowTemplate = tpl;
+    return tpl;
+  }
+
+  _getSharedPlayingBadge() {
+    if (!this._sharedPlayingBadgeEl) {
+      const badge = document.createElement('span');
+      badge.className = 'channel-playing-badge';
+      badge.textContent = 'מתנגן ▶';
+      this._sharedPlayingBadgeEl = badge;
+    }
+    return this._sharedPlayingBadgeEl;
+  }
+
   createChannelRowElement(ch, idx) {
-    const item = document.createElement('div');
-    const isSelected = this.selectedChannel && this.selectedChannel.id === ch.id;
-    item.className = 'channel-item focusable' + (isSelected ? ' active' : '');
+    const item = this._getChannelRowTemplate().cloneNode(true);
+    const isSelected = Boolean(this.selectedChannel && this.selectedChannel.id === ch.id);
+    if (isSelected) {
+      item.className = 'channel-item focusable active';
+      this.currentActiveRowEl = item;
+    }
     item.dataset.index = idx;
     item.dataset.channelId = ch.id;
-    if (isSelected) this.currentActiveRowEl = item;
 
     const isFav = this.favorites.has(ch.id);
     const epgMetrics = this.getChannelRowEPGMetrics(ch);
     const monogram = this.getChannelMonogram(ch);
-    const pillLabel = isSelected ? 'מתנגן • OK למסך מלא ▶' : 'לחץ OK למעבר';
 
-    item.innerHTML =
-      '<span class="channel-number">' + ch.number + '</span>' +
-      '<div class="channel-logo-thumb">' +
-        (ch.logo
-          ? '<img src="' + ch.logo + '" alt="" loading="lazy" decoding="async" style="display:none;" onload="if(this.naturalWidth>2){this.style.display=\'block\';if(this.nextElementSibling)this.nextElementSibling.style.display=\'none\';}" onerror="this.style.display=\'none\';if(this.nextElementSibling)this.nextElementSibling.style.display=\'block\';">'
-          : '') +
-        '<span class="channel-thumb-placeholder">' + monogram + '</span>' +
-      '</div>' +
-      '<div class="channel-text-col">' +
-        '<div class="channel-row-top">' +
-          '<span class="channel-title">' + ch.name + '</span>' +
-          '<span class="channel-epg-sub">' + epgMetrics.title + '</span>' +
-        '</div>' +
-        '<div class="channel-mini-bar-row">' +
-          '<span class="channel-mini-time">' + epgMetrics.timeRange + '</span>' +
-          '<div class="channel-mini-progress-track">' +
-            '<div class="channel-mini-progress-fill' + (epgMetrics.isEndingSoon ? ' ending-soon' : '') + '" style="width:' + epgMetrics.pct + '%"></div>' +
-          '</div>' +
-          '<span class="channel-mini-rem-badge' + (epgMetrics.isEndingSoon ? ' ending-soon' : '') + '">' + epgMetrics.remText + '</span>' +
-        '</div>' +
-      '</div>' +
-      (isFav ? '<span class="channel-fav-star">★</span>' : '') +
-      '<span class="channel-playing-badge">מתנגן ▶</span>' +
-      '<span class="channel-ok-pill">' + pillLabel + '</span>';
+    const children = item.children;
+    const numEl = children[0];
+    const logoWrap = children[1];
+    const textCol = children[2];
+    const okPill = children[3];
 
-    // Cache direct child references to eliminate querySelector calls on periodic EPG ticks
-    item._epgSub = item.querySelector('.channel-epg-sub');
-    item._epgTime = item.querySelector('.channel-mini-time');
-    item._epgFill = item.querySelector('.channel-mini-progress-fill');
-    item._epgRem = item.querySelector('.channel-mini-rem-badge');
-    item._lastEpgSig = epgMetrics.title + '|' + epgMetrics.timeRange + '|' + epgMetrics.pct + '|' + epgMetrics.remText;
+    numEl.textContent = ch.number;
 
-    item.addEventListener('click', () => {
-      this.focusArea = 'channels';
-      this.focusedChannelIndex = idx;
-      this.updateChannelFocusFast();
-      if (this.selectedChannel && this.selectedChannel.id === ch.id) {
-        this.enterFullscreen();
-      } else {
-        this.highlightChannel(ch, true);
-      }
-    });
+    const placeholderEl = logoWrap.firstChild;
+    placeholderEl.textContent = monogram;
+    if (ch.logo) {
+      const img = document.createElement('img');
+      img.alt = '';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.style.display = 'none';
+      img.onload = this._handleRowLogoLoad;
+      img.onerror = this._handleRowLogoError;
+      img.src = ch.logo;
+      logoWrap.insertBefore(img, placeholderEl);
+    }
+
+    const rowTop = textCol.children[0];
+    const titleEl = rowTop.children[0];
+    const epgSubEl = rowTop.children[1];
+    titleEl.textContent = ch.name;
+    epgSubEl.textContent = epgMetrics.title;
+
+    const barRow = textCol.children[1];
+    const epgTimeEl = barRow.children[0];
+    const epgFillEl = barRow.children[1].firstChild;
+    const epgRemEl = barRow.children[2];
+
+    epgTimeEl.textContent = epgMetrics.timeRange;
+    epgFillEl.style.width = epgMetrics.pct + '%';
+    epgRemEl.textContent = epgMetrics.remText;
+    if (epgMetrics.isEndingSoon) {
+      epgFillEl.className = 'channel-mini-progress-fill ending-soon';
+      epgRemEl.className = 'channel-mini-rem-badge ending-soon';
+    }
+
+    if (isFav) {
+      const starEl = document.createElement('span');
+      starEl.className = 'channel-fav-star';
+      starEl.textContent = '★';
+      item.insertBefore(starEl, okPill);
+    }
+
+    if (isSelected) {
+      item.insertBefore(this._getSharedPlayingBadge(), okPill);
+      okPill.textContent = 'מתנגן • OK למסך מלא ▶';
+    }
+
+    // Cache direct child references (zero querySelector calls on ticks or focus/active toggles)
+    item._epgSub = epgSubEl;
+    item._epgTime = epgTimeEl;
+    item._epgFill = epgFillEl;
+    item._epgRem = epgRemEl;
+    item._okPill = okPill;
+    item._lastEpgTitle = epgMetrics.title;
+    item._lastEpgTime = epgMetrics.timeRange;
+    item._lastEpgPct = epgMetrics.pct;
+    item._lastEpgRem = epgMetrics.remText;
+    item._lastEpgEnding = epgMetrics.isEndingSoon;
+    item._epgEpoch = this._epgRefreshEpoch || 0;
 
     return item;
   }
 
+  invalidateChannelListMetrics() {
+    this._cachedRowHeight = 0;
+    this._cachedRowBoxHeight = 0;
+    this._cachedListHeight = 0;
+  }
+
+  measureChannelListMetrics(listEl) {
+    const container = listEl || this._channelListEl || document.getElementById('channel-list');
+    if (!container) return;
+    this._channelListEl = container;
+    const h = container.clientHeight;
+    if (h > 0) {
+      this._cachedListHeight = h;
+    }
+    const rows = this._channelRowEls;
+    if (rows && rows.length > 0) {
+      const firstRow = rows[0];
+      const firstTop = firstRow.offsetTop;
+      const firstBoxH = firstRow.offsetHeight;
+      if (firstBoxH > 0) {
+        this._cachedRowBoxHeight = firstBoxH;
+        this._cachedListPaddingTop = firstTop;
+        if (rows.length > 1) {
+          const pitch = rows[1].offsetTop - firstTop;
+          this._cachedRowHeight = pitch > 0 ? pitch : firstBoxH + 10;
+        } else {
+          this._cachedRowHeight = firstBoxH + 10;
+        }
+      }
+    }
+  }
+
+  getVisibleChannelIndexRange(bufferRows) {
+    const total = this._channelRowEls.length;
+    if (total === 0) return { start: 0, end: -1 };
+    const buf = typeof bufferRows === 'number' ? bufferRows : 4;
+    const rowPitch = this._cachedRowHeight > 0 ? this._cachedRowHeight : 108;
+    const viewHeight = this._cachedListHeight > 0 ? this._cachedListHeight : 820;
+    const padTop = this._cachedListPaddingTop >= 0 ? this._cachedListPaddingTop : 14;
+    const scrollTop = this._cachedListScrollTop >= 0 ? this._cachedListScrollTop : 0;
+    const firstVisible = Math.floor(Math.max(0, scrollTop - padTop) / rowPitch);
+    const visibleCount = Math.ceil(viewHeight / rowPitch) + 1;
+    return {
+      start: Math.max(0, firstVisible - buf),
+      end: Math.min(total - 1, firstVisible + visibleCount + buf)
+    };
+  }
+
+  _scheduleVisibleEpgWindowSync() {
+    if (this._visibleEpgSyncTimer) {
+      clearTimeout(this._visibleEpgSyncTimer);
+    }
+    this._visibleEpgSyncTimer = setTimeout(() => {
+      this._visibleEpgSyncTimer = null;
+      this.syncStaleVisibleEPGRows();
+    }, 140);
+  }
+
+  syncStaleVisibleEPGRows() {
+    const total = this._channelRowEls.length;
+    if (total === 0) return;
+    const epoch = this._epgRefreshEpoch || 0;
+    const range = this.getVisibleChannelIndexRange(4);
+    for (let i = range.start; i <= range.end; i++) {
+      const row = this._channelRowEls[i];
+      if (row && row._epgEpoch !== epoch) {
+        this.updateRowEPGDom(row, this.visibleChannels[i]);
+      }
+    }
+  }
+
   renderChannelList() {
-    const listEl = document.getElementById('channel-list');
+    const listEl = this._channelListEl || (this._channelListEl = document.getElementById('channel-list'));
     if (!listEl) return;
+    if (this._focusFlushRafId && typeof window.cancelAnimationFrame === 'function') {
+      window.cancelAnimationFrame(this._focusFlushRafId);
+      this._focusFlushRafId = null;
+      this._focusFlushPending = false;
+    }
     this._renderJobId = (this._renderJobId || 0) + 1;
-    const jobId = this._renderJobId;
     listEl.innerHTML = '';
     this.channelRowNodes = [];
+    this._channelRowEls = this.channelRowNodes;
+    this._channelIndexById = Object.create(null);
     this.currentActiveRowEl = null;
+    this._focusedChannelEl = null;
+    this._cachedListScrollTop = 0;
+    listEl.scrollTop = 0;
+    this.invalidateChannelListMetrics();
 
     if (this.visibleChannels.length === 0) {
       listEl.innerHTML =
@@ -762,77 +1017,62 @@ class IPTVApp {
     }
 
     const total = this.visibleChannels.length;
-    const INITIAL_BATCH = 16;
-    const CHUNK_SIZE = 40;
-    const firstEnd = Math.min(total, INITIAL_BATCH);
-
-    const firstFrag = document.createDocumentFragment();
-    for (let idx = 0; idx < firstEnd; idx++) {
-      const item = this.createChannelRowElement(this.visibleChannels[idx], idx);
-      this.channelRowNodes.push(item);
-      firstFrag.appendChild(item);
+    const frag = document.createDocumentFragment();
+    for (let idx = 0; idx < total; idx++) {
+      const ch = this.visibleChannels[idx];
+      const item = this.createChannelRowElement(ch, idx);
+      this._channelRowEls.push(item);
+      this._channelIndexById[ch.id] = idx;
+      frag.appendChild(item);
     }
-    listEl.appendChild(firstFrag);
-
-    if (firstEnd >= total) return;
-
-    let cursor = firstEnd;
-    const renderNextChunk = () => {
-      if (this._renderJobId !== jobId) return;
-      const end = Math.min(total, cursor + CHUNK_SIZE);
-      const frag = document.createDocumentFragment();
-      for (let idx = cursor; idx < end; idx++) {
-        const item = this.createChannelRowElement(this.visibleChannels[idx], idx);
-        this.channelRowNodes.push(item);
-        frag.appendChild(item);
-      }
-      listEl.appendChild(frag);
-      cursor = end;
-      if (cursor < total) {
-        if (typeof window.requestAnimationFrame === 'function') {
-          window.requestAnimationFrame(renderNextChunk);
-        } else {
-          setTimeout(renderNextChunk, 0);
-        }
-      } else if (this.focusArea === 'channels' && this.focusedChannelIndex >= firstEnd) {
-        this.updateChannelFocusFast();
-      }
-    };
-
-    if (typeof window.requestAnimationFrame === 'function') {
-      window.requestAnimationFrame(renderNextChunk);
-    } else {
-      setTimeout(renderNextChunk, 0);
-    }
+    // Single DocumentFragment DOM append (1 layout instead of N chunked appends)
+    listEl.appendChild(frag);
+    this.measureChannelListMetrics(listEl);
   }
 
   updateRowEPGDom(row, ch) {
     if (!row || !ch) return;
+    row._epgEpoch = this._epgRefreshEpoch || 0;
     const epgMetrics = this.getChannelRowEPGMetrics(ch);
-    const sig = epgMetrics.title + '|' + epgMetrics.timeRange + '|' + epgMetrics.pct + '|' + epgMetrics.remText;
-    if (row._lastEpgSig === sig) return;
-    row._lastEpgSig = sig;
 
-    if (row._epgSub) row._epgSub.textContent = epgMetrics.title;
-    if (row._epgTime) row._epgTime.textContent = epgMetrics.timeRange;
-    if (row._epgFill) {
-      row._epgFill.style.width = epgMetrics.pct + '%';
-      row._epgFill.classList.toggle('ending-soon', epgMetrics.isEndingSoon);
+    if (row._epgSub && row._lastEpgTitle !== epgMetrics.title) {
+      row._lastEpgTitle = epgMetrics.title;
+      row._epgSub.textContent = epgMetrics.title;
     }
-    if (row._epgRem) {
+    if (row._epgTime && row._lastEpgTime !== epgMetrics.timeRange) {
+      row._lastEpgTime = epgMetrics.timeRange;
+      row._epgTime.textContent = epgMetrics.timeRange;
+    }
+    if (row._epgFill && row._lastEpgPct !== epgMetrics.pct) {
+      row._lastEpgPct = epgMetrics.pct;
+      row._epgFill.style.width = epgMetrics.pct + '%';
+    }
+    if (row._epgRem && row._lastEpgRem !== epgMetrics.remText) {
+      row._lastEpgRem = epgMetrics.remText;
       row._epgRem.textContent = epgMetrics.remText;
-      row._epgRem.classList.toggle('ending-soon', epgMetrics.isEndingSoon);
+    }
+    if (row._lastEpgEnding !== epgMetrics.isEndingSoon) {
+      row._lastEpgEnding = epgMetrics.isEndingSoon;
+      if (row._epgFill) row._epgFill.classList.toggle('ending-soon', epgMetrics.isEndingSoon);
+      if (row._epgRem) row._epgRem.classList.toggle('ending-soon', epgMetrics.isEndingSoon);
     }
   }
 
   refreshVisibleEPGLabels() {
-    const total = this.channelRowNodes.length;
-    for (let i = 0; i < total; i++) {
-      this.updateRowEPGDom(this.channelRowNodes[i], this.visibleChannels[i]);
+    const total = this._channelRowEls.length;
+    this._epgRefreshEpoch = (this._epgRefreshEpoch || 0) + 1;
+    if (total > 0) {
+      if (this._cachedRowHeight <= 0 || this._cachedListHeight <= 0) {
+        this.measureChannelListMetrics();
+      }
+      const range = this.getVisibleChannelIndexRange(4);
+      for (let i = range.start; i <= range.end; i++) {
+        this.updateRowEPGDom(this._channelRowEls[i], this.visibleChannels[i]);
+      }
     }
     const previewCh = this.visibleChannels[this.focusedChannelIndex] || this.selectedChannel;
     if (previewCh) {
-      this.updateEPGUI(previewCh);
+      this.updateEPGUI(previewCh, false);
     }
   }
 
@@ -847,24 +1087,39 @@ class IPTVApp {
   schedulePreviewChannelInfo(channel) {
     if (!channel) return;
     clearTimeout(this.previewTimer);
+    if (this._miniTimelineTimer) {
+      clearTimeout(this._miniTimelineTimer);
+      this._miniTimelineTimer = null;
+    }
+    const delayMs = this.isTvPlatform() ? 120 : 85;
     this.previewTimer = setTimeout(() => {
-      this.previewChannelInfo(channel);
-    }, 85);
+      this.previewTimer = null;
+      this.previewChannelInfo(channel, true);
+    }, delayMs);
   }
 
-  previewChannelInfo(channel) {
+  _setPreviewText(key, el, val) {
+    const str = val == null ? '' : String(val);
+    if (el && this._previewHeaderCache[key] !== str) {
+      this._previewHeaderCache[key] = str;
+      el.textContent = str;
+    }
+  }
+
+  previewChannelInfo(channel, deferTimeline) {
     if (!channel) return;
     clearTimeout(this.previewTimer);
+    this.previewTimer = null;
     this.previewedChannel = channel;
 
     const numEl = document.getElementById('preview-channel-num');
     const nameEl = document.getElementById('preview-channel-name');
     const catEl = document.getElementById('preview-channel-category');
     const srcEl = document.getElementById('preview-channel-source');
-    if (numEl) numEl.textContent = 'ערוץ ' + channel.number;
-    if (nameEl) nameEl.textContent = channel.name;
-    if (catEl) catEl.textContent = channel.group || 'טלוויזיה חיה';
-    if (srcEl) srcEl.textContent = channel.sourceName || 'פלייליסט ראשי';
+    this._setPreviewText('num', numEl, 'ערוץ ' + channel.number);
+    this._setPreviewText('name', nameEl, channel.name);
+    this._setPreviewText('cat', catEl, channel.group || 'טלוויזיה חיה');
+    this._setPreviewText('src', srcEl, channel.sourceName || 'פלייליסט ראשי');
 
     const playStatusEl = document.getElementById('preview-playing-status');
     if (playStatusEl) {
@@ -874,8 +1129,11 @@ class IPTVApp {
         this.player.currentChannel &&
         this.player.currentChannel.id === channel.id
       );
-      playStatusEl.textContent = isCatchupHere ? 'סטארט אובר' : 'שידור חי';
-      playStatusEl.classList.toggle('catchup-mode', isCatchupHere);
+      if (this._previewHeaderCache.isCatchup !== isCatchupHere) {
+        this._previewHeaderCache.isCatchup = isCatchupHere;
+        playStatusEl.textContent = isCatchupHere ? 'סטארט אובר' : 'שידור חי';
+        playStatusEl.classList.toggle('catchup-mode', isCatchupHere);
+      }
     }
 
     const logoImg = document.getElementById('preview-channel-logo');
@@ -904,7 +1162,7 @@ class IPTVApp {
     }
 
     this.updateFavoriteButtonUI(channel);
-    this.updateEPGUI(channel);
+    this.updateEPGUI(channel, Boolean(deferTimeline));
   }
 
   /**
@@ -915,30 +1173,32 @@ class IPTVApp {
     this.selectedChannel = channel;
     this.previewedChannel = channel;
 
-    // Update previous active row pill & class
+    // Update previous active row pill & class (O(1), zero querySelector)
     if (this.currentActiveRowEl) {
       this.currentActiveRowEl.classList.remove('active');
-      const oldPill = this.currentActiveRowEl.querySelector('.channel-ok-pill');
+      const oldPill = this.currentActiveRowEl._okPill || this.currentActiveRowEl.querySelector('.channel-ok-pill');
       if (oldPill) oldPill.textContent = 'לחץ OK למעבר';
     }
 
-    let newActiveRow = this.channelRowNodes[this.focusedChannelIndex];
+    let newActiveRow = this._channelRowEls[this.focusedChannelIndex];
     if (!newActiveRow || newActiveRow.dataset.channelId !== channel.id) {
-      for (let i = 0; i < this.channelRowNodes.length; i++) {
-        if (this.channelRowNodes[i].dataset.channelId === channel.id) {
-          newActiveRow = this.channelRowNodes[i];
-          break;
-        }
+      const mappedIdx = this._channelIndexById[channel.id];
+      if (typeof mappedIdx === 'number') {
+        newActiveRow = this._channelRowEls[mappedIdx];
       }
     }
     if (newActiveRow) {
       newActiveRow.classList.add('active');
-      const newPill = newActiveRow.querySelector('.channel-ok-pill');
+      const newPill = newActiveRow._okPill || newActiveRow.querySelector('.channel-ok-pill');
+      const sharedBadge = this._getSharedPlayingBadge();
+      if (sharedBadge.parentNode !== newActiveRow) {
+        newActiveRow.insertBefore(sharedBadge, newPill || null);
+      }
       if (newPill) newPill.textContent = 'מתנגן • OK למסך מלא ▶';
       this.currentActiveRowEl = newActiveRow;
     }
 
-    this.previewChannelInfo(channel);
+    this.previewChannelInfo(channel, false);
 
     this.endSeekHold();
     this._activeSeekSpeedLabel = '';
@@ -956,9 +1216,7 @@ class IPTVApp {
       this.updateOSD(channel, false);
     }
 
-    clearTimeout(this.previewDebounceTimer);
-    this.previewDebounceTimer = null;
-    this.cancelInitialPreviewTimer();
+    this.cancelPendingPreviewPlayback();
     if (skipPlayback === true) {
       return;
     }
@@ -968,39 +1226,78 @@ class IPTVApp {
       } catch (e) {}
       this.player.play(channel);
     } else if (!this.isSafeMode()) {
+      const debounceMs = (this.isWebOSPlatform() || this.isTvPlatform()) ? 280 : 150;
       this.previewDebounceTimer = setTimeout(() => {
+        this.previewDebounceTimer = null;
         try {
           localStorage.setItem(STORAGE_KEYS.LAST_CHANNEL, channel.id);
         } catch (e) {}
         this.player.play(channel);
-      }, 150);
+      }, debounceMs);
     }
   }
 
-  updateEPGUI(channel) {
+  updateEPGUI(channel, deferTimeline) {
     if (!channel || !this.epg) return;
     const epgData = this.epg.getNowNext(channel);
     if (epgData && epgData.current) {
       this.displaySynopsisForProgramme(epgData.current);
     }
 
-    // Populate Previous & Next programme with Start & End times in Main EPG Box
+    // Populate Previous & Next programme with Start & End times in Main EPG Box (dirty-checked)
     const prevTitleEl = document.getElementById('preview-epg-prev-title');
     const prevTimeEl = document.getElementById('preview-epg-prev-time');
     const nextTitleEl = document.getElementById('preview-epg-next-title');
     const nextTimeEl = document.getElementById('preview-epg-next-time');
 
     if (epgData && epgData.previous) {
-      if (prevTitleEl) prevTitleEl.textContent = epgData.previous.title;
-      if (prevTimeEl) prevTimeEl.textContent = epgData.previous.startStr + ' - ' + epgData.previous.stopStr;
+      this._setPreviewText('prevTitle', prevTitleEl, epgData.previous.title);
+      this._setPreviewText('prevTime', prevTimeEl, epgData.previous.startStr + ' - ' + epgData.previous.stopStr);
     }
     if (epgData && epgData.next) {
-      if (nextTitleEl) nextTitleEl.textContent = epgData.next.title;
-      if (nextTimeEl) nextTimeEl.textContent = epgData.next.startStr + ' - ' + epgData.next.stopStr;
+      this._setPreviewText('nextTitle', nextTitleEl, epgData.next.title);
+      this._setPreviewText('nextTime', nextTimeEl, epgData.next.startStr + ' - ' + epgData.next.stopStr);
     }
 
-    // Render Interactive Mini Timeline Strip (2 Previous + Current + 2 Upcoming)
-    this.renderMiniTimelineStrip(channel);
+    // Debounce Mini Timeline Strip DOM re-renders (~120ms) during rapid channel scrolling
+    if (deferTimeline === true) {
+      this.scheduleMiniTimelineRender(channel);
+    } else {
+      if (this._miniTimelineTimer) {
+        clearTimeout(this._miniTimelineTimer);
+        this._miniTimelineTimer = null;
+      }
+      this._pendingMiniTimelineChannel = null;
+      this.renderMiniTimelineStrip(channel);
+    }
+  }
+
+  scheduleMiniTimelineRender(channel) {
+    if (!channel) return;
+    this._pendingMiniTimelineChannel = channel;
+    if (this._miniTimelineTimer) {
+      clearTimeout(this._miniTimelineTimer);
+    }
+    this._miniTimelineTimer = setTimeout(() => {
+      this._miniTimelineTimer = null;
+      const target = this._pendingMiniTimelineChannel;
+      this._pendingMiniTimelineChannel = null;
+      if (target) {
+        this.renderMiniTimelineStrip(target);
+      }
+    }, 120);
+  }
+
+  flushPendingMiniTimeline() {
+    if (this._miniTimelineTimer) {
+      clearTimeout(this._miniTimelineTimer);
+      this._miniTimelineTimer = null;
+    }
+    const target = this._pendingMiniTimelineChannel;
+    this._pendingMiniTimelineChannel = null;
+    if (target) {
+      this.renderMiniTimelineStrip(target);
+    }
   }
 
   displaySynopsisForProgramme(prog) {
@@ -1012,23 +1309,32 @@ class IPTVApp {
     const descEl = document.getElementById('preview-epg-desc');
 
     if (badgeEl) {
-      if (prog.status === 'past') {
-        badgeEl.textContent = 'שודר קודם • לחץ OK לסטארט אובר';
-        badgeEl.classList.add('past-mode');
-      } else if (prog.status === 'upcoming') {
-        badgeEl.textContent = 'ישודר בהמשך';
-        badgeEl.classList.remove('past-mode');
-      } else {
-        badgeEl.textContent = 'משודר כעת';
-        badgeEl.classList.remove('past-mode');
+      const nextStatus = prog.status || 'live';
+      if (this._previewHeaderCache.synBadgeStatus !== nextStatus) {
+        this._previewHeaderCache.synBadgeStatus = nextStatus;
+        if (nextStatus === 'past') {
+          badgeEl.textContent = 'שודר קודם • לחץ OK לסטארט אובר';
+          badgeEl.classList.add('past-mode');
+        } else if (nextStatus === 'upcoming') {
+          badgeEl.textContent = 'ישודר בהמשך';
+          badgeEl.classList.remove('past-mode');
+        } else {
+          badgeEl.textContent = 'משודר כעת';
+          badgeEl.classList.remove('past-mode');
+        }
       }
     }
-    if (titleEl) titleEl.textContent = prog.title;
-    if (timeEl) timeEl.textContent = prog.startStr + ' - ' + prog.stopStr;
+    this._setPreviewText('synTitle', titleEl, prog.title);
+    this._setPreviewText('synTime', timeEl, prog.startStr + ' - ' + prog.stopStr);
     if (progressEl) {
-      progressEl.style.width = (typeof prog.progressPercent === 'number' ? prog.progressPercent : (prog.status === 'past' ? 100 : 0)) + '%';
+      const pctStr =
+        (typeof prog.progressPercent === 'number' ? prog.progressPercent : (prog.status === 'past' ? 100 : 0)) + '%';
+      if (this._previewHeaderCache.synPct !== pctStr) {
+        this._previewHeaderCache.synPct = pctStr;
+        progressEl.style.width = pctStr;
+      }
     }
-    if (descEl) descEl.textContent = prog.desc || 'שידור ישיר בערוץ.';
+    this._setPreviewText('synDesc', descEl, prog.desc || 'שידור ישיר בערוץ.');
   }
 
   renderMiniTimelineStrip(channel) {
@@ -1037,17 +1343,27 @@ class IPTVApp {
     this.timelineProgrammes = this.epg.getMiniTimeline(channel);
 
     let liveIdx = 0;
+    let sig = channel ? String(channel.id) : '';
     for (let i = 0; i < this.timelineProgrammes.length; i++) {
-      if (this.timelineProgrammes[i].status === 'live') {
-        liveIdx = i;
-        break;
+      const p = this.timelineProgrammes[i];
+      if (p) {
+        if (p.status === 'live') liveIdx = i;
+        sig += '|' + p.status + ':' + p.startStr + '-' + p.stopStr + ':' + p.title;
+      } else {
+        sig += '|none';
       }
     }
     this.focusedTimelineIndex = liveIdx;
 
+    if (this.timelineItemNodes.length === 5 && this._lastMiniTimelineSig === sig) {
+      return;
+    }
+    this._lastMiniTimelineSig = sig;
+
     if (this.timelineItemNodes.length !== 5) {
       stripEl.innerHTML = '';
       this.timelineItemNodes = [];
+      const frag = document.createDocumentFragment();
       for (let i = 0; i < 5; i++) {
         const card = document.createElement('div');
         card.className = 'program-strip-item';
@@ -1069,19 +1385,21 @@ class IPTVApp {
         });
 
         this.timelineItemNodes.push(card);
-        stripEl.appendChild(card);
+        frag.appendChild(card);
       }
+      stripEl.appendChild(frag);
     }
 
     for (let i = 0; i < 5; i++) {
       const card = this.timelineItemNodes[i];
       const p = this.timelineProgrammes[i];
       if (!p) {
-        card.style.display = 'none';
+        if (card.style.display !== 'none') card.style.display = 'none';
         continue;
       }
-      card.style.display = '';
-      card.className = 'program-strip-item status-' + p.status;
+      if (card.style.display !== '') card.style.display = '';
+      const nextCardClass = 'program-strip-item status-' + p.status;
+      if (card.className !== nextCardClass) card.className = nextCardClass;
 
       const timeNode = card.firstChild.firstChild;
       const tagNode = card.firstChild.lastChild;
@@ -1141,25 +1459,59 @@ class IPTVApp {
   }
 
   /* --------------------------------------------------------------------------
-     Fullscreen OSD Updates (With Previous + Current + Next & Start/End Times)
+     Fullscreen OSD Updates (Dirty-Checked 60fps Cache — Zero Redundant Writes)
      -------------------------------------------------------------------------- */
+
+  _getOsdEls() {
+    if (this._osdEls) return this._osdEls;
+    this._osdEls = {
+      osd: document.getElementById('fullscreen-osd'),
+      num: document.getElementById('osd-channel-number'),
+      name: document.getElementById('osd-channel-name'),
+      cat: document.getElementById('osd-channel-category'),
+      logo: document.getElementById('osd-channel-logo'),
+      placeholder: document.getElementById('osd-logo-placeholder'),
+      liveBadge: document.getElementById('osd-live-badge'),
+      hintRedLabel: document.getElementById('hint-red-label') || document.querySelector('#hint-red span:last-child'),
+      title: document.getElementById('osd-epg-title'),
+      time: document.getElementById('osd-epg-time'),
+      prog: document.getElementById('osd-epg-progress'),
+      desc: document.getElementById('osd-epg-desc'),
+      prevTitle: document.getElementById('osd-epg-prev-title'),
+      prevTime: document.getElementById('osd-epg-prev-time'),
+      nextTitle: document.getElementById('osd-epg-next-title'),
+      nextTime: document.getElementById('osd-epg-next-time'),
+      surfPrompt: document.getElementById('osd-surf-prompt')
+    };
+    return this._osdEls;
+  }
+
+  _setOsdText(key, el, val) {
+    const str = val == null ? '' : String(val);
+    if (el && this._osdLastCache[key] !== str) {
+      this._osdLastCache[key] = str;
+      el.textContent = str;
+    }
+  }
 
   updateOSD(channel, isSurfing) {
     if (!channel) return;
-    const numEl = document.getElementById('osd-channel-number');
-    const nameEl = document.getElementById('osd-channel-name');
-    const catEl = document.getElementById('osd-channel-category');
-    if (numEl) numEl.textContent = channel.number;
-    if (nameEl) nameEl.textContent = channel.name;
-    if (catEl) catEl.textContent = channel.group || 'HD';
+    const els = this._getOsdEls();
+    const cache = this._osdLastCache;
 
-    const osdLogo = document.getElementById('osd-channel-logo');
-    const osdPlaceholder = document.getElementById('osd-logo-placeholder');
+    this._setOsdText('num', els.num, channel.number);
+    this._setOsdText('name', els.name, channel.name);
+    this._setOsdText('cat', els.cat, channel.group || 'HD');
+
+    const osdLogo = els.logo;
+    const osdPlaceholder = els.placeholder;
     if (osdLogo && osdPlaceholder) {
       const nextLogo = channel.logo || '';
-      if (osdLogo.dataset.loadedSrc !== nextLogo) {
+      const nextMono = this.getChannelMonogram(channel);
+      if (osdLogo.dataset.loadedSrc !== nextLogo || cache.monogram !== nextMono) {
+        cache.monogram = nextMono;
         osdLogo.dataset.loadedSrc = nextLogo;
-        osdPlaceholder.textContent = this.getChannelMonogram(channel);
+        osdPlaceholder.textContent = nextMono;
         osdLogo.classList.add('hidden');
         osdPlaceholder.classList.remove('hidden');
         if (nextLogo) {
@@ -1190,44 +1542,36 @@ class IPTVApp {
         ? playback.programme
         : null;
 
-    const osdLiveBadge = document.getElementById('osd-live-badge');
-    if (osdLiveBadge) {
+    if (els.liveBadge) {
+      let badgeMode = 'live';
+      let badgeText = 'שידור חי';
       if (this._activeSeekSpeedLabel && !isSurfing) {
-        osdLiveBadge.textContent = this._activeSeekSpeedLabel;
-        osdLiveBadge.classList.add('seeking-mode');
-        osdLiveBadge.classList.remove('catchup-mode');
-        osdLiveBadge.classList.remove('paused-mode');
+        badgeMode = 'seeking';
+        badgeText = this._activeSeekSpeedLabel;
       } else if (playback && playback.isPaused && !isSurfing) {
-        osdLiveBadge.textContent = '❚❚ מושהה';
-        osdLiveBadge.classList.remove('seeking-mode');
-        osdLiveBadge.classList.remove('catchup-mode');
-        osdLiveBadge.classList.add('paused-mode');
+        badgeMode = 'paused';
+        badgeText = '❚❚ מושהה';
       } else if (activeCatchupProg) {
-        osdLiveBadge.textContent = 'סטארט אובר';
-        osdLiveBadge.classList.remove('seeking-mode');
-        osdLiveBadge.classList.add('catchup-mode');
-        osdLiveBadge.classList.remove('paused-mode');
-      } else {
-        osdLiveBadge.textContent = 'שידור חי';
-        osdLiveBadge.classList.remove('seeking-mode');
-        osdLiveBadge.classList.remove('catchup-mode');
-        osdLiveBadge.classList.remove('paused-mode');
+        badgeMode = 'catchup';
+        badgeText = 'סטארט אובר';
+      }
+      if (cache.liveBadgeText !== badgeText) {
+        cache.liveBadgeText = badgeText;
+        els.liveBadge.textContent = badgeText;
+      }
+      if (cache.liveBadgeMode !== badgeMode) {
+        cache.liveBadgeMode = badgeMode;
+        els.liveBadge.classList.toggle('seeking-mode', badgeMode === 'seeking');
+        els.liveBadge.classList.toggle('catchup-mode', badgeMode === 'catchup');
+        els.liveBadge.classList.toggle('paused-mode', badgeMode === 'paused');
       }
     }
 
-    const hintRedLabel = document.getElementById('hint-red-label') || document.querySelector('#hint-red span:last-child');
-    if (hintRedLabel) {
-      hintRedLabel.textContent = activeCatchupProg ? 'יציאה מסטארט אובר (לחי)' : 'סטארט אובר (מההתחלה)';
-    }
-
-    const osdTitle = document.getElementById('osd-epg-title');
-    const osdTime = document.getElementById('osd-epg-time');
-    const osdProg = document.getElementById('osd-epg-progress');
-    const osdDesc = document.getElementById('osd-epg-desc');
-    const osdPrevTitle = document.getElementById('osd-epg-prev-title');
-    const osdPrevTime = document.getElementById('osd-epg-prev-time');
-    const osdNextTitle = document.getElementById('osd-epg-next-title');
-    const osdNextTime = document.getElementById('osd-epg-next-time');
+    this._setOsdText(
+      'hintRed',
+      els.hintRedLabel,
+      activeCatchupProg ? 'יציאה מסטארט אובר (לחי)' : 'סטארט אובר (מההתחלה)'
+    );
 
     const epgData = this.epg ? this.epg.getNowNext(channel) : null;
 
@@ -1243,15 +1587,23 @@ class IPTVApp {
         activeCatchupProg.stopStr ||
         (this.epg && activeCatchupProg.stopMs ? this.epg.formatTime(activeCatchupProg.stopMs) : '--:--');
 
-      if (osdTitle) osdTitle.textContent = activeCatchupProg.title;
-      if (osdTime) osdTime.textContent = startStr + ' - ' + stopStr + elapsedStr;
-      if (osdProg) osdProg.style.width = pct + '%';
-      if (osdDesc) osdDesc.textContent = activeCatchupProg.desc || (epgData && epgData.current ? epgData.current.desc : '');
+      this._setOsdText('title', els.title, activeCatchupProg.title);
+      this._setOsdText('time', els.time, startStr + ' - ' + stopStr + elapsedStr);
+      const pctStr = pct + '%';
+      if (els.prog && cache.pct !== pctStr) {
+        cache.pct = pctStr;
+        els.prog.style.width = pctStr;
+      }
+      this._setOsdText('desc', els.desc, activeCatchupProg.desc || (epgData && epgData.current ? epgData.current.desc : ''));
     } else if (epgData && epgData.current) {
-      if (osdTitle) osdTitle.textContent = epgData.current.title;
-      if (osdTime) osdTime.textContent = epgData.current.startStr + ' - ' + epgData.current.stopStr;
-      if (osdProg) osdProg.style.width = epgData.current.progressPercent + '%';
-      if (osdDesc) osdDesc.textContent = epgData.current.desc;
+      this._setOsdText('title', els.title, epgData.current.title);
+      this._setOsdText('time', els.time, epgData.current.startStr + ' - ' + epgData.current.stopStr);
+      const pctStr = epgData.current.progressPercent + '%';
+      if (els.prog && cache.pct !== pctStr) {
+        cache.pct = pctStr;
+        els.prog.style.width = pctStr;
+      }
+      this._setOsdText('desc', els.desc, epgData.current.desc);
     }
 
     const adj =
@@ -1266,44 +1618,49 @@ class IPTVApp {
       : epgData;
 
     if (schedSource) {
-      if (osdPrevTitle) {
-        osdPrevTitle.textContent = schedSource.previous ? schedSource.previous.title : 'שידור קודם';
-      }
-      if (osdPrevTime) {
-        osdPrevTime.textContent = schedSource.previous
-          ? schedSource.previous.startStr + ' - ' + schedSource.previous.stopStr
-          : '';
-      }
-
-      if (osdNextTitle) {
-        osdNextTitle.textContent = schedSource.next ? schedSource.next.title : 'שידור המשך';
-      }
-      if (osdNextTime) {
-        osdNextTime.textContent = schedSource.next
-          ? schedSource.next.startStr + ' - ' + schedSource.next.stopStr
-          : '';
-      }
+      this._setOsdText('prevTitle', els.prevTitle, schedSource.previous ? schedSource.previous.title : 'שידור קודם');
+      this._setOsdText(
+        'prevTime',
+        els.prevTime,
+        schedSource.previous ? schedSource.previous.startStr + ' - ' + schedSource.previous.stopStr : ''
+      );
+      this._setOsdText('nextTitle', els.nextTitle, schedSource.next ? schedSource.next.title : 'שידור המשך');
+      this._setOsdText(
+        'nextTime',
+        els.nextTime,
+        schedSource.next ? schedSource.next.startStr + ' - ' + schedSource.next.stopStr : ''
+      );
     }
 
-    const surfPrompt = document.getElementById('osd-surf-prompt');
-    if (surfPrompt) {
-      if (isSurfing) {
-        surfPrompt.classList.remove('hidden');
+    const surfingBool = Boolean(isSurfing);
+    if (els.surfPrompt && cache.isSurfing !== surfingBool) {
+      cache.isSurfing = surfingBool;
+      if (surfingBool) {
+        els.surfPrompt.classList.remove('hidden');
       } else {
-        surfPrompt.classList.add('hidden');
+        els.surfPrompt.classList.add('hidden');
       }
     }
 
     if (this.otaManager) {
-      this.otaManager.updateVersionBadgesUI();
+      const verKey =
+        (typeof this.otaManager.getRunningVersion === 'function' ? this.otaManager.getRunningVersion() : '') +
+        '|' +
+        (typeof this.otaManager.getRunningChannel === 'function' ? this.otaManager.getRunningChannel() : '');
+      if (cache.otaVersionKey !== verKey) {
+        cache.otaVersionKey = verKey;
+        this.otaManager.updateVersionBadgesUI();
+      }
     }
   }
 
   showOSD(duration) {
     const waitMs = duration || 5000;
-    const osd = document.getElementById('fullscreen-osd');
+    const osd = this._getOsdEls().osd;
     if (!osd) return;
-    osd.classList.remove('hidden');
+    if (osd.classList.contains('hidden')) {
+      osd.classList.remove('hidden');
+    }
     clearTimeout(this.osdTimer);
     clearInterval(this.osdTickTimer);
 
@@ -1318,7 +1675,9 @@ class IPTVApp {
     }, 1000);
 
     this.osdTimer = setTimeout(() => {
-      osd.classList.add('hidden');
+      if (!osd.classList.contains('hidden')) {
+        osd.classList.add('hidden');
+      }
       clearInterval(this.osdTickTimer);
       if (this.isSurfing) {
         this.isSurfing = false;
@@ -1369,20 +1728,18 @@ class IPTVApp {
     } else {
       // O(1) DOM update for the toggled channel row without rebuilding the whole list
       const nowFav = this.favorites.has(id);
-      for (let i = 0; i < this.channelRowNodes.length; i++) {
-        const row = this.channelRowNodes[i];
-        if (row && row.dataset.channelId === id) {
-          let starEl = row.querySelector('.channel-fav-star');
-          if (nowFav && !starEl) {
-            starEl = document.createElement('span');
-            starEl.className = 'channel-fav-star';
-            starEl.textContent = '★';
-            const playingBadge = row.querySelector('.channel-playing-badge');
-            row.insertBefore(starEl, playingBadge || null);
-          } else if (!nowFav && starEl) {
-            starEl.remove();
-          }
-          break;
+      const mappedIdx = this._channelIndexById[id];
+      const row = typeof mappedIdx === 'number' ? this._channelRowEls[mappedIdx] : null;
+      if (row) {
+        let starEl = row.querySelector('.channel-fav-star');
+        if (nowFav && !starEl) {
+          starEl = document.createElement('span');
+          starEl.className = 'channel-fav-star';
+          starEl.textContent = '★';
+          const playingBadge = row.querySelector('.channel-playing-badge');
+          row.insertBefore(starEl, playingBadge || row._okPill || null);
+        } else if (!nowFav && starEl) {
+          starEl.remove();
         }
       }
     }
@@ -1405,7 +1762,7 @@ class IPTVApp {
   }
 
   /* --------------------------------------------------------------------------
-     O(1) Spatial Navigation & Focus Engine
+     Zero-Reflow O(1) Spatial Navigation & Focus Engine
      -------------------------------------------------------------------------- */
 
   getHeaderButtons() {
@@ -1428,19 +1785,113 @@ class IPTVApp {
     }
   }
 
+  /**
+   * Pure O(1) integer scroll math using cached row height & viewport height — ZERO layout reflow!
+   */
+  scrollChannelIntoView(index, listEl) {
+    const container = listEl || this._channelListEl || document.getElementById('channel-list');
+    if (!container) return;
+    this._channelListEl = container;
+
+    const rowPitch = this._cachedRowHeight > 0 ? this._cachedRowHeight : 108;
+    const rowBox = this._cachedRowBoxHeight > 0 ? this._cachedRowBoxHeight : 98;
+    const viewHeight = this._cachedListHeight > 0 ? this._cachedListHeight : 820;
+    const padTop = this._cachedListPaddingTop >= 0 ? this._cachedListPaddingTop : 14;
+    const itemTop = padTop + index * rowPitch;
+    const itemBottom = itemTop + rowBox;
+    const viewTop = this._cachedListScrollTop >= 0 ? this._cachedListScrollTop : 0;
+    const viewBottom = viewTop + viewHeight;
+    const pad = 16;
+
+    let targetScrollTop = viewTop;
+    if (itemTop < viewTop + pad) {
+      targetScrollTop = Math.max(0, itemTop - pad);
+    } else if (itemBottom > viewBottom - pad) {
+      targetScrollTop = Math.max(0, itemBottom - viewHeight + pad);
+    }
+
+    if (targetScrollTop !== viewTop) {
+      this._cachedListScrollTop = targetScrollTop;
+      this._lastProgrammaticScrollMs = Date.now();
+      container.scrollTop = targetScrollTop;
+      this._scheduleVisibleEpgWindowSync();
+    }
+  }
+
   updateChannelFocusFast() {
-    const listEl = document.getElementById('channel-list');
-    const targetItem = this.channelRowNodes[this.focusedChannelIndex];
-    if (targetItem && listEl) {
-      this.updateRowEPGDom(targetItem, this.visibleChannels[this.focusedChannelIndex]);
-      this.setFocusedElementFast(targetItem);
-      this.scrollContainerFast(listEl, targetItem);
+    const listEl = this._channelListEl || (this._channelListEl = document.getElementById('channel-list'));
+    const idx = this.focusedChannelIndex;
+    const targetItem = this._channelRowEls[idx];
+    if (!targetItem || !listEl) return;
+
+    // Measure list geometry ONCE lazily BEFORE any DOM class/text writes (zero read-after-write!)
+    if (this._cachedRowHeight <= 0 || this._cachedListHeight <= 0) {
+      this.measureChannelListMetrics(listEl);
+    }
+
+    // Strict O(1) focus swap on ONLY 2 elements via exact DOM reference
+    if (this._focusedChannelEl && this._focusedChannelEl !== targetItem) {
+      this._focusedChannelEl.classList.remove('focused');
+    }
+    if (this.currentFocusedEl && this.currentFocusedEl !== targetItem && this.currentFocusedEl !== this._focusedChannelEl) {
+      this.currentFocusedEl.classList.remove('focused');
+    }
+    this._focusedChannelEl = targetItem;
+    this.currentFocusedEl = targetItem;
+    if (!targetItem.classList.contains('focused')) {
+      targetItem.classList.add('focused');
+    }
+
+    // Zero-reflow integer arithmetic scrollTop write (ONLY when row exits visible window)
+    this.scrollChannelIntoView(idx, listEl);
+
+    // Only refresh row EPG if stale since last EPG epoch
+    if (targetItem._epgEpoch !== (this._epgRefreshEpoch || 0)) {
+      this.updateRowEPGDom(targetItem, this.visibleChannels[idx]);
+    }
+  }
+
+  _scheduleFocusVisualFlush() {
+    this._focusFlushPending = true;
+    if (this._focusFlushRafId) return;
+    const flush = () => {
+      this._focusFlushRafId = null;
+      if (!this._focusFlushPending) return;
+      this._focusFlushPending = false;
+      if (this.mode !== 'BROWSE' || this.focusArea !== 'channels') return;
+      this.updateChannelFocusFast();
+      const ch = this.visibleChannels[this.focusedChannelIndex];
+      if (ch) {
+        this.schedulePreviewChannelInfo(ch);
+      }
+    };
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      this._focusFlushRafId = window.requestAnimationFrame(flush);
+    } else {
+      this._focusFlushRafId = setTimeout(flush, 16);
+    }
+  }
+
+  _flushFocusVisualsNow() {
+    if (!this._focusFlushPending && !this._focusFlushRafId) return;
+    if (this._focusFlushRafId) {
+      if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+        window.cancelAnimationFrame(this._focusFlushRafId);
+      } else {
+        clearTimeout(this._focusFlushRafId);
+      }
+      this._focusFlushRafId = null;
+    }
+    this._focusFlushPending = false;
+    if (this.mode === 'BROWSE' && this.focusArea === 'channels') {
+      this.updateChannelFocusFast();
     }
   }
 
   updateTimelineFocusFast() {
     const target = this.timelineItemNodes[this.focusedTimelineIndex];
     if (target) {
+      this._focusedChannelEl = null;
       this.setFocusedElementFast(target);
       const prog = this.timelineProgrammes[this.focusedTimelineIndex];
       if (prog) {
@@ -1453,12 +1904,13 @@ class IPTVApp {
     const buttons = this.getHeaderButtons();
     const target = buttons[this.focusedHeaderIndex];
     if (target) {
+      this._focusedChannelEl = null;
       this.setFocusedElementFast(target);
     }
   }
 
   /**
-   * Pure integer offsetTop scroll calculation — zero getBoundingClientRect() layout reflow!
+   * Pure integer offsetTop scroll calculation for modal lists — zero getBoundingClientRect() layout reflow!
    */
   scrollContainerFast(containerEl, itemEl) {
     if (!containerEl || !itemEl) return;
@@ -1484,7 +1936,7 @@ class IPTVApp {
         this.endSeekHold();
         this._activeSeekSpeedLabel = '';
 
-        const osd = document.getElementById('fullscreen-osd');
+        const osd = this._getOsdEls().osd;
         const isOsdVisible = osd && !osd.classList.contains('hidden');
 
         // First press while Info Bar is hidden: only reveal Info Bar for the current channel
@@ -1542,24 +1994,35 @@ class IPTVApp {
     if (this.focusArea === 'channels') {
       if (direction === 'down') {
         if (this.visibleChannels.length === 0) return;
+        this.cancelPendingPreviewPlayback();
+        clearTimeout(this.previewTimer);
+        if (this._miniTimelineTimer) {
+          clearTimeout(this._miniTimelineTimer);
+          this._miniTimelineTimer = null;
+        }
         this.focusedChannelIndex = (this.focusedChannelIndex + 1) % this.visibleChannels.length;
-        this.updateChannelFocusFast();
-        // Debounce heavy EPG/timeline/logo preview during rapid D-pad scrolling
-        this.schedulePreviewChannelInfo(this.visibleChannels[this.focusedChannelIndex]);
+        this._scheduleFocusVisualFlush();
       } else if (direction === 'up') {
+        this.cancelPendingPreviewPlayback();
+        clearTimeout(this.previewTimer);
+        if (this._miniTimelineTimer) {
+          clearTimeout(this._miniTimelineTimer);
+          this._miniTimelineTimer = null;
+        }
         if (this.visibleChannels.length === 0) {
           this.focusHeaderBar();
           return;
         }
         if (this.focusedChannelIndex > 0) {
           this.focusedChannelIndex--;
-          this.updateChannelFocusFast();
-          // Debounce heavy EPG/timeline/logo preview during rapid D-pad scrolling
-          this.schedulePreviewChannelInfo(this.visibleChannels[this.focusedChannelIndex]);
+          this._scheduleFocusVisualFlush();
         } else {
+          this._flushFocusVisualsNow();
           this.focusHeaderBar();
         }
       } else if (direction === 'left') {
+        this._flushFocusVisualsNow();
+        this.flushPendingMiniTimeline();
         // Move focus to the Channel's Program Timeline Strip (Prev/Current/Next shows) or Header
         if (this.timelineItemNodes.length > 0) {
           this.focusArea = 'timeline';
@@ -1568,6 +2031,7 @@ class IPTVApp {
           this.focusHeaderBar();
         }
       } else if (direction === 'right') {
+        this._flushFocusVisualsNow();
         this.updateChannelFocusFast();
       }
     } else if (this.focusArea === 'timeline') {
@@ -1613,6 +2077,7 @@ class IPTVApp {
   }
 
   focusHeaderBar() {
+    this._flushFocusVisualsNow();
     this.focusArea = 'header';
     this.focusedHeaderIndex = 0;
     this.updateHeaderFocusFast();
@@ -1644,6 +2109,7 @@ class IPTVApp {
      -------------------------------------------------------------------------- */
 
   selectCurrent() {
+    this._flushFocusVisualsNow();
     // 1. FULLSCREEN MODE
     if (this.mode === 'FULLSCREEN') {
       if (this.isSurfing) {
@@ -1755,16 +2221,41 @@ class IPTVApp {
      Fullscreen Mode Control
      -------------------------------------------------------------------------- */
 
+  _cancelFullscreenRaf() {
+    if (this._fullscreenRafId) {
+      if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+        window.cancelAnimationFrame(this._fullscreenRafId);
+      } else {
+        clearTimeout(this._fullscreenRafId);
+      }
+      this._fullscreenRafId = null;
+    }
+  }
+
   enterFullscreen() {
     if (!this.selectedChannel) return;
+    this._flushFocusVisualsNow();
     this.mode = 'FULLSCREEN';
     this.isSurfing = false;
     this.endSeekHold();
     this._activeSeekSpeedLabel = '';
     clearTimeout(this._seekBadgeClearTimer);
-    this.updateVideoSurfacePosition(true);
-    this.updateOSD(this.selectedChannel, false);
-    this.showOSD(4500);
+
+    const targetChannel = this.selectedChannel;
+    this._cancelFullscreenRaf();
+    const runEnterFrame = () => {
+      this._fullscreenRafId = null;
+      if (this.mode !== 'FULLSCREEN') return;
+      this.updateVideoSurfacePosition(true);
+      this.updateOSD(targetChannel, false);
+      this.showOSD(4500);
+    };
+
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      this._fullscreenRafId = window.requestAnimationFrame(runEnterFrame);
+    } else {
+      runEnterFrame();
+    }
   }
 
   exitFullscreen() {
@@ -1777,25 +2268,40 @@ class IPTVApp {
       clearTimeout(this._seekBadgeClearTimer);
       clearTimeout(this.osdTimer);
       clearInterval(this.osdTickTimer);
-      const osd = document.getElementById('fullscreen-osd');
-      if (osd) osd.classList.add('hidden');
+
       if (this.selectedChannel) {
-        const idx = this.visibleChannels.findIndex((c) => c.id === this.selectedChannel.id);
-        if (idx !== -1) this.focusedChannelIndex = idx;
-        this.previewChannelInfo(this.selectedChannel);
+        const mappedIdx = this._channelIndexById[this.selectedChannel.id];
+        if (typeof mappedIdx === 'number') {
+          this.focusedChannelIndex = mappedIdx;
+        } else {
+          const idx = this.visibleChannels.findIndex((c) => c.id === this.selectedChannel.id);
+          if (idx !== -1) this.focusedChannelIndex = idx;
+        }
       }
-      this.updateVideoSurfacePosition(true);
-      // Asynchronously update DOM focus & EPG labels on next animation frame
+
+      this._cancelFullscreenRaf();
+      const runExitFrame = () => {
+        this._fullscreenRafId = null;
+        if (this.mode !== 'BROWSE') return;
+        try {
+          // READ-BEFORE-WRITE: measure/apply video surface FIRST (zero read-after-write layout thrash)
+          this.updateVideoSurfacePosition(!this.cachedPreviewRect);
+          const osd = this._getOsdEls().osd;
+          if (osd && !osd.classList.contains('hidden')) {
+            osd.classList.add('hidden');
+          }
+          if (this.selectedChannel) {
+            this.previewChannelInfo(this.selectedChannel, true);
+          }
+          this.refreshVisibleEPGLabels();
+          this.updateChannelFocusFast();
+        } catch (e) {}
+      };
+
       if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-        window.requestAnimationFrame(() => {
-          try {
-            this.refreshVisibleEPGLabels();
-            this.updateChannelFocusFast();
-          } catch (e) {}
-        });
+        this._fullscreenRafId = window.requestAnimationFrame(runExitFrame);
       } else {
-        this.refreshVisibleEPGLabels();
-        this.updateChannelFocusFast();
+        runExitFrame();
       }
     } catch (err) {
       console.warn('exitFullscreen notice:', err);
@@ -2158,10 +2664,16 @@ class IPTVApp {
     }
     const barEl = document.getElementById('guide-days-bar');
     const activeTab = this.guideDayTabNodes[this.guideDayIndex];
-    if (barEl && activeTab && typeof activeTab.scrollIntoView === 'function') {
-      try {
-        activeTab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-      } catch (e) {}
+    if (barEl && activeTab) {
+      const tabLeft = activeTab.offsetLeft;
+      const tabRight = tabLeft + activeTab.offsetWidth;
+      const viewLeft = barEl.scrollLeft;
+      const viewRight = viewLeft + barEl.clientWidth;
+      if (tabLeft < viewLeft) {
+        barEl.scrollLeft = tabLeft;
+      } else if (tabRight > viewRight) {
+        barEl.scrollLeft = tabRight - barEl.clientWidth;
+      }
     }
   }
 
@@ -2807,6 +3319,45 @@ class IPTVApp {
      -------------------------------------------------------------------------- */
 
   bindDOMEvents() {
+    // Delegated click & passive scroll listeners on #channel-list (zero per-row listeners!)
+    const channelListEl = document.getElementById('channel-list');
+    if (channelListEl) {
+      this._channelListEl = channelListEl;
+      channelListEl.addEventListener('click', (e) => {
+        let node = e.target;
+        while (node && node !== channelListEl) {
+          if (node.classList && node.classList.contains('channel-item')) break;
+          node = node.parentNode;
+        }
+        if (!node || node === channelListEl || !node.dataset) return;
+        const idx = parseInt(node.dataset.index, 10);
+        if (isNaN(idx)) return;
+        const ch = this.visibleChannels[idx];
+        if (!ch) return;
+        this.focusArea = 'channels';
+        this.focusedChannelIndex = idx;
+        this.updateChannelFocusFast();
+        if (this.selectedChannel && this.selectedChannel.id === ch.id) {
+          this.enterFullscreen();
+        } else {
+          this.highlightChannel(ch, true);
+        }
+      });
+
+      const onListScroll = () => {
+        if (this._lastProgrammaticScrollMs && (Date.now() - this._lastProgrammaticScrollMs) < 120) {
+          return;
+        }
+        this._cachedListScrollTop = channelListEl.scrollTop;
+        this._scheduleVisibleEpgWindowSync();
+      };
+      try {
+        channelListEl.addEventListener('scroll', onListScroll, { passive: true });
+      } catch (e) {
+        channelListEl.addEventListener('scroll', onListScroll, false);
+      }
+    }
+
     const videoSurface = document.getElementById('video-surface');
     if (videoSurface) {
       videoSurface.addEventListener('click', () => {
