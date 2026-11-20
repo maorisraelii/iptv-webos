@@ -79,8 +79,10 @@ class MainActivity : Activity() {
             try {
                 if (::rootContainer.isInitialized) {
                     rootContainer.post {
-                        markBootHealthy()
-                        hideBootOverlayNow()
+                        if (!isTerminalCrashState && !pendingRecovery && webView != null) {
+                            isPageLoaded = true
+                            hideBootOverlayNow()
+                        }
                     }
                 }
             } catch (t: Throwable) {
@@ -220,23 +222,17 @@ class MainActivity : Activity() {
             val appContext = applicationContext
             val previous = Thread.getDefaultUncaughtExceptionHandler()
             Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-                var recoverable = false
                 try {
-                    recoverable = isRecoverableThrowable(thread, throwable)
                     persistCrashReport(
                         appContext,
-                        if (recoverable) "recovered-exception" else "fatal-exception",
+                        "fatal-exception",
                         buildCrashSummary(thread, throwable),
-                        fatal = !recoverable
+                        fatal = true
                     )
                 } catch (_: Throwable) {
                     // never let the crash recorder itself throw
                 }
-                if (recoverable) {
-                    // Background-thread failure inside our own WebView callbacks (e.g. the
-                    // Chromium IO thread / JS bridge thread): the app can keep running.
-                    Log.e(TAG, "Recovered uncaught exception on ${thread.name}", throwable)
-                } else if (previous != null) {
+                if (previous != null) {
                     previous.uncaughtException(thread, throwable)
                 } else {
                     Process.killProcess(Process.myPid())
@@ -280,7 +276,7 @@ class MainActivity : Activity() {
 
     private fun scheduleBootHealthyMark() {
         if (!::rootContainer.isInitialized) return
-        cancelBootHealthyMark()
+        if (bootHealthy || bootHealthyRunnable != null) return
         val runnable = Runnable {
             bootHealthyRunnable = null
             if (webView != null && isPageLoaded && !isTerminalCrashState && !pendingRecovery) {
@@ -619,71 +615,75 @@ class MainActivity : Activity() {
         view: WebView?,
         detail: RenderProcessGoneDetail?
     ): Boolean {
-        val current = webView
-        if (view != null && current != null && view !== current) {
-            safely("detach stale") { (view.parent as? ViewGroup)?.removeView(view) }
-            return true
-        }
-        val didCrash = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            detail?.didCrash() ?: true
-        } else {
-            true
-        }
-        val priorityAtExit = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            detail?.rendererPriorityAtExit() ?: -1
-        } else {
-            -1
-        }
-        Log.e(TAG, "WebView render process gone (didCrash=$didCrash priorityAtExit=$priorityAtExit)")
+        try {
+            val current = webView
+            if (view != null && view !== current) {
+                safely("detach stale") { (view.parent as? ViewGroup)?.removeView(view) }
+                return true
+            }
+            val didCrash = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                detail?.didCrash() ?: true
+            } else {
+                true
+            }
+            val priorityAtExit = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                detail?.rendererPriorityAtExit() ?: -1
+            } else {
+                -1
+            }
+            Log.e(TAG, "WebView render process gone (didCrash=$didCrash priorityAtExit=$priorityAtExit)")
 
-        isPageLoaded = false
-        cancelBootOverlayFallback()
-        cancelBootHealthyMark()
+            isPageLoaded = false
+            cancelBootOverlayFallback()
+            cancelBootHealthyMark()
 
-        // Immediately detach the dead view so a frozen/blank surface is never left attached.
-        safely("detach dead view") { (view?.parent as? ViewGroup)?.removeView(view) }
-        destroyWebView()
+            // Immediately detach the dead view so a frozen/blank surface is never left attached.
+            safely("detach dead view") { (view?.parent as? ViewGroup)?.removeView(view) }
+            destroyWebView(rendererGone = true)
 
-        renderCrashCount++
-        val now = SystemClock.elapsedRealtime()
-        recentRenderLosses.removeAll { now - it.first > RENDER_CRASH_WINDOW_MS }
-        recentRenderLosses.add(now to didCrash)
-        val crashesInWindow = recentRenderLosses.count { it.second }
-        val lossesInWindow = maxOf(renderCrashCount, recentRenderLosses.size)
-        val reason = if (didCrash) {
-            "webview-renderer-crashed (count=$renderCrashCount, windowCrashes=$crashesInWindow)"
-        } else {
-            "webview-renderer-reclaimed (count=$renderCrashCount, windowLosses=$lossesInWindow)"
-        }
-        persistCrashReport(
-            applicationContext,
-            "webview-renderer",
-            reason,
-            fatal = didCrash
-        )
-
-        if (isFinishing || isDestroyed) return true
-
-        if (lossesInWindow > MAX_RENDER_CRASH_RECOVERIES) {
-            pendingRecovery = false
-            showBootOverlayError(
-                "שגיאת מנוע תצוגה (WebView קרס יותר מ-3 פעמים).\nאפשר לנסות שוב, להפעיל מצב בטוח או לנקות מטמון."
+            renderCrashCount++
+            val now = SystemClock.elapsedRealtime()
+            recentRenderLosses.removeAll { now - it.first > RENDER_CRASH_WINDOW_MS }
+            recentRenderLosses.add(now to didCrash)
+            val crashesInWindow = recentRenderLosses.count { it.second }
+            val lossesInWindow = maxOf(renderCrashCount, recentRenderLosses.size)
+            val reason = if (didCrash) {
+                "webview-renderer-crashed (count=$renderCrashCount, windowCrashes=$crashesInWindow)"
+            } else {
+                "webview-renderer-reclaimed (count=$renderCrashCount, windowLosses=$lossesInWindow)"
+            }
+            persistCrashReport(
+                applicationContext,
+                "webview-renderer",
+                reason,
+                fatal = didCrash
             )
-            return true
-        }
 
-        // If >= 2 render crashes occur in one session (or didCrash after first recovery),
-        // automatically escalate into Safe Mode (?safeMode=1).
-        if (renderCrashCount >= SAFE_MODE_RENDER_CRASH_THRESHOLD ||
-            crashesInWindow >= SAFE_MODE_RENDER_CRASH_THRESHOLD
-        ) {
-            safeModeActive = true
-        }
+            if (isFinishing || isDestroyed) return true
 
-        showBootOverlayLoading()
-        pendingRecovery = true
-        if (isForeground) {
-            scheduleRecovery(RECOVERY_DELAY_MS * lossesInWindow)
+            if (lossesInWindow > MAX_RENDER_CRASH_RECOVERIES) {
+                pendingRecovery = false
+                showBootOverlayError(
+                    "שגיאת מנוע תצוגה (WebView קרס יותר מ-3 פעמים).\nאפשר לנסות שוב, להפעיל מצב בטוח או לנקות מטמון."
+                )
+                return true
+            }
+
+            // If >= 2 render crashes occur in one session (or didCrash after first recovery),
+            // automatically escalate into Safe Mode (?safeMode=1).
+            if (renderCrashCount >= SAFE_MODE_RENDER_CRASH_THRESHOLD ||
+                crashesInWindow >= SAFE_MODE_RENDER_CRASH_THRESHOLD
+            ) {
+                safeModeActive = true
+            }
+
+            showBootOverlayLoading()
+            pendingRecovery = true
+            if (isForeground) {
+                scheduleRecovery(RECOVERY_DELAY_MS * lossesInWindow)
+            }
+        } catch (t: Throwable) {
+            Log.e(TAG, "handleRenderProcessGone failed", t)
         }
         return true
     }
@@ -990,11 +990,10 @@ class MainActivity : Activity() {
     private fun hideBootOverlayNow() {
         if (isTerminalCrashState || pendingRecovery || webView == null) return
         cancelBootOverlayFallback()
-        val overlay = bootOverlay ?: return
-        if (overlay.visibility != View.GONE) {
+        val overlay = bootOverlay
+        if (overlay != null && overlay.visibility != View.GONE) {
             overlay.visibility = View.GONE
         }
-        markBootHealthy()
         scheduleBootHealthyMark()
     }
 
@@ -1002,11 +1001,14 @@ class MainActivity : Activity() {
         val assetPath = normalizeAssetPath(rawPath)
             ?: return emptyStaticNotFoundResponse()
 
+        val fullAssetPath = "www/$assetPath"
         val stream = try {
-            applicationContext.assets.open("www/$assetPath")
+            applicationContext.assets.open(fullAssetPath)
         } catch (_: Throwable) {
             return emptyStaticNotFoundResponse()
         }
+
+        val contentLength = resolveAssetContentLength(fullAssetPath, stream)
 
         val responseStream: InputStream = if (method == "HEAD") {
             try {
@@ -1019,10 +1021,13 @@ class MainActivity : Activity() {
         }
 
         val (mimeType, encoding) = resolveAssetMimeAndEncoding(assetPath)
-        val headers = mapOf(
-            "Access-Control-Allow-Origin" to "*",
-            "Cache-Control" to "no-cache"
-        )
+        val headers = LinkedHashMap<String, String>(4).apply {
+            put("Access-Control-Allow-Origin", "*")
+            put("Cache-Control", "no-cache")
+            if (contentLength > 0L) {
+                put("Content-Length", contentLength.toString())
+            }
+        }
         return WebResourceResponse(
             mimeType,
             encoding,
@@ -1031,6 +1036,29 @@ class MainActivity : Activity() {
             headers,
             responseStream
         )
+    }
+
+    private fun resolveAssetContentLength(fullAssetPath: String, stream: InputStream): Long {
+        try {
+            val afd = applicationContext.assets.openFd(fullAssetPath)
+            try {
+                val fdLen = afd.length
+                if (fdLen > 0L) return fdLen
+            } finally {
+                try {
+                    afd.close()
+                } catch (_: Throwable) {
+                }
+            }
+        } catch (_: Throwable) {
+            // Compressed assets cannot be opened via openFd; fall back to AssetInputStream.available().
+        }
+        return try {
+            val avail = stream.available().toLong()
+            if (avail > 0L) avail else -1L
+        } catch (_: Throwable) {
+            -1L
+        }
     }
 
     private fun normalizeAssetPath(rawPath: String?): String? {
@@ -1154,9 +1182,7 @@ class MainActivity : Activity() {
                     candidate.setRequestProperty("User-Agent", userAgent)
                     requestHeaders?.forEach { (key, value) ->
                         if (key.equals("Accept", ignoreCase = true) ||
-                            key.equals("Range", ignoreCase = true) ||
-                            key.equals("If-None-Match", ignoreCase = true) ||
-                            key.equals("If-Modified-Since", ignoreCase = true)
+                            key.equals("Range", ignoreCase = true)
                         ) {
                             val safeVal = value.replace(Regex("[\\r\\n]+"), " ").trim()
                             if (safeVal.isNotEmpty()) {
@@ -1204,26 +1230,50 @@ class MainActivity : Activity() {
                 activeConn.disconnect()
                 return proxyErrorResponse(502, "Bad Gateway")
             }
+            if (statusCode in 300..399) {
+                val (redirectMime, redirectEncoding) = parseContentType(activeConn.contentType)
+                activeConn.disconnect()
+                return if (statusCode == HttpURLConnection.HTTP_NOT_MODIFIED) {
+                    WebResourceResponse(
+                        redirectMime,
+                        redirectEncoding,
+                        200,
+                        "OK",
+                        mapOf(
+                            "Access-Control-Allow-Origin" to "*",
+                            "Access-Control-Allow-Methods" to "GET, HEAD, OPTIONS",
+                            "Access-Control-Allow-Headers" to "*",
+                            "Cache-Control" to "no-store",
+                            "Content-Length" to "0"
+                        ),
+                        ByteArrayInputStream(ByteArray(0))
+                    )
+                } else {
+                    proxyErrorResponse(502, "Bad Gateway")
+                }
+            }
 
-            val reasonPhrase = activeConn.responseMessage
-                ?.replace(Regex("[\\r\\n]+"), " ")
-                ?.trim()
-                ?.takeIf { it.isNotEmpty() }
-                ?: defaultReasonPhrase(statusCode)
+            val reasonPhrase = sanitizeReasonPhrase(activeConn.responseMessage, statusCode)
 
             val (mimeType, encoding) = parseContentType(activeConn.contentType)
-            val responseHeaders = mapOf(
-                "Access-Control-Allow-Origin" to "*",
-                "Access-Control-Allow-Methods" to "GET, HEAD, OPTIONS",
-                "Access-Control-Allow-Headers" to "*",
-                "Cache-Control" to "no-store"
-            )
+            val contentLength = activeConn.contentLengthLong
+            val responseHeaders = LinkedHashMap<String, String>(6).apply {
+                put("Access-Control-Allow-Origin", "*")
+                put("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
+                put("Access-Control-Allow-Headers", "*")
+                put("Cache-Control", "no-store")
+            }
 
             val responseStream: InputStream = if (
                 currentMethod == "HEAD" ||
-                statusCode == HttpURLConnection.HTTP_NO_CONTENT ||
-                statusCode == HttpURLConnection.HTTP_NOT_MODIFIED
+                statusCode == HttpURLConnection.HTTP_NO_CONTENT
             ) {
+                if (currentMethod == "HEAD" &&
+                    statusCode != HttpURLConnection.HTTP_NO_CONTENT &&
+                    contentLength > 0L
+                ) {
+                    responseHeaders["Content-Length"] = contentLength.toString()
+                }
                 activeConn.disconnect()
                 ByteArrayInputStream(ByteArray(0))
             } else {
@@ -1236,6 +1286,9 @@ class MainActivity : Activity() {
                     activeConn.disconnect()
                     ByteArrayInputStream(ByteArray(0))
                 } else {
+                    if (contentLength > 0L) {
+                        responseHeaders["Content-Length"] = contentLength.toString()
+                    }
                     ConnectionManagedInputStream(upstreamStream, activeConn)
                 }
             }
@@ -1288,13 +1341,29 @@ class MainActivity : Activity() {
         return mimeType to charset
     }
 
+    private fun sanitizeReasonPhrase(raw: String?, statusCode: Int): String {
+        val cleaned = raw
+            ?.let { input ->
+                val sb = StringBuilder(input.length)
+                for (ch in input) {
+                    if (ch.code in 0x20..0x7E) {
+                        sb.append(ch)
+                    } else if (ch == '\r' || ch == '\n' || ch == '\t') {
+                        sb.append(' ')
+                    }
+                }
+                sb.toString().trim()
+            }
+            ?.takeIf { it.isNotEmpty() }
+        return cleaned ?: defaultReasonPhrase(statusCode)
+    }
+
     private fun defaultReasonPhrase(statusCode: Int): String {
         return when (statusCode) {
             200 -> "OK"
             201 -> "Created"
             204 -> "No Content"
             206 -> "Partial Content"
-            304 -> "Not Modified"
             400 -> "Bad Request"
             401 -> "Unauthorized"
             403 -> "Forbidden"
@@ -1313,7 +1382,7 @@ class MainActivity : Activity() {
             "text/plain",
             "utf-8",
             statusCode,
-            reasonPhrase,
+            sanitizeReasonPhrase(reasonPhrase, statusCode),
             mapOf(
                 "Access-Control-Allow-Origin" to "*",
                 "Access-Control-Allow-Methods" to "GET, HEAD, OPTIONS",
@@ -1422,20 +1491,24 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun destroyWebView() {
+    private fun destroyWebView(rendererGone: Boolean = false) {
         cancelBootOverlayFallback()
         cancelBootHealthyMark()
         hideCustomViewNow()
         val wv = webView ?: return
         webView = null
-        safely("destroyWebView stopLoading") { wv.stopLoading() }
-        safely("destroyWebView loadBlank") { wv.loadUrl("about:blank") }
-        safely("destroyWebView onPause") { wv.onPause() }
+        if (!rendererGone) {
+            safely("destroyWebView stopLoading") { wv.stopLoading() }
+            safely("destroyWebView loadBlank") { wv.loadUrl("about:blank") }
+            safely("destroyWebView onPause") { wv.onPause() }
+        }
         safely("destroyWebView clearChromeClient") { wv.webChromeClient = null }
         safely("destroyWebView clearViewClient") { wv.webViewClient = DetachedWebViewClient() }
         safely("destroyWebView removeJsInterface") { wv.removeJavascriptInterface("AndroidTvHost") }
         safely("destroyWebView removeFromParent") { (wv.parent as? ViewGroup)?.removeView(wv) }
-        safely("destroyWebView removeAllViews") { wv.removeAllViews() }
+        if (!rendererGone) {
+            safely("destroyWebView removeAllViews") { wv.removeAllViews() }
+        }
         safely("destroyWebView destroy") { wv.destroy() }
     }
 
@@ -1448,6 +1521,17 @@ class MainActivity : Activity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (customView != null && event.keyCode == KeyEvent.KEYCODE_BACK) {
+            if (event.action == KeyEvent.ACTION_DOWN) {
+                return true
+            }
+            if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) {
+                hideCustomViewNow()
+                return true
+            }
+            return true
+        }
+
         val wv = webView
         if (wv == null || !isPageLoaded || isTerminalCrashState) {
             return super.dispatchKeyEvent(event)
@@ -1700,7 +1784,7 @@ class MainActivity : Activity() {
         private const val RENDER_CRASH_WINDOW_MS = 120_000L
         private const val RECOVERY_DELAY_MS = 450L
         private const val BOOT_FALLBACK_DELAY_MS = 1200L
-        private const val BOOT_HEALTHY_DELAY_MS = 5000L
+        private const val BOOT_HEALTHY_DELAY_MS = 8000L
         private const val BOOT_STATUS_DEFAULT = "IPTV Live • טוען שידורים..."
         private const val BACKGROUND_COLOR = 0xFF070B14.toInt()
         private const val BOOT_ACCENT_COLOR = 0xFF38BDF8.toInt()
@@ -1737,18 +1821,6 @@ class MainActivity : Activity() {
             } catch (_: Throwable) {
                 "[${thread.name}] ${throwable.javaClass.name}"
             }
-        }
-
-        private fun isRecoverableThrowable(thread: Thread, throwable: Throwable): Boolean {
-            if (throwable is OutOfMemoryError || throwable is VirtualMachineError) {
-                return false
-            }
-            val name = thread.name.orEmpty()
-            return name != "main" && (
-                name.contains("JavaBridge", ignoreCase = true) ||
-                    name.contains("Chrome_IOThread", ignoreCase = true) ||
-                    name.contains("CrAsyncTask", ignoreCase = true)
-                )
         }
 
         private fun persistCrashReport(
