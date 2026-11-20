@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Live TV — Apple tvOS 18 / visionOS Liquid Glass UI (v5.1.0)
+   Live TV — Apple tvOS 18 / visionOS Liquid Glass UI (v5.1.5)
    1080p Broadcast Layout • 60fps Hardware-Composited for LG webOS 4.x+ & Android TV
    ========================================================================== */
 
@@ -3217,41 +3217,419 @@ body {
 
 /* ==========================================================================
    10-Iteration 60fps Hardware Performance Engine for webOS & Android TV Glass
+   Iterations 1-6: Zero-Blur Audit, Zero Multi-Radial Overdraw, Specular Glass
+   Compression, Instant Focus Transitions, Zero Idle Animations & Layer Hygiene
+   (Desktop browsers retain full dynamic Apple Liquid Glass blur & cosmos mesh)
    ========================================================================== */
+
+/* Iteration 1: 100% Zero-Blur Audit on .tv-platform */
+.tv-platform .top-header,
+.tv-platform .color-bar,
+.tv-platform .osd-card,
+.tv-platform .fullscreen-osd,
+.tv-platform .osd-overlay,
+.tv-platform .modal-backdrop,
+.tv-platform .modal-card,
+.tv-platform .modal-guide-card,
+.tv-platform .modal-settings-card,
+.tv-platform .modal-search-card,
+.tv-platform .modal-ota-card,
+.tv-platform .channel-number-jump,
+.tv-platform #channel-number-jump,
+.tv-platform .toast,
+.tv-platform #toast,
+.tv-platform .video-pause-indicator,
+.tv-platform #video-pause-indicator,
+.tv-platform .boot-glass-card,
+.tv-platform .channel-list-panel,
+.tv-platform .channel-details-card {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Iteration 2: Eliminate 1080p Multi-Radial-Gradient Fill-Rate Overdraw */
+html.tv-platform,
+html.tv-platform body {
+  background: #05070e !important;
+}
+
+.tv-platform .app-shell {
+  background: linear-gradient(180deg, #0b1326 0%, #060913 38%, #05070e 100%) !important;
+}
+
+.tv-platform #boot-splash.boot-splash,
+.tv-platform .boot-splash {
+  background: linear-gradient(180deg, #0b1326 0%, #060913 42%, #05070e 100%) !important;
+}
+
+.tv-platform .modal-backdrop {
+  background: rgba(5, 7, 14, 0.84) !important;
+}
+
+.tv-platform .video-error-badge {
+  background: rgba(14, 7, 14, 0.90) !important;
+}
+
+/* Iteration 3 & 5: Hardware Specular Glass Compression + Alpha-Overdraw Reduction */
 .tv-platform .top-header,
 .tv-platform .color-bar,
 .tv-platform .osd-card,
 .tv-platform .modal-card,
+.tv-platform .modal-ota-card,
 .tv-platform .channel-number-jump,
 .tv-platform #channel-number-jump,
 .tv-platform .toast,
 .tv-platform .video-pause-indicator,
 .tv-platform #video-pause-indicator,
 .tv-platform .boot-glass-card {
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.03) 100%),
-    rgba(14, 18, 30, 0.92) !important;
-  border: 1px solid rgba(255, 255, 255, 0.18) !important;
-  border-top-color: rgba(255, 255, 255, 0.38) !important;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
-  transform: translateZ(0);
-  backface-visibility: hidden;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.0) 42%),
+    rgba(14, 19, 32, 0.96) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-top-color: rgba(255, 255, 255, 0.34) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.44), inset 0 1px 0 rgba(255, 255, 255, 0.24) !important;
 }
 
-/* Layer Isolation & Containment for high-speed 60fps scrolling & zero reflows */
-.channel-list-panel,
-.timeline-card,
-.top-header,
-.color-bar {
+.tv-platform .top-header {
+  border-left: none !important;
+  border-right: none !important;
+}
+
+.tv-platform .color-bar {
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: none !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24) !important;
+}
+
+/* Opaque Hardware Frosted Midnight Panels (slashing 5-layer Mali GPU alpha overdraw) */
+.tv-platform .channel-list-panel,
+.tv-platform .channel-details-card,
+.tv-platform .guide-selected-card,
+.tv-platform .search-right-panel,
+.tv-platform .about-card {
+  background: linear-gradient(180deg, #161e33 0%, #0e1424 18%, #0c1120 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-top-color: rgba(255, 255, 255, 0.34) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20) !important;
+}
+
+.tv-platform .preview-frame,
+.tv-platform .video-surface.preview-mode {
+  border: 1px solid rgba(255, 255, 255, 0.20) !important;
+  border-top-color: rgba(255, 255, 255, 0.36) !important;
+  box-shadow: none !important;
+}
+
+/* Solid Hardware Sub-Cards (Zero nested alpha overdraw & Zero heavy shadow blur) */
+.tv-platform .preview-epg-box,
+.tv-platform .osd-schedule-grid,
+.tv-platform .pc-sync-box,
+.tv-platform .sources-manager-section,
+.tv-platform .perf-section-card,
+.tv-platform .perf-actions-bar,
+.tv-platform .about-developer-box,
+.tv-platform .about-features-box,
+.tv-platform .virtual-keyboard,
+.tv-platform .qr-cloud-sync-box,
+.tv-platform .channel-editor-list,
+.tv-platform .ota-popup-body,
+.tv-platform .empty-state-card {
+  background: #0e1424 !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-top-color: rgba(255, 255, 255, 0.26) !important;
+  box-shadow: none !important;
+}
+
+.tv-platform .about-info-item,
+.tv-platform .source-item-row,
+.tv-platform .editor-channel-row {
+  background: #131a2d !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: none !important;
+}
+
+/* Zero-Shadow, Zero-Reflow List Rows & Timeline Cards (constant 2px border width) */
+.tv-platform .channel-item {
+  background: #12192b !important;
+  border: 2px solid rgba(255, 255, 255, 0.10) !important;
+  border-top-color: rgba(255, 255, 255, 0.18) !important;
+  box-shadow: none !important;
+}
+
+/* Zero-Layout Focus Pill/Badge on TV Channel List: avoid display:none<->inline-block reflows on every D-pad step */
+.tv-platform #channel-list .channel-item {
+  position: relative;
+  padding-left: 218px;
+}
+
+.tv-platform #channel-list .channel-playing-badge,
+.tv-platform #channel-list .channel-ok-pill {
+  display: inline-block;
+  position: absolute;
+  left: 16px;
+  margin-right: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.tv-platform #channel-list .channel-playing-badge {
+  top: 32px;
+  z-index: 2;
+}
+
+.tv-platform #channel-list .channel-ok-pill {
+  top: 31px;
+  z-index: 3;
+}
+
+.tv-platform #channel-list .channel-item.active:not(.focused) .channel-playing-badge {
+  display: inline-block;
+  visibility: visible;
+}
+
+.tv-platform #channel-list .channel-item.focused .channel-ok-pill {
+  display: inline-block;
+  visibility: visible;
+}
+
+.tv-platform .channel-item.active {
+  background: linear-gradient(135deg, #163058 0%, #101e38 100%) !important;
+  border: 2px solid rgba(100, 210, 255, 0.56) !important;
+  box-shadow: none !important;
+}
+
+.tv-platform .channel-item.focused {
+  background: linear-gradient(135deg, #1d64b2 0%, #0b4894 100%) !important;
+  border: 2px solid #64D2FF !important;
+  border-top-color: #dff6ff !important;
+  box-shadow: none !important;
+}
+
+.tv-platform .channel-item.active.focused {
+  background: linear-gradient(135deg, #1f6ec2 0%, #0a52a8 100%) !important;
+  border: 2px solid #FF9F0A !important;
+  border-top-color: #ffe3b0 !important;
+  box-shadow: none !important;
+}
+
+.tv-platform .program-strip-item,
+.tv-platform .timeline-slot,
+.tv-platform .guide-prog-item {
+  background: #12192b !important;
+  border: 2px solid rgba(255, 255, 255, 0.12) !important;
+  border-top-color: rgba(255, 255, 255, 0.20) !important;
+  box-shadow: none !important;
+}
+
+.tv-platform .program-strip-item.status-past {
+  background: #1f1a15 !important;
+  border-color: rgba(255, 159, 10, 0.42) !important;
+}
+
+.tv-platform .program-strip-item.status-live,
+.tv-platform .guide-prog-item.status-live {
+  background: linear-gradient(135deg, #163058 0%, #101e38 100%) !important;
+  border-color: rgba(100, 210, 255, 0.56) !important;
+}
+
+.tv-platform .program-strip-item.focused,
+.tv-platform .program-strip-item:hover,
+.tv-platform .timeline-slot.focused,
+.tv-platform .guide-prog-item.focused,
+.tv-platform .guide-prog-item:hover {
+  background: linear-gradient(135deg, #1d64b2 0%, #0b4894 100%) !important;
+  border: 2px solid #64D2FF !important;
+  border-top-color: #dff6ff !important;
+  box-shadow: none !important;
+}
+
+/* Strip >= 16px blur shadows on Buttons, Pills, Badges & Chrome Controls */
+.tv-platform .brand-badge,
+.tv-platform .top-nav-btn,
+.tv-platform .top-nav-btn.active-filter,
+.tv-platform .btn-card-guide,
+.tv-platform .modal-close-btn,
+.tv-platform .guide-day-tab,
+.tv-platform .settings-tab-btn,
+.tv-platform .source-item-btn,
+.tv-platform .btn-tv-primary,
+.tv-platform .btn-tv-secondary,
+.tv-platform .editor-btn,
+.tv-platform .perf-option-btn,
+.tv-platform .kb-key,
+.tv-platform .channel-ok-pill,
+.tv-platform .preview-fullscreen-badge,
+.tv-platform .video-catchup-badge,
+.tv-platform .osd-surf-prompt,
+.tv-platform .osd-live-tag,
+.tv-platform .osd-live-tag.catchup-mode,
+.tv-platform .osd-live-tag.seeking-mode,
+.tv-platform .about-app-icon,
+.tv-platform .qr-code-frame,
+.tv-platform .spinner,
+.tv-platform .live-pulse {
+  box-shadow: none !important;
+}
+
+.tv-platform .brand-badge {
+  background: #141c30 !important;
+  border: 1px solid rgba(255, 255, 255, 0.20) !important;
+  border-top-color: rgba(255, 255, 255, 0.36) !important;
+}
+
+.tv-platform .top-nav-btn,
+.tv-platform .btn-card-guide,
+.tv-platform .modal-close-btn,
+.tv-platform .guide-day-tab,
+.tv-platform .settings-tab-btn,
+.tv-platform .btn-tv-secondary,
+.tv-platform .perf-option-btn {
+  border-width: 2px;
+}
+
+.tv-platform .top-nav-btn.focused,
+.tv-platform .top-nav-btn:hover,
+.tv-platform .btn-card-guide.focused,
+.tv-platform .btn-card-guide:hover,
+.tv-platform .guide-day-tab.focused,
+.tv-platform .guide-day-tab:hover,
+.tv-platform .settings-tab-btn.focused,
+.tv-platform .settings-tab-btn:hover,
+.tv-platform .source-item-btn.focused,
+.tv-platform .source-item-btn:hover,
+.tv-platform .btn-tv-primary.focused,
+.tv-platform .btn-tv-primary:hover,
+.tv-platform .btn-tv-secondary.focused,
+.tv-platform .btn-tv-secondary:hover,
+.tv-platform .editor-btn.focused,
+.tv-platform .editor-btn:hover,
+.tv-platform .perf-option-btn.focused,
+.tv-platform .perf-option-btn:hover,
+.tv-platform .kb-key.focused,
+.tv-platform .kb-key:hover {
+  background: linear-gradient(180deg, #ffffff 0%, #e5ecf6 100%) !important;
+  color: #090d16 !important;
+  border: 2px solid #64D2FF !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.42) !important;
+}
+
+.tv-platform .modal-close-btn.focused,
+.tv-platform .modal-close-btn:hover {
+  background: linear-gradient(180deg, #ff5478 0%, #FF375F 100%) !important;
+  color: #ffffff !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.42) !important;
+}
+
+/* Iteration 4: Eliminate Paint-Triggering Transitions on D-Pad Navigable Items */
+.tv-platform .channel-item,
+.tv-platform .top-nav-btn,
+.tv-platform .btn-card-guide,
+.tv-platform .program-strip-item,
+.tv-platform .timeline-slot,
+.tv-platform .epg-card,
+.tv-platform .modal-close-btn,
+.tv-platform .guide-day-tab,
+.tv-platform .guide-prog-item,
+.tv-platform .settings-tab-btn,
+.tv-platform .source-item-btn,
+.tv-platform .btn-tv-primary,
+.tv-platform .btn-tv-secondary,
+.tv-platform .editor-btn,
+.tv-platform .perf-option-btn,
+.tv-platform .kb-key,
+.tv-platform .tv-input,
+.tv-platform .color-hint,
+.tv-platform .color-btn,
+.tv-platform .cat-pill,
+.tv-platform .focusable {
+  transition: none !important;
+}
+
+.tv-platform .fullscreen-osd,
+.tv-platform .osd-overlay,
+.tv-platform .boot-splash {
+  transition: opacity 0.14s ease-out !important;
+}
+
+/* Zero-Layout GPU-Composited OSD Show/Hide (avoids display:none layout thrash on showOSD/hideOSD) */
+.tv-platform #fullscreen-osd {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
   contain: layout style;
+}
+
+.tv-platform #fullscreen-osd.hidden {
+  display: block !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Iteration 5: Zero Idle 60Hz Keyframe Repaints */
+.tv-platform .live-pulse,
+.tv-platform .osd-live-tag,
+.tv-platform .splash-logo,
+.tv-platform .boot-logo,
+.tv-platform .splash-bar-fill {
+  animation: none !important;
+}
+
+.boot-splash.hidden *,
+.boot-splash.fade-out *,
+.boot-splash.hidden .splash-ring,
+.boot-splash.hidden .boot-spinner,
+.video-loader.hidden .spinner {
+  animation: none !important;
+}
+
+/* Iteration 6: Compositor Layer Hygiene & Paint Containment */
+/* Promote ONLY large floating overlays — NEVER .channel-item or per-row children */
+.tv-platform .top-header,
+.tv-platform .color-bar,
+.tv-platform .fullscreen-osd,
+.tv-platform .osd-overlay,
+.tv-platform .modal-card,
+.tv-platform .channel-number-jump,
+.tv-platform #channel-number-jump,
+.tv-platform .boot-glass-card {
   transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: auto;
+}
+
+.tv-platform .video-pause-indicator,
+.tv-platform #video-pause-indicator {
+  transform: translate3d(-50%, -50%, 0);
   backface-visibility: hidden;
 }
 
+.tv-platform .toast {
+  transform: translate3d(-50%, 0, 0);
+  backface-visibility: hidden;
+}
+
+/* Containment without will-change layer bloat (NEVER contain: strict on video/preview) */
+.channel-list-panel,
+.channel-details-card,
+.timeline-card,
 .channel-item {
-  contain: content;
+  contain: layout style;
+}
+
+.tv-platform .channel-list-panel,
+.tv-platform .channel-details-card,
+.tv-platform .timeline-card,
+.tv-platform .channel-list,
+.tv-platform .channel-program-strip,
+.tv-platform .channel-item,
+.tv-platform .program-strip-item,
+.tv-platform .guide-prog-item,
+.tv-platform .editor-channel-row {
+  contain: layout style;
+  will-change: auto;
 }
 
 /* Safe mode banner styling */
