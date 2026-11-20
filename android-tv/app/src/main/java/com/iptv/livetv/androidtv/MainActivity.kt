@@ -1368,6 +1368,7 @@ class MainActivity : Activity() {
                 if (!isWebInputFocused) {
                     wv.requestFocus()
                 }
+                Unit
             } catch (t: Throwable) {
                 Log.w(TAG, "onResume notice", t)
             }
