@@ -3360,7 +3360,7 @@ html.tv-platform body {
 /* Zero-Layout Focus Pill/Badge on TV Channel List: avoid display:none<->inline-block reflows on every D-pad step */
 .tv-platform #channel-list .channel-item {
   position: relative;
-  padding-left: 156px;
+  padding-left: 218px;
 }
 
 .tv-platform #channel-list .channel-playing-badge,
