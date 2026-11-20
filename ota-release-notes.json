@@ -1,8 +1,8 @@
 {
-  "title": "עדכון 5.1.4 (Beta) - תיקון מלא לקריסת Android TV 11/14, הזרמת EPG חסכונית, שריון OTA ותיקון 3 דליפות CSS בגלאס",
+  "title": "עדכון 5.1.5 (Beta) - מנוע 60fps מלא ל-LG webOS Liquid Glass (10 איטרציות ביצועים)",
   "releaseNotes": [
-    "תיקון מלא לקריסת ההפעלה ב-Android TV 11 ו-14: שחרור בטוח של WebView מת, הפעלת Safe Mode אמיתית (לאחר 8 שניות יציבות), תמיכה מלאה בשינויי HDR/HDMI configChanges, ודחיית הפעלת וידאו (1800ms) ו-EPG (2500ms) עד לאחר רינדור הערוצים",
-    "פיענוח XMLTV בהזרמה מדורגת (Streaming Chunked Parser) וביטול אגירת EPG דמה + שריון OTA מלא נגד חבילות ישנות מערוצים קודמים ומניעת הרצה כפולה",
-    "תיקון 3 דליפות GPU/Compositor בעיצוב Liquid Glass בטלוויזיות: ביטול backdrop-filter גם ב-.channel-number-jump וב-.video-pause-indicator, הסרת contain: strict מ-.video-surface למניעת קריסת שכבת הווידאו, והסרת translateZ(0)/backface-visibility משורות .channel-item"
+    "איטרציות 1-6 (GPU & Liquid Glass ב-webOS): ביטול 100% של backdrop-filter ו-radial-gradient מרובי-שכבות בטלוויזיות, דחיסת צלליות כבדות למסגרות זכוכית חדות (Specular Rim), ביטול אנימציות סרק ו-transition מיותרים במעבר פוקוס, ו-contain: layout style נקי לשמירה על מראה Apple Liquid Glass חלק ב-60fps",
+    "איטרציות 7-8 (מנוע פוקוס וגלילה O(1) ללא Reflow): ביטול מלא של scrollIntoView וקריאות offsetTop/getBoundingClientRect בכל לחיצת חץ, איחוד לחיצות מהירות בשלט LG לתוך פריים requestAnimationFrame אחד, דיבאונס חכם לנגינת תצוגה מקדימה (280ms) ולרצועת הזמנים (120ms), וביטול טעינות Hls.js מיותרות באמצע גלילה",
+    "איטרציות 9-10 (EPG חלוני ו-OSD 60fps): רינדור רשימת ערוצים ב-DocumentFragment יחיד עם האזנת קליקים מואצלת והפחתת מאות צמתי DOM, רענון EPG ממוקד רק לשורות הנראות על המסך (±4 שורות), מטמון dirty-check מלא ל-OSD ולשעון (0 כתיבות DOM מיותרות בכל שנייה), ואיחוד מעברי מסך מלא ב-requestAnimationFrame יחיד + זיהוי webOSSystem/PalmSystem ודיבאונס resize של 120ms"
   ]
 }
