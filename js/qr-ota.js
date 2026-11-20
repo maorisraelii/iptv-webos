@@ -3,7 +3,7 @@
  * Designed for LG webOS 4.0 - 24+ (Chromium 53+)
  */
 
-const APP_BUNDLE_VERSION = '5.1.3';
+const APP_BUNDLE_VERSION = '5.1.4';
 const APP_BUNDLE_CHANNEL = 'beta';
 const OTA_GIST_RAW_BASE = 'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw';
 const OTA_GITHUB_RAW_STABLE = 'https://raw.githubusercontent.com/maorisraelii/iptv-webos/main/ota-manifest.json';
@@ -15,6 +15,7 @@ const OTA_STORAGE_KEYS = {
   INSTALLED_CHANNEL: 'zenplay_ota_installed_channel',
   UPDATE_CHANNEL: 'zenplay_ota_update_channel',
   INSTALLED_BUNDLE: 'zenplay_ota_installed_bundle',
+  LAST_BASE_BUNDLE_VERSION: 'zenplay_last_base_bundle_version',
   JUST_UPDATED_INFO: 'zenplay_ota_just_updated_info',
   TV_PAIRING_CODE: 'zenplay_tv_pairing_code',
   LAST_CLOUD_MSG_ID: 'zenplay_last_cloud_msg_id',
@@ -309,13 +310,14 @@ class OTACloudManager {
 
     if (typeof window !== 'undefined') {
       if (!window.__ZENPLAY_BASE_BUNDLE_VERSION) {
-        window.__ZENPLAY_BASE_BUNDLE_VERSION = typeof APP_BUNDLE_VERSION !== 'undefined' ? APP_BUNDLE_VERSION : '5.1.3';
+        window.__ZENPLAY_BASE_BUNDLE_VERSION = typeof APP_BUNDLE_VERSION !== 'undefined' ? APP_BUNDLE_VERSION : '5.1.4';
       }
       if (!window.__ZENPLAY_BASE_BUNDLE_CHANNEL) {
-        window.__ZENPLAY_BASE_BUNDLE_CHANNEL = typeof APP_BUNDLE_CHANNEL !== 'undefined' ? APP_BUNDLE_CHANNEL : 'stable';
+        window.__ZENPLAY_BASE_BUNDLE_CHANNEL = typeof APP_BUNDLE_CHANNEL !== 'undefined' ? APP_BUNDLE_CHANNEL : 'beta';
       }
     }
 
+    this.reconcileBaseBundleUpgrade();
     this.ensureOTAChannelControlsDOM();
     this.applySavedOTABundle();
   }
@@ -324,7 +326,7 @@ class OTACloudManager {
     if (typeof window !== 'undefined' && window.__ZENPLAY_BASE_BUNDLE_VERSION) {
       return window.__ZENPLAY_BASE_BUNDLE_VERSION;
     }
-    return typeof APP_BUNDLE_VERSION !== 'undefined' ? APP_BUNDLE_VERSION : '5.1.3';
+    return typeof APP_BUNDLE_VERSION !== 'undefined' ? APP_BUNDLE_VERSION : '5.1.4';
   }
 
   getBaseBundleChannel() {
@@ -338,6 +340,96 @@ class OTACloudManager {
     return /^5\.1\./.test(baseVer) ? 'beta' : 'stable';
   }
 
+  isSafeMode() {
+    if (typeof window === 'undefined') return false;
+    try {
+      if (window.__IPTV_SAFE_MODE === true) return true;
+      const search = window.location && window.location.search ? window.location.search : '';
+      if (/[?&]safeMode=1(?:&|#|$)/.test(search)) {
+        window.__IPTV_SAFE_MODE = true;
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  isAndroidTvWebView() {
+    if (typeof window === 'undefined') return false;
+    try {
+      return (
+        Boolean(window.__IPTV_ANDROID_TV) ||
+        Boolean(window.__IPTV_IS_ANDROID_TV) ||
+        Boolean(window.AndroidTvHost) ||
+        (window.location && window.location.hostname === 'appassets.androidplatform.net')
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
+  isTvPlatform() {
+    if (this.isAndroidTvWebView()) return true;
+    try {
+      if (typeof window !== 'undefined' && (window.__IPTV_IS_TV || window.__IPTV_IS_WEBOS)) return true;
+      if (typeof document !== 'undefined' && document.documentElement && document.documentElement.classList.contains('tv-platform')) {
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  stripBackdropFilterCss(css) {
+    if (!css || typeof css !== 'string') return css || '';
+    return css.replace(/(?:-webkit-)?backdrop-filter\s*:[^;}]*;?/gi, '');
+  }
+
+  getBundleSignature(bundle) {
+    if (!bundle) return '';
+    return [
+      bundle.version || '',
+      bundle.channel || '',
+      bundle.updatedAt || 0,
+      bundle.cssPatch ? bundle.cssPatch.length : 0,
+      bundle.jsPatch ? bundle.jsPatch.length : 0
+    ].join('|');
+  }
+
+  clearSavedBundleStorage() {
+    try {
+      localStorage.removeItem(OTA_STORAGE_KEYS.INSTALLED_BUNDLE);
+      localStorage.removeItem(OTA_STORAGE_KEYS.INSTALLED_VERSION);
+      localStorage.removeItem(OTA_STORAGE_KEYS.INSTALLED_CHANNEL);
+    } catch (e) {}
+  }
+
+  reconcileBaseBundleUpgrade() {
+    try {
+      const baseVer = this.getBaseBundleVersion();
+      const lastBaseVer = localStorage.getItem(OTA_STORAGE_KEYS.LAST_BASE_BUNDLE_VERSION);
+      const isUpgraded = !lastBaseVer || this.compareSemver(baseVer, lastBaseVer) > 0;
+      const bundle = this.getSavedBundle();
+
+      if (bundle) {
+        const isStale = this.isSavedBundleStaleForBase(bundle);
+        if (isStale) {
+          this.clearSavedBundleStorage();
+        } else if (isUpgraded && this.compareSemver(bundle.version, baseVer) <= 0) {
+          this.clearSavedBundleStorage();
+        }
+      } else if (isUpgraded) {
+        const otaVer = localStorage.getItem(OTA_STORAGE_KEYS.INSTALLED_VERSION);
+        if (otaVer && this.compareSemver(otaVer, baseVer) <= 0) {
+          localStorage.removeItem(OTA_STORAGE_KEYS.INSTALLED_VERSION);
+          localStorage.removeItem(OTA_STORAGE_KEYS.INSTALLED_CHANNEL);
+        }
+      }
+
+      if (isUpgraded) {
+        localStorage.setItem(OTA_STORAGE_KEYS.LAST_BASE_BUNDLE_VERSION, baseVer);
+      }
+    } catch (e) {}
+  }
+
   getSavedBundle() {
     try {
       const raw = localStorage.getItem(OTA_STORAGE_KEYS.INSTALLED_BUNDLE);
@@ -349,31 +441,39 @@ class OTACloudManager {
     }
   }
 
-  isSavedBundleActive(bundle) {
+  isSavedBundleStaleForBase(bundle) {
     if (!bundle || !bundle.version || (!bundle.cssPatch && !bundle.jsPatch)) {
-      return false;
+      return true;
     }
     const baseVer = this.getBaseBundleVersion();
     const baseCh = this.getBaseBundleChannel();
     const bundleCh = bundle.channel === 'beta' || bundle.channel === 'stable' ? bundle.channel : 'stable';
 
-    if (
-      bundle.baseBundleVersion &&
-      this.compareSemver(baseVer, bundle.baseBundleVersion) > 0 &&
-      bundleCh === baseCh
-    ) {
+    if (bundleCh === baseCh) {
+      return this.compareSemver(bundle.version, baseVer) <= 0;
+    }
+
+    // Cross-channel bundle: only activate if user explicitly switched channels on this base APK/IPK version (or newer)
+    if (bundle.explicitChannelSwitch !== true) {
+      return true;
+    }
+    if (!bundle.appliedOnBaseVersion || this.compareSemver(bundle.appliedOnBaseVersion, baseVer) < 0) {
+      return true;
+    }
+    return false;
+  }
+
+  isSavedBundleActive(bundle) {
+    if (this.isSafeMode()) {
       return false;
     }
-    if (bundleCh !== baseCh) {
-      return true;
-    }
-    if (bundle.forcedChannelSwitch === true && this.compareSemver(bundle.version, baseVer) >= 0) {
-      return true;
-    }
-    return this.compareSemver(bundle.version, baseVer) > 0;
+    return !this.isSavedBundleStaleForBase(bundle);
   }
 
   getRunningChannel() {
+    if (this.isSafeMode()) {
+      return this.getBaseBundleChannel();
+    }
     const bundle = this.getSavedBundle();
     if (this.isSavedBundleActive(bundle)) {
       return bundle.channel === 'beta' || bundle.channel === 'stable' ? bundle.channel : 'stable';
@@ -382,6 +482,9 @@ class OTACloudManager {
   }
 
   getRunningVersion() {
+    if (this.isSafeMode()) {
+      return this.getBaseBundleVersion();
+    }
     const bundle = this.getSavedBundle();
     if (this.isSavedBundleActive(bundle)) {
       return bundle.version;
@@ -591,49 +694,6 @@ class OTACloudManager {
     } catch (e) {}
   }
 
-  isSafeMode() {
-    if (typeof window === 'undefined') return false;
-    try {
-      if (window.__IPTV_SAFE_MODE === true) return true;
-      const search = window.location && window.location.search ? window.location.search : '';
-      if (/[?&]safeMode=1(?:&|#|$)/.test(search)) {
-        window.__IPTV_SAFE_MODE = true;
-        return true;
-      }
-    } catch (e) {}
-    return false;
-  }
-
-  isAndroidTvWebView() {
-    if (typeof window === 'undefined') return false;
-    try {
-      return (
-        Boolean(window.__IPTV_ANDROID_TV) ||
-        Boolean(window.__IPTV_IS_ANDROID_TV) ||
-        (window.location && window.location.hostname === 'appassets.androidplatform.net') ||
-        Boolean(window.AndroidTvHost)
-      );
-    } catch (e) {
-      return false;
-    }
-  }
-
-  stripBackdropFilterCss(css) {
-    if (!css || typeof css !== 'string') return css || '';
-    return css.replace(/(?:-webkit-)?backdrop-filter\s*:[^;}]*;?/gi, '');
-  }
-
-  getBundleSignature(bundle) {
-    if (!bundle) return '';
-    return [
-      bundle.version || '',
-      bundle.channel || '',
-      bundle.updatedAt || 0,
-      bundle.cssPatch ? bundle.cssPatch.length : 0,
-      bundle.jsPatch ? bundle.jsPatch.length : 0
-    ].join('|');
-  }
-
   /**
    * Applies any OTA CSS/JS patches stored in localStorage from previous OTA updates or channel switches
    */
@@ -651,6 +711,9 @@ class OTACloudManager {
 
       const bundle = this.getSavedBundle();
       if (!this.isSavedBundleActive(bundle)) {
+        if (bundle && this.isSavedBundleStaleForBase(bundle)) {
+          this.clearSavedBundleStorage();
+        }
         this.setBaseStylesheetDisabled(false);
         const existingOtaStyle = document.getElementById('zenplay-ota-css');
         if (existingOtaStyle && existingOtaStyle.parentNode) {
@@ -664,7 +727,7 @@ class OTACloudManager {
       this._appliedBundleSignature = signature;
 
       if (bundle.cssPatch) {
-        const cssToApply = this.isAndroidTvWebView()
+        const cssToApply = this.isTvPlatform()
           ? this.stripBackdropFilterCss(bundle.cssPatch)
           : bundle.cssPatch;
         let styleEl = document.getElementById('zenplay-ota-css');
@@ -707,7 +770,9 @@ class OTACloudManager {
     this.updateVersionBadgesUI();
     this.renderPairingQR();
 
-    if (this.isSafeMode()) return;
+    if (this.isSafeMode()) {
+      return;
+    }
 
     // Check if an OTA update was just installed
     try {
@@ -946,16 +1011,21 @@ class OTACloudManager {
         if (progressText) progressText.textContent = 'העדכון הושלם (100%)!';
 
         try {
+          const baseVer = this.getBaseBundleVersion();
+          const isExplicitSwitch = Boolean(manifest._isChannelSwitch || targetChannel !== this.getBaseBundleChannel());
           localStorage.setItem(OTA_STORAGE_KEYS.INSTALLED_VERSION, manifest.version);
           localStorage.setItem(OTA_STORAGE_KEYS.INSTALLED_CHANNEL, targetChannel);
           localStorage.setItem(OTA_STORAGE_KEYS.UPDATE_CHANNEL, targetChannel);
+          localStorage.setItem(OTA_STORAGE_KEYS.LAST_BASE_BUNDLE_VERSION, baseVer);
           localStorage.setItem(
             OTA_STORAGE_KEYS.INSTALLED_BUNDLE,
             JSON.stringify({
               version: manifest.version,
               channel: targetChannel,
-              baseBundleVersion: this.getBaseBundleVersion(),
-              forcedChannelSwitch: true,
+              baseBundleVersion: baseVer,
+              appliedOnBaseVersion: baseVer,
+              explicitChannelSwitch: isExplicitSwitch,
+              forcedChannelSwitch: isExplicitSwitch,
               updatedAt: Date.now(),
               cssPatch: manifest.cssPatch || '',
               jsPatch: manifest.jsPatch || ''

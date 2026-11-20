@@ -1,8 +1,8 @@
 {
-  "title": "עדכון 5.1.3 (Beta) - תיקון קריסת חזרה מהמסך המלא + מנוע 60fps לגלאס ב-webOS ו-Android TV 14",
+  "title": "עדכון 5.1.4 (Beta) - תיקון מלא לקריסת Android TV 11/14, הזרמת EPG חסכונית, שריון OTA ותיקון 3 דליפות CSS בגלאס",
   "releaseNotes": [
-    "תיקון תקלת החזרה מהמסך המלא לרשימת הערוצים (ביטול הקפצה חוזרת לפולסקרין, Debounce של 350ms לשלט וביטול כפילות KeyUp)",
-    "מנוע 10 איטרציות לביצועי 60fps חומריים לעיצוב Liquid Glass ב-webOS ו-Android TV: מעבר לגרדיאנטים פרוסטד חומרתיים עם אפס עומס GPU Shader, בידוד שכבות Composite, וקונטיינמנט קשיח",
-    "שריון מלא לקריסות ב-Android TV 11 ו-14: מנגנון SharedPreferences Crash Guard מובנה, מניעת OOM בהפעלה, פיענוח XMLTV אסינכרוני במנות, והתאוששות אוטומטית למצב בטוח (Safe Mode)"
+    "תיקון מלא לקריסת ההפעלה ב-Android TV 11 ו-14: שחרור בטוח של WebView מת, הפעלת Safe Mode אמיתית (לאחר 8 שניות יציבות), תמיכה מלאה בשינויי HDR/HDMI configChanges, ודחיית הפעלת וידאו (1800ms) ו-EPG (2500ms) עד לאחר רינדור הערוצים",
+    "פיענוח XMLTV בהזרמה מדורגת (Streaming Chunked Parser) וביטול אגירת EPG דמה + שריון OTA מלא נגד חבילות ישנות מערוצים קודמים ומניעת הרצה כפולה",
+    "תיקון 3 דליפות GPU/Compositor בעיצוב Liquid Glass בטלוויזיות: ביטול backdrop-filter גם ב-.channel-number-jump וב-.video-pause-indicator, הסרת contain: strict מ-.video-surface למניעת קריסת שכבת הווידאו, והסרת translateZ(0)/backface-visibility משורות .channel-item"
   ]
 }

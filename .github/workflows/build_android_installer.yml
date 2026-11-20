@@ -2,7 +2,7 @@ name: Build Android APKs
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, beta ]
     paths:
       - 'android-installer/**'
       - 'android-tv/**'
@@ -39,14 +39,14 @@ jobs:
         working-directory: android-installer
         run: gradle assembleDebug --no-daemon
 
-      - name: Build Android TV Debug APK
+      - name: Build Android TV Release APK
         working-directory: android-tv
-        run: gradle assembleDebug --no-daemon
+        run: gradle assembleRelease --no-daemon
 
       - name: Copy APKs to friendly filenames
         run: |
           cp android-installer/app/build/outputs/apk/debug/app-debug.apk IPTV-webOS-Installer.apk
-          cp android-tv/app/build/outputs/apk/debug/app-debug.apk IPTV-Live-AndroidTV.apk
+          cp android-tv/app/build/outputs/apk/release/app-release.apk IPTV-Live-AndroidTV.apk
 
       - name: Verify APK Signatures
         run: |
@@ -54,6 +54,8 @@ jobs:
           if [ -n "$APK_SIGNER" ]; then
             echo "Verifying IPTV-Live-AndroidTV.apk signature:"
             "$APK_SIGNER" verify --print-certs IPTV-Live-AndroidTV.apk
+            echo "Verifying IPTV-webOS-Installer.apk signature:"
+            "$APK_SIGNER" verify --print-certs IPTV-webOS-Installer.apk
           fi
 
       - name: Upload webOS Installer APK artifact

@@ -1,5 +1,5 @@
 {
-  "version": "5.1.3",
+  "version": "5.1.4",
   "channel": "beta",
   "remoteAppUrl": "https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/ota-manifest-beta.json",
   "stableManifestUrl": "https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/ota-manifest.json",

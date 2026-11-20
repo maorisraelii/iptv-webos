@@ -1092,7 +1092,6 @@ body {
   overflow: hidden;
   z-index: 30;
   cursor: pointer;
-  contain: strict;
   transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
 }
@@ -3223,9 +3222,11 @@ body {
 .tv-platform .color-bar,
 .tv-platform .osd-card,
 .tv-platform .modal-card,
-.tv-platform .jump-banner,
+.tv-platform .channel-number-jump,
+.tv-platform #channel-number-jump,
 .tv-platform .toast,
-.tv-platform #video-pause-badge,
+.tv-platform .video-pause-indicator,
+.tv-platform #video-pause-indicator,
 .tv-platform .boot-glass-card {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
@@ -3251,8 +3252,6 @@ body {
 
 .channel-item {
   contain: content;
-  transform: translateZ(0);
-  backface-visibility: hidden;
 }
 
 /* Safe mode banner styling */

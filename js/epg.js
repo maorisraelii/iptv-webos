@@ -85,6 +85,7 @@ class EPGService {
     this.dayBucketsCache = new Map();
     this._channelMatchCache = new Map();
     this._normCache = new Map();
+    this._syntheticScheduleCache = new Map(); // Bounded LRU (max 5 channels) for 7-day guide modal only
     this.epgUrl = '';
     this.loadedUrls = [];
     this.isLoading = false;
@@ -156,6 +157,9 @@ class EPGService {
         this.programmesByChannel.delete(chId);
       }
     });
+    if (this._syntheticScheduleCache) {
+      this._syntheticScheduleCache.clear();
+    }
   }
 
   rebuildAliasesFromLoadedChannels() {
@@ -309,6 +313,7 @@ class EPGService {
       this.dayBucketsCache.clear();
       if (this._channelMatchCache) this._channelMatchCache.clear();
       if (this._normCache) this._normCache.clear();
+      if (this._syntheticScheduleCache) this._syntheticScheduleCache.clear();
       this.lastUpdatedMs = 0;
     } catch (e) {}
   }
@@ -392,49 +397,33 @@ class EPGService {
 
     this.isLoading = true;
 
-    const fetchPromises = urls.map((u) =>
-      this.fetchAndDecodeXMLTV(u)
-        .then((xmlText) => (xmlText && xmlText.length > 50 ? xmlText : null))
+    // Stream-parse EPG URLs sequentially (never holds full 10MB ArrayBuffer + 15MB UTF-16 string in RAM)
+    let idx = 0;
+    let parsedAny = false;
+    const processNextUrl = () => {
+      if (idx >= urls.length) {
+        const anySuccess = parsedAny && this.programmesByChannel.size > 0;
+        if (anySuccess) {
+          this.saveToLocalCache(cacheKeyUrl);
+          this.dayBucketsCache.clear();
+        }
+        this.isLoading = false;
+        if (onComplete) onComplete(anySuccess);
+        return;
+      }
+      const u = urls[idx++];
+      const isAppend = parsedAny;
+      this.fetchAndStreamParseXMLTV(u, isAppend)
+        .then((ok) => {
+          if (ok) parsedAny = true;
+          processNextUrl();
+        })
         .catch((err) => {
           console.warn('EPG source warning (' + u + '):', err);
-          return null;
-        })
-    );
-
-    Promise.all(fetchPromises)
-      .then((xmlList) => {
-        let idx = 0;
-        let parsedAny = false;
-        const parseNext = () => {
-          while (idx < xmlList.length && !xmlList[idx]) {
-            idx++;
-          }
-          if (idx >= xmlList.length) {
-            xmlList = null;
-            const anySuccess = parsedAny && this.programmesByChannel.size > 0;
-            if (anySuccess) {
-              this.saveToLocalCache(cacheKeyUrl);
-              this.dayBucketsCache.clear();
-            }
-            this.isLoading = false;
-            if (onComplete) onComplete(anySuccess);
-            return;
-          }
-          const currentIdx = idx++;
-          const xmlText = xmlList[currentIdx];
-          xmlList[currentIdx] = null; // Promptly release large XML string reference
-          const isAppend = parsedAny;
-          parsedAny = true;
-          this.parseXMLTVAsync(xmlText, null, isAppend)
-            .then(() => parseNext())
-            .catch(() => parseNext());
-        };
-        parseNext();
-      })
-      .catch(() => {
-        this.isLoading = false;
-        if (onComplete) onComplete(false);
-      });
+          processNextUrl();
+        });
+    };
+    processNextUrl();
   }
 
   shouldUseAndroidProxy(url) {
@@ -471,21 +460,283 @@ class EPGService {
       });
   }
 
+  _fetchXmltvResponse(url) {
+    if (!url) return Promise.resolve(null);
+    if (url.indexOf('epg.team') !== -1 || url.indexOf('epg_ripper_ALL') !== -1) {
+      url = this.DEFAULT_LIVE_EPG_URL;
+    }
+    return this.fetchWithProxyFallback(url).catch((err) => {
+      if (url === this.DEFAULT_LIVE_EPG_URL || url.indexOf('epg-il.xml') !== -1) {
+        if (url !== 'epg-il.xml') {
+          console.warn('Remote EPG unavailable, falling back to bundled epg-il.xml:', err);
+          return fetch('epg-il.xml').then((localRes) => {
+            if (!localRes || !localRes.ok) throw err;
+            return localRes;
+          });
+        }
+      }
+      throw err;
+    });
+  }
+
+  _decodeArrayBufferToXml(buffer, maxSafeBytes, url) {
+    if (!buffer) return Promise.resolve('');
+    if (buffer.byteLength > maxSafeBytes) {
+      console.warn('EPG feed buffer exceeded 35MB safe limit, skipped:', url);
+      return Promise.resolve('');
+    }
+    let bytes = new Uint8Array(buffer);
+    buffer = null;
+    // Check GZIP magic header (0x1f 0x8b)
+    if (bytes.length > 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+      if (typeof DecompressionStream !== 'undefined') {
+        try {
+          const ds = new DecompressionStream('gzip');
+          const blob = new Blob([bytes]);
+          bytes = null;
+          const decompressedStream = blob.stream().pipeThrough(ds);
+          return new Response(decompressedStream).text();
+        } catch (e) {}
+      }
+    }
+    if (typeof TextDecoder !== 'undefined') {
+      const decoded = new TextDecoder('utf-8').decode(bytes);
+      bytes = null;
+      return Promise.resolve(decoded);
+    }
+    // Fallback for very old engines (webOS Chromium 53)
+    let str = '';
+    const chunk = 8192;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      str += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    bytes = null;
+    try {
+      return Promise.resolve(decodeURIComponent(escape(str)));
+    } catch (e) {
+      return Promise.resolve(str);
+    }
+  }
+
+  /**
+   * Streaming XMLTV fetch + incremental chunked parser.
+   * Uses ReadableStream + TextDecoder({ stream: true }) when available so 10MB+ feeds
+   * peak at ~2-3 MB RAM with a rolling tail buffer < 64 KB; falls back cleanly to
+   * ArrayBuffer + parseXMLTVAsync on older LG webOS Chromium 53 browsers.
+   */
+  fetchAndStreamParseXMLTV(url, appendMode) {
+    if (!url) return Promise.resolve(false);
+    const MAX_SAFE_EPG_BYTES = 35 * 1024 * 1024;
+
+    return this._fetchXmltvResponse(url).then((res) => {
+      if (!res) return false;
+      const cl = res.headers && typeof res.headers.get === 'function' ? res.headers.get('content-length') : null;
+      if (cl && parseInt(cl, 10) > MAX_SAFE_EPG_BYTES) {
+        console.warn('EPG feed exceeds TV memory safety limit (>35MB), aborting:', url);
+        return false;
+      }
+
+      if (res.body && typeof res.body.getReader === 'function' && typeof TextDecoder !== 'undefined') {
+        return this._parseXMLTVResponseStream(res, appendMode, MAX_SAFE_EPG_BYTES, url);
+      }
+
+      // Fallback for webOS Chromium 53 without ReadableStream
+      return res
+        .arrayBuffer()
+        .then((buf) => this._decodeArrayBufferToXml(buf, MAX_SAFE_EPG_BYTES, url))
+        .then((xmlText) => {
+          if (!xmlText || xmlText.length <= 50) return false;
+          return this.parseXMLTVAsync(xmlText, null, appendMode);
+        });
+    });
+  }
+
+  _parseXMLTVResponseStream(res, appendMode, maxSafeBytes, url) {
+    const reader = res.body.getReader();
+    return reader.read().then((first) => {
+      if (!first || first.done || !first.value || first.value.byteLength === 0) {
+        return false;
+      }
+      const firstChunk = first.value;
+      const isGzip = firstChunk.byteLength >= 2 && firstChunk[0] === 0x1f && firstChunk[1] === 0x8b;
+
+      if (isGzip) {
+        if (typeof DecompressionStream !== 'undefined' && typeof ReadableStream !== 'undefined') {
+          let sentFirst = false;
+          const compressedStream = new ReadableStream({
+            pull: (controller) => {
+              if (!sentFirst) {
+                sentFirst = true;
+                controller.enqueue(firstChunk);
+                return;
+              }
+              return reader.read().then((next) => {
+                if (next.done) {
+                  controller.close();
+                } else {
+                  controller.enqueue(next.value);
+                }
+              });
+            },
+            cancel: () => {
+              try {
+                reader.cancel();
+              } catch (e) {}
+            }
+          });
+          const gunzipReader = compressedStream.pipeThrough(new DecompressionStream('gzip')).getReader();
+          return this._consumeUtf8XmlReader(gunzipReader, null, appendMode, maxSafeBytes);
+        }
+
+        // GZIP without DecompressionStream: collect chunks up to safe limit and decode via fallback
+        const chunks = [firstChunk];
+        let totalLen = firstChunk.byteLength;
+        const readAll = () =>
+          reader.read().then((next) => {
+            if (next.done) {
+              const merged = new Uint8Array(totalLen);
+              let off = 0;
+              for (let i = 0; i < chunks.length; i++) {
+                merged.set(chunks[i], off);
+                off += chunks[i].byteLength;
+              }
+              return this._decodeArrayBufferToXml(merged.buffer, maxSafeBytes, url).then((xmlText) =>
+                xmlText && xmlText.length > 50 ? this.parseXMLTVAsync(xmlText, null, appendMode) : false
+              );
+            }
+            if (next.value && next.value.byteLength) {
+              totalLen += next.value.byteLength;
+              if (totalLen > maxSafeBytes) {
+                try {
+                  reader.cancel();
+                } catch (e) {}
+                return false;
+              }
+              chunks.push(next.value);
+            }
+            return readAll();
+          });
+        return readAll();
+      }
+
+      return this._consumeUtf8XmlReader(reader, firstChunk, appendMode, maxSafeBytes);
+    });
+  }
+
+  _consumeUtf8XmlReader(reader, initialChunk, appendMode, maxSafeBytes) {
+    const ctx = this._xmltvStreamBegin(appendMode);
+    const decoder = new TextDecoder('utf-8');
+    let totalBytes = 0;
+    let sliceStartMs = Date.now();
+    let pendingFirst = initialChunk;
+
+    return new Promise((resolve) => {
+      const finish = () => {
+        try {
+          if (!ctx.failed && !ctx.zeroMatch) {
+            const finalText = decoder.decode();
+            if (finalText) {
+              this._xmltvStreamFeed(ctx, finalText, true);
+            } else if (ctx.buffer) {
+              this._xmltvStreamFeed(ctx, '', true);
+            }
+          }
+        } catch (e) {
+          console.warn('XMLTV stream finish error:', e);
+          ctx.failed = true;
+        }
+        ctx.buffer = '';
+        resolve(this._xmltvFinish(ctx));
+      };
+
+      const cancelAndFinish = () => {
+        try {
+          const p = reader.cancel();
+          if (p && typeof p.catch === 'function') p.catch(() => {});
+        } catch (e) {}
+        finish();
+      };
+
+      const handleChunk = (chunkBytes) => {
+        if (!chunkBytes || chunkBytes.byteLength === 0) return true;
+        totalBytes += chunkBytes.byteLength;
+        if (totalBytes > maxSafeBytes) {
+          console.warn('EPG stream exceeded 35MB safe limit, stopping.');
+          ctx.failed = true;
+          return false;
+        }
+        const text = decoder.decode(chunkBytes, { stream: true });
+        if (text) {
+          this._xmltvStreamFeed(ctx, text, false);
+        }
+        return !ctx.zeroMatch && !ctx.failed;
+      };
+
+      const pump = () => {
+        if (pendingFirst) {
+          const chunk = pendingFirst;
+          pendingFirst = null;
+          let keepGoing = true;
+          try {
+            keepGoing = handleChunk(chunk);
+          } catch (e) {
+            console.warn('XMLTV stream chunk error:', e);
+            ctx.failed = true;
+            keepGoing = false;
+          }
+          if (!keepGoing) {
+            cancelAndFinish();
+            return;
+          }
+        }
+
+        reader
+          .read()
+          .then((res) => {
+            if (!res || res.done) {
+              finish();
+              return;
+            }
+            let keepGoing = true;
+            try {
+              keepGoing = handleChunk(res.value);
+            } catch (e) {
+              console.warn('XMLTV stream chunk error:', e);
+              ctx.failed = true;
+              keepGoing = false;
+            }
+            if (!keepGoing) {
+              cancelAndFinish();
+              return;
+            }
+            if (Date.now() - sliceStartMs >= 14) {
+              sliceStartMs = Date.now();
+              setTimeout(pump, 0);
+            } else {
+              pump();
+            }
+          })
+          .catch((err) => {
+            console.warn('XMLTV stream read error:', err);
+            ctx.failed = true;
+            finish();
+          });
+      };
+
+      pump();
+    });
+  }
+
   /**
    * Fetches XMLTV from URL with hardware memory protection guards,
    * automatically decompresses if it is GZIP (.xml.gz).
    */
   fetchAndDecodeXMLTV(url) {
     if (!url) return Promise.resolve('');
-    // Hardware guard: intercept known giant monolithic feeds
-    if (url.indexOf('epg.team') !== -1 || url.indexOf('epg_ripper_ALL') !== -1) {
-      url = this.DEFAULT_LIVE_EPG_URL;
-    }
-
-    const MAX_SAFE_EPG_BYTES = 35 * 1024 * 1024; // 35MB safety limit to prevent OOM on giant 300MB global feeds
-
-    return this.fetchWithProxyFallback(url)
+    const MAX_SAFE_EPG_BYTES = 35 * 1024 * 1024;
+    return this._fetchXmltvResponse(url)
       .then((res) => {
+        if (!res) return null;
         const cl = res.headers && typeof res.headers.get === 'function' ? res.headers.get('content-length') : null;
         if (cl && parseInt(cl, 10) > MAX_SAFE_EPG_BYTES) {
           console.warn('EPG feed exceeds TV memory safety limit (>35MB), aborting:', url);
@@ -493,56 +744,7 @@ class EPGService {
         }
         return res.arrayBuffer();
       })
-      .catch((err) => {
-        if (url === this.DEFAULT_LIVE_EPG_URL || url.indexOf('epg-il.xml') !== -1) {
-          if (url !== 'epg-il.xml') {
-            console.warn('Remote EPG unavailable, falling back to bundled epg-il.xml:', err);
-            return fetch('epg-il.xml').then((localRes) => {
-              if (!localRes || !localRes.ok) throw err;
-              return localRes.arrayBuffer();
-            });
-          }
-        }
-        throw err;
-      })
-      .then((buffer) => {
-        if (!buffer) return '';
-        if (buffer.byteLength > MAX_SAFE_EPG_BYTES) {
-          console.warn('EPG feed buffer exceeded 35MB safe limit, skipped:', url);
-          return '';
-        }
-        let bytes = new Uint8Array(buffer);
-        buffer = null;
-        // Check GZIP magic header (0x1f 0x8b)
-        if (bytes.length > 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
-          if (typeof DecompressionStream !== 'undefined') {
-            try {
-              const ds = new DecompressionStream('gzip');
-              const blob = new Blob([bytes]);
-              bytes = null;
-              const decompressedStream = blob.stream().pipeThrough(ds);
-              return new Response(decompressedStream).text();
-            } catch (e) {}
-          }
-        }
-        if (typeof TextDecoder !== 'undefined') {
-          const decoded = new TextDecoder('utf-8').decode(bytes);
-          bytes = null;
-          return decoded;
-        }
-        // Fallback for very old engines
-        let str = '';
-        const chunk = 8192;
-        for (let i = 0; i < bytes.length; i += chunk) {
-          str += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-        }
-        bytes = null;
-        try {
-          return decodeURIComponent(escape(str));
-        } catch (e) {
-          return str;
-        }
-      });
+      .then((buffer) => this._decodeArrayBufferToXml(buffer, MAX_SAFE_EPG_BYTES, url));
   }
 
   decodeXmlEntities(str) {
@@ -676,6 +878,257 @@ class EPGService {
       };
       setTimeout(run, 0);
     });
+  }
+
+  _detachString(str) {
+    if (!str || str.length === 0) return '';
+    const len = str.length;
+    if (len <= 1024) {
+      const codes = new Array(len);
+      for (let i = 0; i < len; i++) {
+        codes[i] = str.charCodeAt(i);
+      }
+      return String.fromCharCode.apply(null, codes);
+    }
+    let out = '';
+    for (let i = 0; i < len; i += 1024) {
+      const end = i + 1024 < len ? i + 1024 : len;
+      const codes = new Array(end - i);
+      for (let j = i; j < end; j++) {
+        codes[j - i] = str.charCodeAt(j);
+      }
+      out += String.fromCharCode.apply(null, codes);
+    }
+    return out;
+  }
+
+  _xmltvStreamBegin(appendMode) {
+    const now = Date.now();
+    return {
+      xml: null,
+      xmlLen: 0,
+      buffer: '',
+      blocksInChunk: 0,
+      append: Boolean(appendMode),
+      minAllowedTime: now - (this.MAX_PAST_DAYS * this.DAY_MS),
+      maxAllowedTime: now + (7 * this.DAY_MS),
+      hasFilter: Boolean(this.targetChannelKeys && this.targetChannelKeys.size > 0),
+      matchedChannelIds: new Set(),
+      progs: new Map(),
+      aliasMap: new Map(),
+      phase: 'stream',
+      chPos: -1,
+      pPos: -1,
+      channelBlocks: 0,
+      programmeBlocks: 0,
+      accepted: 0,
+      zeroMatch: false,
+      failed: false
+    };
+  }
+
+  _xmltvProcessChannelBlock(ctx, chAttrs, chBody) {
+    ctx.channelBlocks++;
+    const rawId = this.extractXmlAttr(chAttrs, 'id');
+    if (!rawId) return;
+    const decodedId = this.decodeXmlEntities(rawId);
+    if (!decodedId) return;
+    const chId = this._detachString(decodedId);
+    const hasFilter = ctx.hasFilter;
+    const lowerId = chId.toLowerCase();
+    let isMatch = !hasFilter || this.targetChannelKeys.has(lowerId);
+
+    const displayNames = [];
+    if (chBody) {
+      let dnPos = chBody.indexOf('<display-name');
+      while (dnPos !== -1) {
+        const dnNext = chBody.charCodeAt(dnPos + 13);
+        if (dnNext === 62 || dnNext <= 32) {
+          const dnGt = chBody.indexOf('>', dnPos + 13);
+          if (dnGt === -1) break;
+          const dnClose = chBody.indexOf('</display-name>', dnGt + 1);
+          if (dnClose === -1) break;
+          const rawDisp = this.decodeXmlEntities(chBody.slice(dnGt + 1, dnClose));
+          if (rawDisp) {
+            const dispName = this._detachString(rawDisp);
+            displayNames.push(dispName);
+            if (!isMatch && hasFilter) {
+              const lowerDisp = dispName.toLowerCase();
+              if (this.targetChannelKeys.has(lowerDisp)) {
+                isMatch = true;
+              } else {
+                const normDisp = this.normalizeChannelKey(dispName);
+                if (normDisp && this.targetChannelKeys.has(normDisp)) {
+                  isMatch = true;
+                }
+              }
+            }
+          }
+          dnPos = chBody.indexOf('<display-name', dnClose + 15);
+        } else {
+          dnPos = chBody.indexOf('<display-name', dnPos + 13);
+        }
+      }
+    }
+
+    if (isMatch) {
+      ctx.matchedChannelIds.add(chId);
+      this.registerChannelAlias(chId, chId, ctx.aliasMap);
+      for (let d = 0; d < displayNames.length; d++) {
+        this.registerChannelAlias(displayNames[d], chId, ctx.aliasMap);
+      }
+    }
+  }
+
+  _xmltvProcessProgrammeBlock(ctx, attrs, body) {
+    ctx.programmeBlocks++;
+    const rawChannel = this.extractXmlAttr(attrs, 'channel');
+    const startStr = this.extractXmlAttr(attrs, 'start');
+    if (!rawChannel || !startStr) return;
+
+    const decodedCh = this.decodeXmlEntities(rawChannel);
+    if (!decodedCh) return;
+
+    const hasFilter = ctx.hasFilter;
+    let keepChannel = true;
+    if (hasFilter && !ctx.matchedChannelIds.has(decodedCh)) {
+      const lowerChId = decodedCh.toLowerCase();
+      if (!this.targetChannelKeys.has(lowerChId)) {
+        const normChId = this.normalizeChannelKey(decodedCh);
+        if (!(normChId && this.targetChannelKeys.has(normChId))) {
+          keepChannel = false;
+        }
+      }
+    }
+    if (!keepChannel) return;
+
+    const startMs = this.parseDateMs(startStr);
+    if (isNaN(startMs) || startMs < ctx.minAllowedTime || startMs > ctx.maxAllowedTime) {
+      return;
+    }
+
+    const stopStr = this.extractXmlAttr(attrs, 'stop');
+    const rawStopMs = stopStr ? this.parseDateMs(stopStr) : NaN;
+    const stopMs = !isNaN(rawStopMs) && rawStopMs > startMs ? rawStopMs : startMs + 3600000;
+
+    const rawTitle = body ? this.extractXmlTagText(body, 'title') : '';
+    const rawDesc = body ? this.extractXmlTagText(body, 'desc') : '';
+    const title = rawTitle ? this._detachString(this.decodeXmlEntities(rawTitle)) : 'שידור חי';
+    let desc = rawDesc ? this._detachString(this.decodeXmlEntities(rawDesc)) : '';
+    if (!desc && body) {
+      const rawSub = this.extractXmlTagText(body, 'sub-title');
+      if (rawSub) desc = this._detachString(this.decodeXmlEntities(rawSub));
+    }
+
+    const channelId = this._detachString(decodedCh);
+    let list = ctx.progs.get(channelId);
+    if (!list) {
+      list = [];
+      ctx.progs.set(channelId, list);
+      this.registerChannelAlias(channelId, channelId, ctx.aliasMap);
+    }
+
+    list.push({
+      id: channelId + '_' + startMs,
+      title: title,
+      desc: desc,
+      startMs: startMs,
+      stopMs: stopMs
+    });
+    ctx.accepted++;
+  }
+
+  _xmltvStreamFeed(ctx, chunkText, isFinal) {
+    const MAX_TAIL_CHARS = 65536;
+    const buf = ctx.buffer ? ctx.buffer + chunkText : chunkText;
+    ctx.buffer = '';
+    ctx.blocksInChunk = 0;
+
+    let pos = 0;
+    const len = buf.length;
+
+    while (pos < len) {
+      const nextCh = buf.indexOf('<channel', pos);
+      const nextPr = buf.indexOf('<programme', pos);
+
+      if (nextCh === -1 && nextPr === -1) {
+        if (!isFinal) {
+          const keepFrom = len - 16 > pos ? len - 16 : pos;
+          ctx.buffer = this._detachString(buf.slice(keepFrom));
+        }
+        break;
+      }
+
+      const isChannel = nextCh !== -1 && (nextPr === -1 || nextCh < nextPr);
+      const tagPos = isChannel ? nextCh : nextPr;
+      const tagLen = isChannel ? 8 : 10;
+
+      if (tagPos + tagLen >= len) {
+        if (!isFinal) {
+          ctx.buffer = this._detachString(buf.slice(tagPos));
+        }
+        break;
+      }
+
+      const afterTag = buf.charCodeAt(tagPos + tagLen);
+      if (afterTag !== 62 && afterTag > 32) {
+        pos = tagPos + tagLen;
+        continue;
+      }
+
+      if (!isChannel && ctx.hasFilter && ctx.channelBlocks > 0 && ctx.matchedChannelIds.size === 0) {
+        ctx.zeroMatch = true;
+        ctx.buffer = '';
+        return;
+      }
+
+      const openEnd = buf.indexOf('>', tagPos + tagLen);
+      if (openEnd === -1) {
+        if (!isFinal) {
+          if (len - tagPos <= MAX_TAIL_CHARS) {
+            ctx.buffer = this._detachString(buf.slice(tagPos));
+          } else {
+            ctx.buffer = this._detachString(buf.slice(len - 4096));
+          }
+        }
+        break;
+      }
+
+      // Self-closing tag (e.g., <channel id="foo"/>)
+      if (buf.charCodeAt(openEnd - 1) === 47) {
+        const attrs = buf.slice(tagPos + tagLen, openEnd - 1);
+        if (isChannel) {
+          this._xmltvProcessChannelBlock(ctx, attrs, '');
+        }
+        ctx.blocksInChunk++;
+        pos = openEnd + 1;
+        continue;
+      }
+
+      const closeTag = isChannel ? '</channel>' : '</programme>';
+      const closeIdx = buf.indexOf(closeTag, openEnd + 1);
+      if (closeIdx === -1) {
+        if (!isFinal) {
+          if (len - tagPos > MAX_TAIL_CHARS) {
+            // Malformed unclosed tag exceeding 64KB cap: skip past opening tag to bound RAM
+            pos = openEnd + 1;
+            continue;
+          }
+          ctx.buffer = this._detachString(buf.slice(tagPos));
+        }
+        break;
+      }
+
+      const attrs = buf.slice(tagPos + tagLen, openEnd);
+      const body = buf.slice(openEnd + 1, closeIdx);
+      if (isChannel) {
+        this._xmltvProcessChannelBlock(ctx, attrs, body);
+      } else {
+        this._xmltvProcessProgrammeBlock(ctx, attrs, body);
+      }
+      ctx.blocksInChunk++;
+      pos = closeIdx + closeTag.length;
+    }
   }
 
   _xmltvBegin(xmlString, appendMode) {
@@ -1028,8 +1481,27 @@ class EPGService {
     return null;
   }
 
+  _getCachedSyntheticSevenDaySchedule(channel) {
+    if (!channel) return [];
+    const cacheKey = 'gen_' + (channel.id || channel.name || 'tv');
+    if (!this._syntheticScheduleCache) this._syntheticScheduleCache = new Map();
+    if (this._syntheticScheduleCache.has(cacheKey)) {
+      return this._syntheticScheduleCache.get(cacheKey);
+    }
+    const generated = this.generateSevenDaySchedule(channel);
+    // Strict LRU/FIFO bound (max 5 channels) so 7-day synthetic schedules never grow unbounded in RAM
+    if (this._syntheticScheduleCache.size >= 5) {
+      const oldestKey = this._syntheticScheduleCache.keys().next().value;
+      if (oldestKey !== undefined) {
+        this._syntheticScheduleCache.delete(oldestKey);
+      }
+    }
+    this._syntheticScheduleCache.set(cacheKey, generated);
+    return generated;
+  }
+
   /**
-   * Returns complete 7-day + today schedule for a channel (from XMLTV or deterministic channel-specific schedule)
+   * Returns complete 7-day + today schedule for a channel (lazily generated for 7-day guide modal / catch-up).
    */
   getChannelProgrammes(channel) {
     if (!channel) return [];
@@ -1042,19 +1514,12 @@ class EPGService {
       }
       // If XML feed has expired past programmes, keep the past history for Start-Over / Catch-up
       // and seamlessly append generated future programmes so current & next are always populated
-      const generated = this.generateSevenDaySchedule(channel);
+      const generated = this._getCachedSyntheticSevenDaySchedule(channel);
       const futureGen = generated.filter((p) => p.startMs >= (lastProg ? lastProg.stopMs : nowMs));
       return xmlList.concat(futureGen);
     }
 
-    const cacheKey = 'gen_' + channel.id;
-    if (this.programmesByChannel.has(cacheKey)) {
-      return this.programmesByChannel.get(cacheKey);
-    }
-
-    const generated = this.generateSevenDaySchedule(channel);
-    this.programmesByChannel.set(cacheKey, generated);
-    return generated;
+    return this._getCachedSyntheticSevenDaySchedule(channel);
   }
 
   findCurrentProgrammeIndex(list, nowMs) {
@@ -1075,21 +1540,137 @@ class EPGService {
     return -1;
   }
 
+  _getSyntheticScheduleParams(channel) {
+    const seed = this.channelSeed(channel);
+    const offsetsMin = [0, 0, 15, 30, 10, 20, 45];
+    const durationMinOptions = [60, 45, 60, 90, 60];
+    return {
+      seed: seed,
+      lineup: this.getChannelLineupPool(channel),
+      startOffsetMs: offsetsMin[seed % offsetsMin.length] * 60000,
+      slotDurationMs: durationMinOptions[seed % durationMinOptions.length] * 60000
+    };
+  }
+
+  _buildSyntheticSlot(channel, params, dayStartMs, slotIdx) {
+    const startMs = dayStartMs + (slotIdx * params.slotDurationMs);
+    const stopMs = startMs + params.slotDurationMs;
+    const startHour = new Date(startMs).getHours();
+    const progInfo = this.pickProgrammeFromPool(params.lineup, startHour, slotIdx + params.seed);
+    return {
+      id: (channel.id || 'ch') + '_' + startMs,
+      title: progInfo.title,
+      desc: progInfo.desc,
+      startMs: startMs,
+      stopMs: stopMs
+    };
+  }
+
   /**
-   * Returns Previous, Current & Next programme for fast rendering (including both startStr, stopStr, progressPercent, remainingMin)
+   * Computes ONLY Previous + Current + Next synthetic slots on-the-fly with ZERO caching in programmesByChannel.
+   */
+  computeSyntheticNowNext(channel, nowMs) {
+    if (!channel) return null;
+    const refMs = typeof nowMs === 'number' && isFinite(nowMs) ? nowMs : Date.now();
+    const now = new Date(refMs);
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
+    const params = this._getSyntheticScheduleParams(channel);
+    const dayStartMs = todayMidnight + params.startOffsetMs;
+    const slotIdx = Math.floor((refMs - dayStartMs) / params.slotDurationMs);
+
+    const prev = this._buildSyntheticSlot(channel, params, dayStartMs, slotIdx - 1);
+    const cur = this._buildSyntheticSlot(channel, params, dayStartMs, slotIdx);
+    const next = this._buildSyntheticSlot(channel, params, dayStartMs, slotIdx + 1);
+
+    const totalDuration = Math.max(1, cur.stopMs - cur.startMs);
+    const elapsed = Math.max(0, refMs - cur.startMs);
+    const progress = Math.min(100, Math.round((elapsed / totalDuration) * 100));
+    const remainingMin = Math.max(1, Math.ceil((cur.stopMs - refMs) / 60000));
+
+    return {
+      previous: {
+        id: prev.id,
+        title: prev.title,
+        desc: prev.desc,
+        startStr: this.formatTime(prev.startMs),
+        stopStr: this.formatTime(prev.stopMs),
+        startMs: prev.startMs,
+        stopMs: prev.stopMs
+      },
+      current: {
+        id: cur.id,
+        title: cur.title,
+        desc: cur.desc || 'שידור ישיר בערוץ.',
+        start: new Date(cur.startMs),
+        stop: new Date(cur.stopMs),
+        startMs: cur.startMs,
+        stopMs: cur.stopMs,
+        startStr: this.formatTime(cur.startMs),
+        stopStr: this.formatTime(cur.stopMs),
+        progressPercent: progress,
+        remainingMin: remainingMin,
+        status: 'live'
+      },
+      next: {
+        id: next.id,
+        title: next.title,
+        desc: next.desc,
+        startStr: this.formatTime(next.startMs),
+        stopStr: this.formatTime(next.stopMs),
+        startMs: next.startMs,
+        stopMs: next.stopMs
+      }
+    };
+  }
+
+  /**
+   * Computes ONLY the 5-slot Mini Timeline (2 prev + live + 2 next) on-the-fly with ZERO 7-day allocation.
+   */
+  computeSyntheticMiniTimeline(channel, nowMs) {
+    if (!channel) return [];
+    const refMs = typeof nowMs === 'number' && isFinite(nowMs) ? nowMs : Date.now();
+    const now = new Date(refMs);
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
+    const params = this._getSyntheticScheduleParams(channel);
+    const dayStartMs = todayMidnight + params.startOffsetMs;
+    const slotIdx = Math.floor((refMs - dayStartMs) / params.slotDurationMs);
+
+    const slice = [];
+    for (let offset = -2; offset <= 2; offset++) {
+      const p = this._buildSyntheticSlot(channel, params, dayStartMs, slotIdx + offset);
+      const status = offset < 0 ? 'past' : offset === 0 ? 'live' : 'upcoming';
+      slice.push({
+        id: p.id,
+        title: p.title,
+        desc: p.desc,
+        start: new Date(p.startMs),
+        stop: new Date(p.stopMs),
+        startMs: p.startMs,
+        stopMs: p.stopMs,
+        startStr: this.formatTime(p.startMs),
+        stopStr: this.formatTime(p.stopMs),
+        status: status,
+        canStartOver: status === 'past' || status === 'live'
+      });
+    }
+    return slice;
+  }
+
+  /**
+   * Returns Previous, Current & Next programme for fast rendering without allocating 7-day synthetic schedules.
    */
   getNowNext(channel) {
     if (!channel) return null;
     const nowMs = Date.now();
-    const list = this.getChannelProgrammes(channel);
+    const xmlList = this.findXmlProgrammesForChannel(channel);
 
-    if (list && list.length > 0) {
-      const currentIdx = this.findCurrentProgrammeIndex(list, nowMs);
+    if (xmlList && xmlList.length > 0) {
+      const currentIdx = this.findCurrentProgrammeIndex(xmlList, nowMs);
 
       if (currentIdx !== -1) {
-        const prev = currentIdx > 0 ? list[currentIdx - 1] : null;
-        const current = list[currentIdx];
-        const next = list[currentIdx + 1] || null;
+        const prev = currentIdx > 0 ? xmlList[currentIdx - 1] : null;
+        const current = xmlList[currentIdx];
+        const next = xmlList[currentIdx + 1] || null;
         const totalDuration = Math.max(1, current.stopMs - current.startMs);
         const elapsed = Math.max(0, nowMs - current.startMs);
         const progress = Math.min(100, Math.round((elapsed / totalDuration) * 100));
@@ -1136,7 +1717,7 @@ class EPGService {
       }
     }
 
-    return this.generateSmartFallbackNowNext(channel, new Date(nowMs));
+    return this.computeSyntheticNowNext(channel, nowMs);
   }
 
   _formatAdjacentItem(p) {
@@ -1234,22 +1815,19 @@ class EPGService {
   getMiniTimeline(channel) {
     if (!channel) return [];
     const nowMs = Date.now();
-    let list = this.getChannelProgrammes(channel);
-    let currentIdx = this.findCurrentProgrammeIndex(list, nowMs);
+    const xmlList = this.findXmlProgrammesForChannel(channel);
+    const currentIdx = xmlList && xmlList.length > 0 ? this.findCurrentProgrammeIndex(xmlList, nowMs) : -1;
 
     if (currentIdx === -1) {
-      list = this.generateSevenDaySchedule(channel);
-      currentIdx = this.findCurrentProgrammeIndex(list, nowMs);
+      return this.computeSyntheticMiniTimeline(channel, nowMs);
     }
 
-    if (currentIdx === -1) return [];
-
     const startIdx = Math.max(0, currentIdx - 2);
-    const endIdx = Math.min(list.length - 1, currentIdx + 2);
+    const endIdx = Math.min(xmlList.length - 1, currentIdx + 2);
     const slice = [];
 
     for (let i = startIdx; i <= endIdx; i++) {
-      const p = list[i];
+      const p = xmlList[i];
       let status = 'upcoming';
       if (i < currentIdx) status = 'past';
       else if (i === currentIdx) status = 'live';
@@ -1498,57 +2076,8 @@ class EPGService {
   }
 
   generateSmartFallbackNowNext(channel, now) {
-    const list = this.getChannelProgrammes(channel);
-    const nowMs = now.getTime();
-    const i = this.findCurrentProgrammeIndex(list, nowMs);
-    if (i !== -1) {
-      const prev = i > 0 ? list[i - 1] : null;
-      const cur = list[i];
-      const next = list[i + 1] || null;
-      const totalDuration = Math.max(1, cur.stopMs - cur.startMs);
-      const elapsed = Math.max(0, nowMs - cur.startMs);
-      const progress = Math.min(100, Math.round((elapsed / totalDuration) * 100));
-      const remainingMin = Math.max(1, Math.ceil((cur.stopMs - nowMs) / 60000));
-      return {
-        previous: prev
-          ? {
-              id: prev.id,
-              title: prev.title,
-              desc: prev.desc,
-              startStr: this.formatTime(prev.startMs),
-              stopStr: this.formatTime(prev.stopMs),
-              startMs: prev.startMs,
-              stopMs: prev.stopMs
-            }
-          : null,
-        current: {
-          id: cur.id,
-          title: cur.title,
-          desc: cur.desc,
-          start: cur.start || new Date(cur.startMs),
-          stop: cur.stop || new Date(cur.stopMs),
-          startStr: this.formatTime(cur.startMs),
-          stopStr: this.formatTime(cur.stopMs),
-          startMs: cur.startMs,
-          stopMs: cur.stopMs,
-          progressPercent: progress,
-          remainingMin: remainingMin,
-          status: 'live'
-        },
-        next: next
-          ? {
-              id: next.id,
-              title: next.title,
-              desc: next.desc,
-              startStr: this.formatTime(next.startMs),
-              stopStr: this.formatTime(next.stopMs),
-              startMs: next.startMs,
-              stopMs: next.stopMs
-            }
-          : null
-      };
-    }
-    return null;
+    const nowMs = now && typeof now.getTime === 'function' ? now.getTime() : Date.now();
+    return this.computeSyntheticNowNext(channel, nowMs);
   }
 
   formatTime(dateOrMs) {

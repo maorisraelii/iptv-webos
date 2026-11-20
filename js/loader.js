@@ -40,7 +40,7 @@
         Boolean(window.__IPTV_ANDROID_TV) ||
         Boolean(window.AndroidTvHost) ||
         (window.location && window.location.hostname === 'appassets.androidplatform.net') ||
-        (/Android/i.test(ua) && /TV|AFT|BRAVIA|SmartTV|GoogleTV/i.test(ua));
+        (/Android/i.test(ua) && /TV|AFT|SHIELD|BRAVIA|Chromecast|SmartTV|GoogleTV/i.test(ua));
       var isTv = isWebOS || isAndroidTv;
 
       var doc = document.documentElement;
@@ -92,7 +92,8 @@
         window.app.updateVideoSurfacePosition(true);
       } catch (e) {}
     }
-    if (window.AndroidTvHost && typeof window.AndroidTvHost.notifyAppReady === 'function') {
+    if (!window.__IPTV_APP_READY_NOTIFIED && window.AndroidTvHost && typeof window.AndroidTvHost.notifyAppReady === 'function') {
+      window.__IPTV_APP_READY_NOTIFIED = true;
       try {
         window.AndroidTvHost.notifyAppReady();
       } catch (e) {}
@@ -108,7 +109,7 @@
   function checkAndBoot() {
     safetyTimer = setTimeout(function() {
       dismissBootSplash();
-    }, 3500);
+    }, 4500);
 
     var remoteUrl = '';
     try {
