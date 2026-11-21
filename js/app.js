@@ -280,15 +280,32 @@ class IPTVApp {
     } else if (typeof document !== 'undefined') {
       const classicLink = document.getElementById('theme-css-classic');
       const glassLink = document.getElementById('theme-css-glass');
+      if (!classicLink && !glassLink && typeof window !== 'undefined') {
+        const inlineFallbackCss = target === 'glass' ? window.__ZENPLAY_OTA_GLASS_CSS : window.__ZENPLAY_OTA_CLASSIC_CSS;
+        if (inlineFallbackCss) {
+          let styleEl = document.getElementById('zenplay-ota-css');
+          if (!styleEl) {
+            styleEl = document.createElement('style');
+            styleEl.id = 'zenplay-ota-css';
+            document.head.appendChild(styleEl);
+          }
+          styleEl.textContent = inlineFallbackCss;
+        }
+      }
       if (classicLink) {
-        classicLink.disabled = target === 'glass';
-        classicLink.media = target === 'glass' ? 'none' : 'all';
+        try {
+          classicLink.removeAttribute('disabled');
+        } catch (e) {}
+        classicLink.disabled = false;
+        classicLink.media = target === 'glass' ? 'not all' : 'all';
       }
       if (glassLink) {
-        glassLink.disabled = target !== 'glass';
-        glassLink.media = target !== 'glass' ? 'none' : 'all';
+        try {
+          glassLink.removeAttribute('disabled');
+        } catch (e) {}
+        glassLink.disabled = false;
+        glassLink.media = target === 'glass' ? 'all' : 'not all';
       }
-
       const targetLink = target === 'glass' ? glassLink : classicLink;
       if (targetLink && !targetLink.sheet) {
         targetLink.onload = () => {
@@ -3455,39 +3472,79 @@ class IPTVApp {
     let bestIndex = -1;
     let bestScore = Infinity;
 
-    for (let i = 0; i < focusables.length; i++) {
-      if (i === activeIdx) continue;
-      const rect = rects[i];
+    if (direction === 'left' || direction === 'right') {
+      let bestRowIndex = -1;
+      let bestRowScore = Infinity;
+      let bestNearIndex = -1;
+      let bestNearScore = Infinity;
 
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const dx = cx - curCx;
-      const dy = cy - curCy;
+      for (let i = 0; i < focusables.length; i++) {
+        if (i === activeIdx) continue;
+        const rect = rects[i];
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const vOverlap = Math.min(rect.bottom, curRect.bottom) - Math.max(rect.top, curRect.top);
+        const rowTol = Math.max(24, Math.min(curRect.height, rect.height) * 0.45);
+        const isSameRow = vOverlap > 4 || Math.abs(cy - curCy) <= rowTol;
 
-      let isCandidate = false;
-      let primaryDist = 0;
-      let secondaryDist = 0;
-
-      if (direction === 'down' && dy > 12) {
-        isCandidate = true;
-        primaryDist = dy;
-        secondaryDist = Math.abs(dx) * 2.2;
-      } else if (direction === 'up' && dy < -12) {
-        isCandidate = true;
-        primaryDist = -dy;
-        secondaryDist = Math.abs(dx) * 2.2;
-      } else if (direction === 'left' && dx < -12) {
-        isCandidate = true;
-        primaryDist = -dx;
-        secondaryDist = Math.abs(dy) * 2.5;
-      } else if (direction === 'right' && dx > 12) {
-        isCandidate = true;
-        primaryDist = dx;
-        secondaryDist = Math.abs(dy) * 2.5;
+        if (isSameRow) {
+          const inDir =
+            direction === 'left'
+              ? (rect.right <= curRect.left + 12 && cx < curCx - 8)
+              : (rect.left >= curRect.right - 12 && cx > curCx + 8);
+          if (!inDir) continue;
+          const hGap =
+            direction === 'left'
+              ? Math.max(0, curRect.left - rect.right)
+              : Math.max(0, rect.left - curRect.right);
+          const rowScore = hGap + Math.abs(cy - curCy) * 4;
+          if (rowScore < bestRowScore) {
+            bestRowScore = rowScore;
+            bestRowIndex = i;
+          }
+        } else if (Math.abs(cy - curCy) <= 120) {
+          const inNearDir = direction === 'left' ? cx < curCx - 12 : cx > curCx + 12;
+          if (!inNearDir) continue;
+          const hGap =
+            direction === 'left'
+              ? Math.max(0, curRect.left - rect.right)
+              : Math.max(0, rect.left - curRect.right);
+          const nearScore = hGap + Math.abs(cy - curCy) * 8;
+          if (nearScore < bestNearScore) {
+            bestNearScore = nearScore;
+            bestNearIndex = i;
+          }
+        }
       }
 
-      if (isCandidate) {
-        const score = primaryDist + secondaryDist;
+      bestIndex = bestRowIndex !== -1 ? bestRowIndex : bestNearIndex;
+    } else {
+      for (let i = 0; i < focusables.length; i++) {
+        if (i === activeIdx) continue;
+        const rect = rects[i];
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+
+        const inVertDir =
+          direction === 'down'
+            ? (rect.top >= curRect.bottom - 10 && cy > curCy + 10)
+            : (rect.bottom <= curRect.top + 10 && cy < curCy - 10);
+        if (!inVertDir) continue;
+
+        const vGap =
+          direction === 'down'
+            ? Math.max(0, rect.top - curRect.bottom)
+            : Math.max(0, curRect.top - rect.bottom);
+
+        let hGap = 0;
+        if (rect.right < curRect.left) {
+          hGap = curRect.left - rect.right;
+        } else if (rect.left > curRect.right) {
+          hGap = rect.left - curRect.right;
+        }
+
+        // Tiny RTL right-first tie-breaker when vertical & edge overlap distances are identical
+        const score = vGap + hGap * 1.6 + Math.abs(cx - curCx) * 0.05 - cx * 0.0005;
         if (score < bestScore) {
           bestScore = score;
           bestIndex = i;
@@ -3496,11 +3553,7 @@ class IPTVApp {
     }
 
     if (bestIndex === -1) {
-      if (direction === 'down' || direction === 'left') {
-        bestIndex = (activeIdx + 1) % focusables.length;
-      } else {
-        bestIndex = (activeIdx - 1 + focusables.length) % focusables.length;
-      }
+      bestIndex = activeIdx;
     }
 
     this.focusedModalIndex = bestIndex;

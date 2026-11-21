@@ -320,7 +320,7 @@ async function verifySettingsScrollingForTheme(page, theme) {
   }, theme);
   await page.waitForFunction((targetTheme) => {
     const link = document.getElementById(targetTheme === 'glass' ? 'theme-css-glass' : 'theme-css-classic');
-    return Boolean(link && !link.disabled && link.sheet);
+    return Boolean(link && !link.disabled && link.media === 'all' && link.sheet);
   }, {}, theme);
   await new Promise((r) => setTimeout(r, 80));
 
@@ -510,12 +510,16 @@ async function runTests() {
         assert.strictEqual(bootCheck.splashHidden, true, 'Boot splash must be hidden');
         assert(bootCheck.listH > 400, 'Channel list must have positive layout height');
 
-        // Live theme toggle Classic <-> Glass & back to Classic
+        // Live theme toggle Classic <-> Glass & back to Classic (including rapid synchronous toggles)
         const themeCheck = await page.evaluate(() => {
           window.app.applyTheme('glass', true);
+          window.app.applyTheme('classic', true);
+          window.app.applyTheme('glass', true);
+          const gLink = document.getElementById('theme-css-glass');
+          const cLink = document.getElementById('theme-css-classic');
           const gActive = document.documentElement.classList.contains('theme-glass');
-          const gLinkOn = !document.getElementById('theme-css-glass').disabled;
-          const cLinkOff = document.getElementById('theme-css-classic').disabled;
+          const gLinkOn = gLink.media === 'all' && Boolean(gLink.sheet);
+          const cLinkOff = cLink.media === 'not all' && Boolean(cLink.sheet);
           window.app.applyTheme('classic', true);
           const cActive = document.documentElement.classList.contains('theme-classic');
           return {
@@ -552,6 +556,91 @@ async function runTests() {
         assert.strictEqual(pageErrors.length, 0, 'Unexpected pageerrors: ' + pageErrors.join('; '));
         assert.strictEqual(consoleErrors.length, 0, 'Unexpected console errors: ' + consoleErrors.join('; '));
         pass('webos-fresh-nav-theme', '25 channels rendered, Glass/Classic toggle + D-pad/Fullscreen/Back OK');
+
+        // Real TV Remote D-pad navigation in Settings -> Performance tab -> Theme & 2-column rows
+        await page.evaluate(() => {
+          window.app.applyTheme('classic', true);
+          window.app.openSettingsModal();
+        });
+        await new Promise((r) => setTimeout(r, 80));
+        await page.keyboard.press('ArrowLeft');
+        await new Promise((r) => setTimeout(r, 60));
+        const focusedTabPerf = await page.evaluate(() => window.app.currentFocusedEl && window.app.currentFocusedEl.id);
+        assert.strictEqual(focusedTabPerf, 'tab-btn-performance', 'ArrowLeft from tab-btn-channels must land on tab-btn-performance');
+        await page.keyboard.press('Enter');
+        await new Promise((r) => setTimeout(r, 120));
+        await page.keyboard.press('ArrowDown');
+        await new Promise((r) => setTimeout(r, 60));
+        assert.strictEqual(
+          await page.evaluate(() => window.app.currentFocusedEl && window.app.currentFocusedEl.id),
+          'btn-theme-classic',
+          'ArrowDown from tab-btn-performance must focus btn-theme-classic'
+        );
+        await page.keyboard.press('ArrowLeft');
+        await new Promise((r) => setTimeout(r, 60));
+        assert.strictEqual(
+          await page.evaluate(() => window.app.currentFocusedEl && window.app.currentFocusedEl.id),
+          'btn-theme-glass',
+          'ArrowLeft from btn-theme-classic must focus btn-theme-glass'
+        );
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(() => {
+          const g = document.getElementById('theme-css-glass');
+          return Boolean(g && g.media === 'all' && g.sheet && window.app.getTheme() === 'glass');
+        });
+        await new Promise((r) => setTimeout(r, 60));
+        const glassVisual = await page.evaluate(() => ({
+          theme: window.app.getTheme(),
+          active: document.getElementById('btn-theme-glass').classList.contains('active-option'),
+          radius: getComputedStyle(document.querySelector('.modal-settings-card')).borderRadius
+        }));
+        assert.strictEqual(glassVisual.theme, 'glass');
+        assert.strictEqual(glassVisual.active, true, 'Glass button must become active-option after OK');
+        assert.strictEqual(glassVisual.radius, '28px', 'Glass stylesheet border-radius (28px) must be active');
+
+        await page.keyboard.press('ArrowRight');
+        await new Promise((r) => setTimeout(r, 60));
+        assert.strictEqual(
+          await page.evaluate(() => window.app.currentFocusedEl && window.app.currentFocusedEl.id),
+          'btn-theme-classic',
+          'ArrowRight from btn-theme-glass must focus btn-theme-classic'
+        );
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(() => {
+          const c = document.getElementById('theme-css-classic');
+          return Boolean(c && c.media === 'all' && c.sheet && window.app.getTheme() === 'classic');
+        });
+        await new Promise((r) => setTimeout(r, 60));
+        assert.strictEqual(
+          await page.evaluate(() => getComputedStyle(document.querySelector('.modal-settings-card')).borderRadius),
+          '24px',
+          'Classic stylesheet border-radius (24px) must be active after OK'
+        );
+
+        await page.keyboard.press('ArrowDown');
+        await new Promise((r) => setTimeout(r, 60));
+        assert.strictEqual(
+          await page.evaluate(() => window.app.currentFocusedEl && window.app.currentFocusedEl.dataset && window.app.currentFocusedEl.dataset.buffer),
+          'smart',
+          'ArrowDown from Theme must focus Smart buffer'
+        );
+        await page.keyboard.press('ArrowDown');
+        await new Promise((r) => setTimeout(r, 60));
+        assert.strictEqual(
+          await page.evaluate(() => window.app.currentFocusedEl && window.app.currentFocusedEl.dataset && window.app.currentFocusedEl.dataset.buffer),
+          'fast',
+          'ArrowDown from Smart buffer must focus Fast buffer (right column)'
+        );
+        await page.keyboard.press('ArrowLeft');
+        await new Promise((r) => setTimeout(r, 60));
+        assert.strictEqual(
+          await page.evaluate(() => window.app.currentFocusedEl && window.app.currentFocusedEl.dataset && window.app.currentFocusedEl.dataset.buffer),
+          'balanced',
+          'ArrowLeft from Fast buffer must focus Balanced buffer (left column)'
+        );
+        await page.keyboard.press('Escape');
+        await new Promise((r) => setTimeout(r, 120));
+        pass('webos-dpad-theme-switch', 'Real TV D-pad switches Classic <-> Glass visually & reaches 2-col options');
 
         // Settings Modal Scroll Suite on 1920x1080 Classic & Glass
         for (const t of ['classic', 'glass']) {
@@ -637,6 +726,23 @@ async function runTests() {
 
             const atvScroll = await verifySettingsScrollingForTheme(page, 'glass');
             assert.strictEqual(atvScroll.tabs.performance.badItems.length, 0, 'Android TV Settings perf tab clipped focused control');
+
+            // Verify AndroidTVBridge D-pad keys reach & switch Classic <-> Glass
+            const atvThemeSwitch = await page.evaluate(() => {
+              window.app.applyTheme('classic', true);
+              window.app.openSettingsModal();
+              window.AndroidTVBridge.dispatchKey('left');
+              window.AndroidTVBridge.dispatchKey('ok');
+              window.AndroidTVBridge.dispatchKey('down');
+              window.AndroidTVBridge.dispatchKey('left');
+              const focused = window.app.currentFocusedEl ? window.app.currentFocusedEl.id : '';
+              window.AndroidTVBridge.dispatchKey('ok');
+              const themeAfterGlass = window.app.getTheme();
+              window.app.closeModals();
+              return { focused, themeAfterGlass };
+            });
+            assert.strictEqual(atvThemeSwitch.focused, 'btn-theme-glass', 'AndroidTVBridge must focus btn-theme-glass');
+            assert.strictEqual(atvThemeSwitch.themeAfterGlass, 'glass', 'AndroidTVBridge OK must switch theme to glass');
           }
 
           assert.strictEqual(pageErrors.length, 0, 'Android TV pageerrors: ' + pageErrors.join('; '));
@@ -755,7 +861,6 @@ async function runTests() {
                 appliedOnBaseVersion: useBeta ? '5.1.4' : '5.0.7',
                 updatedAt: now,
                 cssPatch: m.cssPatch,
-                cssGlassPatch: m.cssGlassPatch,
                 jsPatch: m.jsPatch
               }));
             },
@@ -773,10 +878,36 @@ async function runTests() {
           assert.strictEqual(res.domRows, 3, tag + ' cold OTA boot lost channels! got ' + JSON.stringify(res));
           assert.strictEqual(res.visibleChannels, 3, tag + ' visibleChannels mismatch');
           assert.strictEqual(res.runningVer, otaManifest.version, tag + ' runningVer mismatch');
+
+          // Offline D-pad switch Classic <-> Glass on legacy base HTML (without cssGlassPatch in localStorage!)
+          const otaThemeRes = await page.evaluate(() => {
+            window.app.applyTheme('classic', true);
+            window.app.openSettingsModal();
+            window.app.navigate('left');
+            window.app.selectCurrent();
+            window.app.navigate('down');
+            window.app.navigate('left');
+            const focusedGlass = window.app.currentFocusedEl ? window.app.currentFocusedEl.id : '';
+            window.app.selectCurrent();
+            const glassRadius = getComputedStyle(document.querySelector('.modal-settings-card')).borderRadius;
+            const glassTheme = window.app.getTheme();
+            window.app.navigate('right');
+            window.app.selectCurrent();
+            const classicRadius = getComputedStyle(document.querySelector('.modal-settings-card')).borderRadius;
+            const classicTheme = window.app.getTheme();
+            window.app.closeModals();
+            return { focusedGlass, glassTheme, glassRadius, classicTheme, classicRadius };
+          });
+          assert.strictEqual(otaThemeRes.focusedGlass, 'btn-theme-glass', tag + ' OTA D-pad failed to reach btn-theme-glass');
+          assert.strictEqual(otaThemeRes.glassTheme, 'glass', tag + ' OTA theme did not change to glass');
+          assert.strictEqual(otaThemeRes.glassRadius, '28px', tag + ' OTA Glass CSS did not apply instantly without cssGlassPatch');
+          assert.strictEqual(otaThemeRes.classicTheme, 'classic', tag + ' OTA theme did not change back to classic');
+          assert.strictEqual(otaThemeRes.classicRadius, '24px', tag + ' OTA Classic CSS did not apply back');
+
           assert.strictEqual(pageErrors.length, 0, tag + ' OTA cold boot pageerrors: ' + pageErrors.join('; '));
           assert.strictEqual(consoleErrors.length, 0, tag + ' OTA cold boot console errors: ' + consoleErrors.join('; '));
           await page.close();
-          pass('git-ota-cold-boot-' + tag, tag + ' + cached EPG + v' + otaManifest.version + ' OTA kept all 3 channels with 0 errors');
+          pass('git-ota-cold-boot-' + tag, tag + ' + cached EPG + v' + otaManifest.version + ' OTA kept channels & switched Glass/Classic visually');
         }
 
         // 5b: Live performOTAUpdate() from old tag -> v5.2.1

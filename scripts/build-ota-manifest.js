@@ -89,6 +89,11 @@ const jsPatch = `
     if (typeof OTACloudManager !== 'undefined') syncClassProto(OTACloudManager, OtaOTACloudManager);
     if (typeof IPTVApp !== 'undefined') syncClassProto(IPTVApp, OtaIPTVApp);
 
+    if (typeof window !== 'undefined') {
+      window.__ZENPLAY_OTA_CLASSIC_CSS = ${JSON.stringify(cssContent)};
+      window.__ZENPLAY_OTA_GLASS_CSS = ${JSON.stringify(cssGlassContent)};
+    }
+
     function upgradeLiveAppInstance() {
       if (typeof window !== 'undefined') {
         if (!window.__ZENPLAY_BASE_BUNDLE_VERSION) {

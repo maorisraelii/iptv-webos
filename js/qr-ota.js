@@ -3,7 +3,7 @@
  * Designed for LG webOS 4.0 - 24+ (Chromium 53+)
  */
 
-const APP_BUNDLE_VERSION = '5.2.1';
+const APP_BUNDLE_VERSION = '5.2.2';
 const APP_BUNDLE_CHANNEL = 'stable';
 const OTA_GIST_RAW_BASE = 'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw';
 const OTA_GITHUB_RAW_STABLE = 'https://raw.githubusercontent.com/maorisraelii/iptv-webos/main/ota-manifest.json';
@@ -310,7 +310,7 @@ class OTACloudManager {
 
     if (typeof window !== 'undefined') {
       if (!window.__ZENPLAY_BASE_BUNDLE_VERSION) {
-        window.__ZENPLAY_BASE_BUNDLE_VERSION = typeof APP_BUNDLE_VERSION !== 'undefined' ? APP_BUNDLE_VERSION : '5.2.1';
+        window.__ZENPLAY_BASE_BUNDLE_VERSION = typeof APP_BUNDLE_VERSION !== 'undefined' ? APP_BUNDLE_VERSION : '5.2.2';
       }
       if (!window.__ZENPLAY_BASE_BUNDLE_CHANNEL) {
         window.__ZENPLAY_BASE_BUNDLE_CHANNEL = 'stable';
@@ -326,7 +326,7 @@ class OTACloudManager {
     if (typeof window !== 'undefined' && window.__ZENPLAY_BASE_BUNDLE_VERSION) {
       return window.__ZENPLAY_BASE_BUNDLE_VERSION;
     }
-    return typeof APP_BUNDLE_VERSION !== 'undefined' ? APP_BUNDLE_VERSION : '5.2.1';
+    return typeof APP_BUNDLE_VERSION !== 'undefined' ? APP_BUNDLE_VERSION : '5.2.2';
   }
 
   getBaseBundleChannel() {
@@ -608,12 +608,12 @@ class OTACloudManager {
         const isGlass = href.indexOf('css/theme-glass.css') !== -1;
         if (!isClassic && !isGlass) continue;
         if (disabled) {
-          links[i].disabled = true;
-          links[i].media = 'none';
+          links[i].disabled = false;
+          links[i].media = 'not all';
         } else {
           const shouldDisable = isGlass ? activeTheme !== 'glass' : activeTheme === 'glass';
-          links[i].disabled = shouldDisable;
-          links[i].media = shouldDisable ? 'none' : 'all';
+          links[i].disabled = false;
+          links[i].media = shouldDisable ? 'not all' : 'all';
         }
       }
     } catch (e) {}
@@ -623,7 +623,10 @@ class OTACloudManager {
     if (this.isSafeMode()) return false;
     const bundle = this.getSavedBundle();
     if (!this.isSavedBundleActive(bundle)) return false;
-    return Boolean(bundle && (bundle.cssPatch || bundle.cssGlassPatch));
+    const hasMemoryCss =
+      typeof window !== 'undefined' &&
+      Boolean(window.__ZENPLAY_OTA_GLASS_CSS || window.__ZENPLAY_OTA_CLASSIC_CSS);
+    return Boolean(hasMemoryCss || (bundle && (bundle.cssPatch || bundle.cssGlassPatch)));
   }
 
   applyThemeStylesheet(themeOverride) {
@@ -634,12 +637,20 @@ class OTACloudManager {
       if (!this.isSavedBundleActive(bundle)) return false;
       const activeTheme =
         themeOverride || (this.app && typeof this.app.getTheme === 'function' ? this.app.getTheme() : 'classic');
-      if (activeTheme === 'glass' && !bundle.cssGlassPatch && !this._fetchingGlassCss) {
+      const memClassic = typeof window !== 'undefined' ? (window.__ZENPLAY_OTA_CLASSIC_CSS || '') : '';
+      const memGlass = typeof window !== 'undefined' ? (window.__ZENPLAY_OTA_GLASS_CSS || '') : '';
+      const classicCss = bundle.cssPatch || memClassic;
+      const glassCss = bundle.cssGlassPatch || memGlass;
+
+      if (activeTheme === 'glass' && !glassCss && !this._fetchingGlassCss) {
         this._fetchingGlassCss = true;
         this.fetchManifestWithFallback()
           .then((manifest) => {
             this._fetchingGlassCss = false;
             if (manifest && manifest.cssGlassPatch) {
+              if (typeof window !== 'undefined') {
+                window.__ZENPLAY_OTA_GLASS_CSS = manifest.cssGlassPatch;
+              }
               const latestBundle = this.getSavedBundle() || bundle;
               latestBundle.cssGlassPatch = manifest.cssGlassPatch;
               this.saveInstalledBundleSafe(latestBundle);
@@ -655,9 +666,9 @@ class OTACloudManager {
           });
       }
       const rawCss =
-        activeTheme === 'glass' && bundle.cssGlassPatch
-          ? bundle.cssGlassPatch
-          : (bundle.cssPatch || '');
+        activeTheme === 'glass'
+          ? (glassCss || classicCss)
+          : (classicCss || glassCss);
       if (!rawCss) {
         this.setBaseStylesheetDisabled(false);
         return false;
