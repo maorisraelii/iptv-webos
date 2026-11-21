@@ -43,6 +43,9 @@ fi
 echo "=== Installing APK: $APK_PATH ==="
 adb install -r "$APK_PATH"
 
+echo "=== Waiting 25s for initial Android TV GMS Chimera first-boot init to settle ==="
+sleep 25
+
 adb logcat -G 16M || true
 adb logcat -c || true
 
@@ -95,15 +98,19 @@ for sec in $(seq 1 25); do
   sleep 1
 done
 
+echo "=== Collecting Launch 1 Logcat ==="
+adb logcat -d > "$OUT_DIR/logcat-launch1.txt" 2>&1 || true
+
 if [ "$CRASH_DETECTED" -eq 0 ]; then
   echo "=== Launch 2 (Warm Relaunch) ==="
   adb shell am force-stop com.iptv.livetv.androidtv || true
-  sleep 1
+  sleep 2
+  adb logcat -c || true
   adb shell am start -W -n com.iptv.livetv.androidtv/.MainActivity
   sleep 1
   WARM_PID="$(adb shell pidof com.iptv.livetv.androidtv 2>/dev/null | tr -d '\r' || true)"
   echo "[warm initial] pid=${WARM_PID:-NONE}"
-  for sec in $(seq 1 10); do
+  for sec in $(seq 1 12); do
     CUR_WARM_PID="$(adb shell pidof com.iptv.livetv.androidtv 2>/dev/null | tr -d '\r' || true)"
     echo "[warm t=${sec}s] pid=${CUR_WARM_PID:-NONE}"
     if [ -z "$CUR_WARM_PID" ] || { [ -n "$WARM_PID" ] && [ "$CUR_WARM_PID" != "$WARM_PID" ]; }; then
@@ -111,15 +118,21 @@ if [ "$CRASH_DETECTED" -eq 0 ]; then
       sleep 2
       break
     fi
+    if [ "$sec" -eq 10 ]; then
+      adb exec-out screencap -p > "$OUT_DIR/warm_10s.png" || true
+    fi
     sleep 1
   done
+  echo "=== Collecting Launch 2 Logcat ==="
+  adb logcat -d > "$OUT_DIR/logcat-launch2.txt" 2>&1 || true
 fi
 
-echo "=== Collecting Logcat & Diagnostics ==="
-adb logcat -d > "$OUT_DIR/logcat-full.txt" 2>&1 || true
-
-echo "=== IPTVAndroidTV Lifecycle Logs ==="
-grep "IPTVAndroidTV" "$OUT_DIR/logcat-full.txt" || true
+echo "=== IPTVAndroidTV Lifecycle Logs (Launch 1) ==="
+grep "IPTVAndroidTV" "$OUT_DIR/logcat-launch1.txt" || true
+if [ -f "$OUT_DIR/logcat-launch2.txt" ]; then
+  echo "=== IPTVAndroidTV Lifecycle Logs (Launch 2) ==="
+  grep "IPTVAndroidTV" "$OUT_DIR/logcat-launch2.txt" || true
+fi
 
 if [ -f "$OUT_DIR/meminfo.txt" ]; then
   echo "=== Meminfo Summary ==="
@@ -131,27 +144,48 @@ if [ -f "$OUT_DIR/activity_top.txt" ]; then
   head -n 40 "$OUT_DIR/activity_top.txt"
 fi
 
-echo "=== Filtered Logcat (last 300 lines) ==="
-grep -Ei "IPTVAndroidTV|AndroidRuntime|FATAL|Fatal signal|SIGSEGV|SIGABRT|SIGBUS|backtrace|chromium|WebView|RenderProcess|lmkd|lowmemorykiller|ActivityManager.*iptv|WindowManager.*iptv|OpenGLRenderer|MediaCodec|com\.iptv\.livetv" "$OUT_DIR/logcat-full.txt" | tail -n 300 || true
+FILTER_RX="IPTVAndroidTV|AndroidRuntime|FATAL|Fatal signal|SIGSEGV|SIGABRT|SIGBUS|backtrace|chromium|WebView|RenderProcess|lmkd|lowmemorykiller|ActivityManager.*iptv|WindowManager.*iptv|OpenGLRenderer|MediaCodec|com\.iptv\.livetv"
+echo "=== Filtered Logcat Launch 1 (last 200 lines) ==="
+grep -Ei "$FILTER_RX" "$OUT_DIR/logcat-launch1.txt" | tail -n 200 || true
+if [ -f "$OUT_DIR/logcat-launch2.txt" ]; then
+  echo "=== Filtered Logcat Launch 2 (last 150 lines) ==="
+  grep -Ei "$FILTER_RX" "$OUT_DIR/logcat-launch2.txt" | tail -n 150 || true
+fi
 
+FATAL_RX="FATAL EXCEPTION|Fatal signal|StackOverflowError|FATAL:jni_android|WebView render process gone|WebView initialization failed|WIN DEATH.*com\.iptv\.livetv|Process com\.iptv\.livetv\.androidtv.*has died"
 FATAL_FOUND=0
-if grep -Eq "FATAL EXCEPTION|Fatal signal|StackOverflowError|FATAL:jni_android|WebView render process gone|WebView initialization failed|WIN DEATH.*com\.iptv\.livetv|Process com\.iptv\.livetv\.androidtv.*has died" "$OUT_DIR/logcat-full.txt"; then
-  echo "=== Fatal Logcat Markers Matched ==="
-  grep -E "FATAL EXCEPTION|Fatal signal|StackOverflowError|FATAL:jni_android|WebView render process gone|WebView initialization failed|WIN DEATH.*com\.iptv\.livetv|Process com\.iptv\.livetv\.androidtv.*has died" "$OUT_DIR/logcat-full.txt" || true
+if grep -Eq "$FATAL_RX" "$OUT_DIR/logcat-launch1.txt"; then
+  echo "=== Fatal Logcat Markers Matched (Launch 1) ==="
+  grep -E "$FATAL_RX" "$OUT_DIR/logcat-launch1.txt" || true
+  FATAL_FOUND=1
+fi
+if [ -f "$OUT_DIR/logcat-launch2.txt" ] && grep -Eq "$FATAL_RX" "$OUT_DIR/logcat-launch2.txt"; then
+  echo "=== Fatal Logcat Markers Matched (Launch 2) ==="
+  grep -E "$FATAL_RX" "$OUT_DIR/logcat-launch2.txt" || true
   FATAL_FOUND=1
 fi
 
-BOOT_HIDDEN=0
-if grep -q "IPTVAndroidTV.*Boot overlay hidden" "$OUT_DIR/logcat-full.txt"; then
-  BOOT_HIDDEN=1
+BOOT_HIDDEN_1=0
+if grep -q "IPTVAndroidTV.*Boot overlay hidden" "$OUT_DIR/logcat-launch1.txt"; then
+  BOOT_HIDDEN_1=1
 else
-  echo "ERROR: Boot overlay was never hidden (app stayed stuck on loading spinner!)"
+  echo "ERROR: Launch 1 boot overlay was never hidden (app stayed stuck on loading spinner!)"
 fi
 
-if [ "$CRASH_DETECTED" -ne 0 ] || [ "$FATAL_FOUND" -ne 0 ] || [ "$BOOT_HIDDEN" -ne 1 ]; then
-  echo "FAILED: CRASH_DETECTED=$CRASH_DETECTED FATAL_FOUND=$FATAL_FOUND BOOT_HIDDEN=$BOOT_HIDDEN"
+BOOT_HIDDEN_2=1
+if [ -f "$OUT_DIR/logcat-launch2.txt" ]; then
+  if grep -q "IPTVAndroidTV.*Boot overlay hidden" "$OUT_DIR/logcat-launch2.txt"; then
+    BOOT_HIDDEN_2=1
+  else
+    BOOT_HIDDEN_2=0
+    echo "ERROR: Launch 2 (warm relaunch) boot overlay was never hidden!"
+  fi
+fi
+
+if [ "$CRASH_DETECTED" -ne 0 ] || [ "$FATAL_FOUND" -ne 0 ] || [ "$BOOT_HIDDEN_1" -ne 1 ] || [ "$BOOT_HIDDEN_2" -ne 1 ]; then
+  echo "FAILED: CRASH_DETECTED=$CRASH_DETECTED FATAL_FOUND=$FATAL_FOUND BOOT_HIDDEN_1=$BOOT_HIDDEN_1 BOOT_HIDDEN_2=$BOOT_HIDDEN_2"
   exit 1
 fi
 
-echo "PASSED: Android 14 TV emulator checks completed cleanly (Boot overlay hidden, 0 crashes)."
+echo "PASSED: Android 14 TV emulator checks completed cleanly (Launch 1 & Launch 2 Boot overlay hidden, 0 crashes)."
 exit 0
