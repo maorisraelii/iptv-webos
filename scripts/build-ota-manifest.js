@@ -155,7 +155,7 @@ const jsPatch = `
               if (typeof app.refreshVisibleEPGLabels === 'function') app.refreshVisibleEPGLabels();
               if (app.selectedChannel && channel && app.selectedChannel.id === channel.id) {
                 if (typeof app.updateOSD === 'function') app.updateOSD(channel, false);
-                if (app.mode === 'FULLSCREEN' && typeof app.showOSD === 'function') app.showOSD(5000);
+                if (app.mode === 'FULLSCREEN' && typeof app.showOSD === 'function') app.showOSD();
               }
             };
           }
@@ -181,6 +181,12 @@ const jsPatch = `
 
       if (typeof app.ensureThemeControlsDOM === 'function') {
         app.ensureThemeControlsDOM();
+      }
+      if (typeof app.ensureUiCustomizationDOM === 'function') {
+        app.ensureUiCustomizationDOM();
+      }
+      if (typeof app.applyUiPrefs === 'function') {
+        app.applyUiPrefs(true);
       }
       if (typeof app.applyTheme === 'function') {
         app.applyTheme(app.getTheme(), true);
