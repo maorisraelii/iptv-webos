@@ -1,3 +1,4 @@
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '', Justification = 'Interactive CLI packager output uses colored Write-Host messages.')]
 param(
     [string]$Device = ""
 )

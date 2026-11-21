@@ -7,13 +7,16 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   docker-webos:
     name: webOS Docker Build & E2E Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Build webOS Docker image
         run: docker build -f docker/Dockerfile.webos -t iptv-webos-test .
@@ -26,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Build Android Docker image (JDK 17 + SDK 34 + Gradle)
         run: docker build -f docker/Dockerfile.android -t iptv-android-test .

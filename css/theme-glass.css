@@ -893,6 +893,7 @@ body {
   color: rgba(255, 255, 255, 0.90);
   display: -webkit-box;
   -webkit-line-clamp: 4;
+  line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
   margin-bottom: 6px;
@@ -1529,6 +1530,7 @@ body {
   margin-bottom: 10px;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
