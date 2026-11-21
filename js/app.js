@@ -13,7 +13,75 @@ const STORAGE_KEYS = {
   REMOTE_URL: 'zenplay_iptv_remote_url',
   FAVORITES: 'zenplay_iptv_favorites',
   LAST_CHANNEL: 'zenplay_iptv_last_channel',
-  UI_THEME: 'zenplay_ui_theme'
+  UI_THEME: 'zenplay_ui_theme',
+  UI_PREFS: 'zenplay_ui_prefs_v1'
+};
+
+const DEFAULT_UI_PREFS = {
+  preset: 'clean',
+  density: 'balanced',
+  fontScale: 'md',
+  accent: 'sky',
+  showColorBar: true,
+  showListHints: false,
+  showRowEpgBar: true,
+  showRowLogos: true,
+  showProgramStrip: true,
+  showHeaderMeta: false,
+  osdStyle: 'clean',
+  osdTimeoutSec: 5,
+  animations: 'reduced',
+  visualEffects: 'light',
+  previewAutoplay: 'delayed',
+  startupMode: 'browse'
+};
+
+const UI_PRESETS = {
+  clean: {
+    preset: 'clean',
+    density: 'balanced',
+    fontScale: 'md',
+    showColorBar: true,
+    showListHints: false,
+    showRowEpgBar: true,
+    showRowLogos: true,
+    showProgramStrip: true,
+    showHeaderMeta: false,
+    osdStyle: 'clean',
+    animations: 'reduced',
+    visualEffects: 'light',
+    previewAutoplay: 'delayed'
+  },
+  minimal: {
+    preset: 'minimal',
+    density: 'compact',
+    fontScale: 'md',
+    showColorBar: false,
+    showListHints: false,
+    showRowEpgBar: false,
+    showRowLogos: false,
+    showProgramStrip: false,
+    showHeaderMeta: false,
+    osdStyle: 'minimal',
+    animations: 'off',
+    visualEffects: 'flat',
+    previewAutoplay: 'off'
+  },
+  full: {
+    preset: 'full',
+    density: 'comfortable',
+    fontScale: 'md',
+    showColorBar: true,
+    showListHints: true,
+    showRowEpgBar: true,
+    showRowLogos: true,
+    showProgramStrip: true,
+    showHeaderMeta: true,
+    osdStyle: 'full',
+    animations: 'normal',
+    visualEffects: 'full',
+    previewAutoplay: 'instant'
+  }
 };
 
 class IPTVApp {
@@ -73,7 +141,9 @@ class IPTVApp {
     this.focusedHeaderIndex = 0;
     this.focusedModalIndex = 0;
     this.activeSettingsInputId = 'm3u-url-input';
-    this.activeSettingsTab = 'sources'; // 'sources' | 'channels'
+    this.activeSettingsTab = 'sources'; // 'sources' | 'channels' | 'performance' | 'appearance' | 'about'
+    this._appliedUiPrefs = null;
+    this._renderingShowRowLogos = null;
     this.editorSourceFilter = 'ALL';
     this.editorNumberBuffer = '';
     this.editorNumberTimer = null;
@@ -143,6 +213,8 @@ class IPTVApp {
     if (typeof this._lastClockStr !== 'string') this._lastClockStr = '';
     if (typeof this._lastClockMinute !== 'number') this._lastClockMinute = -1;
     if (typeof this.focusedChannelIndex !== 'number') this.focusedChannelIndex = 0;
+    if (typeof this._appliedUiPrefs === 'undefined') this._appliedUiPrefs = null;
+    if (typeof this._renderingShowRowLogos === 'undefined') this._renderingShowRowLogos = null;
   }
 
   isSafeMode() {
@@ -215,7 +287,7 @@ class IPTVApp {
 
     const perfTabBtn = document.getElementById('tab-btn-performance');
     if (perfTabBtn) {
-      perfTabBtn.textContent = 'ערכת נושא, באפר וקאש';
+      perfTabBtn.textContent = 'ערכת נושא ובאפר';
     }
 
     const perfPanel = document.getElementById('settings-tab-performance');
@@ -337,6 +409,708 @@ class IPTVApp {
     }
   }
 
+  _normalizeUiPrefs(raw) {
+    const out = {};
+    for (let k in DEFAULT_UI_PREFS) {
+      if (Object.prototype.hasOwnProperty.call(DEFAULT_UI_PREFS, k)) {
+        out[k] = DEFAULT_UI_PREFS[k];
+      }
+    }
+    if (!raw || typeof raw !== 'object') {
+      return out;
+    }
+    const enumMaps = {
+      preset: { clean: 1, minimal: 1, full: 1, custom: 1 },
+      density: { comfortable: 1, balanced: 1, compact: 1 },
+      fontScale: { sm: 1, md: 1, lg: 1 },
+      accent: { sky: 1, indigo: 1, emerald: 1, amber: 1, mono: 1 },
+      osdStyle: { clean: 1, minimal: 1, full: 1 },
+      animations: { normal: 1, reduced: 1, off: 1 },
+      visualEffects: { full: 1, light: 1, flat: 1 },
+      previewAutoplay: { instant: 1, delayed: 1, off: 1 },
+      startupMode: { browse: 1, fullscreen: 1 }
+    };
+    for (let k in DEFAULT_UI_PREFS) {
+      if (!Object.prototype.hasOwnProperty.call(DEFAULT_UI_PREFS, k)) continue;
+      if (!Object.prototype.hasOwnProperty.call(raw, k)) continue;
+      const val = raw[k];
+      if (typeof DEFAULT_UI_PREFS[k] === 'boolean') {
+        if (typeof val === 'boolean') out[k] = val;
+      } else if (k === 'osdTimeoutSec') {
+        const sec = parseInt(val, 10);
+        if (sec === 3 || sec === 5 || sec === 8 || sec === 12) {
+          out[k] = sec;
+        }
+      } else if (enumMaps[k] && enumMaps[k][val]) {
+        out[k] = val;
+      }
+    }
+    return out;
+  }
+
+  _detectMatchingUiPreset(prefs) {
+    const names = ['clean', 'minimal', 'full'];
+    for (let i = 0; i < names.length; i++) {
+      const name = names[i];
+      const presetObj = UI_PRESETS[name];
+      let matches = true;
+      for (let k in presetObj) {
+        if (!Object.prototype.hasOwnProperty.call(presetObj, k) || k === 'preset') continue;
+        if (prefs[k] !== presetObj[k]) {
+          matches = false;
+          break;
+        }
+      }
+      if (matches) return name;
+    }
+    return 'custom';
+  }
+
+  getUiPrefs() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.UI_PREFS);
+      if (raw) {
+        return this._normalizeUiPrefs(JSON.parse(raw));
+      }
+    } catch (e) {}
+    return this._normalizeUiPrefs(null);
+  }
+
+  saveUiPrefs(prefs) {
+    const normalized = this._normalizeUiPrefs(prefs);
+    normalized.preset = this._detectMatchingUiPreset(normalized);
+    try {
+      localStorage.setItem(STORAGE_KEYS.UI_PREFS, JSON.stringify(normalized));
+    } catch (e) {}
+    return normalized;
+  }
+
+  setUiPref(key, value, silent) {
+    if (!Object.prototype.hasOwnProperty.call(DEFAULT_UI_PREFS, key)) {
+      return this.getUiPrefs();
+    }
+    const prefs = this.getUiPrefs();
+    const candidate = {};
+    for (let k in prefs) {
+      if (Object.prototype.hasOwnProperty.call(prefs, k)) {
+        candidate[k] = prefs[k];
+      }
+    }
+    candidate[key] = typeof DEFAULT_UI_PREFS[key] === 'boolean' ? Boolean(value) : value;
+    const validated = this._normalizeUiPrefs(candidate);
+    if (validated[key] !== candidate[key] && key !== 'osdTimeoutSec') {
+      return prefs;
+    }
+    if (key === 'osdTimeoutSec') {
+      const parsedSec = parseInt(value, 10);
+      if (parsedSec !== 3 && parsedSec !== 5 && parsedSec !== 8 && parsedSec !== 12) {
+        return prefs;
+      }
+      validated[key] = parsedSec;
+    }
+    this.saveUiPrefs(validated);
+    return this.applyUiPrefs(Boolean(silent));
+  }
+
+  toggleUiPref(key, silent) {
+    if (typeof DEFAULT_UI_PREFS[key] !== 'boolean') {
+      return this.getUiPrefs();
+    }
+    const prefs = this.getUiPrefs();
+    return this.setUiPref(key, !prefs[key], silent);
+  }
+
+  applyUiPreset(presetName, silent) {
+    const presetObj = UI_PRESETS[presetName];
+    if (!presetObj) return this.getUiPrefs();
+    const prefs = this.getUiPrefs();
+    for (let k in presetObj) {
+      if (Object.prototype.hasOwnProperty.call(presetObj, k)) {
+        prefs[k] = presetObj[k];
+      }
+    }
+    prefs.preset = presetName;
+    this.saveUiPrefs(prefs);
+    const applied = this.applyUiPrefs(true);
+    if (!silent) {
+      const label =
+        presetName === 'minimal'
+          ? 'מינימליסטי וקל'
+          : presetName === 'full'
+          ? 'מלא ומפורט'
+          : 'נקי ומאוזן';
+      this.showToast('הוחל מצב עיצוב: ' + label + ' ✓');
+    }
+    return applied;
+  }
+
+  resetUiPrefs(silent) {
+    const fresh = this._normalizeUiPrefs(null);
+    this.saveUiPrefs(fresh);
+    const applied = this.applyUiPrefs(true);
+    if (!silent) {
+      this.showToast('הגדרות העיצוב אופסו לברירת המחדל ✓');
+    }
+    return applied;
+  }
+
+  getOsdTimeoutMs() {
+    const prefs = this.getUiPrefs();
+    const sec = prefs && typeof prefs.osdTimeoutSec === 'number' ? prefs.osdTimeoutSec : 5;
+    return sec * 1000;
+  }
+
+  _getAppearanceTabHTML() {
+    return (
+      '<div class="perf-section-card ui-pref-card">' +
+        '<h3>מצב עיצוב מהיר (Presets)</h3>' +
+        '<p class="perf-desc">בחר בלחיצה אחת את רמת הניקיון והפירוט של הממשק — ניתן להתאים אישית כל רכיב בהמשך:</p>' +
+        '<div class="perf-options-grid ui-grid-3" id="ui-preset-options">' +
+          '<button id="btn-preset-clean" class="perf-option-btn focusable" data-ui-preset="clean">' +
+            '<span class="perf-opt-title">נקי ומאוזן (ברירת מחדל)</span>' +
+            '<span class="perf-opt-sub">רשימה מאוזנת, כותרת שקטה ואנימציות מופחתות</span>' +
+          '</button>' +
+          '<button id="btn-preset-minimal" class="perf-option-btn focusable" data-ui-preset="minimal">' +
+            '<span class="perf-opt-title">מינימליסטי וקל (Minimal)</span>' +
+            '<span class="perf-opt-sub">שורות דחוסות, מונוגרמה, ללא תוספות וניגון מקדים כבוי</span>' +
+          '</button>' +
+          '<button id="btn-preset-full" class="perf-option-btn focusable" data-ui-preset="full">' +
+            '<span class="perf-opt-title">מלא ומפורט (Full)</span>' +
+            '<span class="perf-opt-sub">רשימה מרווחת, כל הרמזים, אנימציות וניגון מקדים מיידי</span>' +
+          '</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="perf-section-card ui-pref-card">' +
+        '<h3>הצגה והסתרה של רכיבי ממשק (Declutter)</h3>' +
+        '<p class="perf-desc">הפעל או הסתר רכיבים במסך הראשי ובכרטיס הערוץ כדי לשמור על מראה נקי לפי הטעם שלך:</p>' +
+        '<div class="perf-options-grid" id="ui-visibility-options">' +
+          '<button id="btn-pref-showColorBar" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="showColorBar">' +
+            '<span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">' +
+              '<span class="perf-opt-title">סרגל כפתורי צבע בתחתית</span>' +
+              '<span class="perf-opt-sub">מציג את מקרא הכפתורים בתחתית המסך</span>' +
+            '</span>' +
+            '<span class="ui-toggle-pill">מוצג ✓</span>' +
+          '</button>' +
+          '<button id="btn-pref-showListHints" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="showListHints">' +
+            '<span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">' +
+              '<span class="perf-opt-title">רמזי מקשים ברשימה ובנגן</span>' +
+              '<span class="perf-opt-sub">שורת ההדרכה ותגיות לחץ OK</span>' +
+            '</span>' +
+            '<span class="ui-toggle-pill">מוסתר</span>' +
+          '</button>' +
+          '<button id="btn-pref-showRowEpgBar" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="showRowEpgBar">' +
+            '<span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">' +
+              '<span class="perf-opt-title">פס התקדמות תוכנית בשורה</span>' +
+              '<span class="perf-opt-sub">שעות, בר התקדמות ודקות שנותרו בכל שורה</span>' +
+            '</span>' +
+            '<span class="ui-toggle-pill">מוצג ✓</span>' +
+          '</button>' +
+          '<button id="btn-pref-showRowLogos" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="showRowLogos">' +
+            '<span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">' +
+              '<span class="perf-opt-title">לוגואים של ערוצים (תמונות)</span>' +
+              '<span class="perf-opt-sub">בכיבוי מוצגים תגי מונוגרמה קלים ומהירים</span>' +
+            '</span>' +
+            '<span class="ui-toggle-pill">מוצג ✓</span>' +
+          '</button>' +
+          '<button id="btn-pref-showProgramStrip" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="showProgramStrip">' +
+            '<span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">' +
+              '<span class="perf-opt-title">רצועת לוח תוכניות בכרטיס</span>' +
+              '<span class="perf-opt-sub">בכיבוי מתרחב מקום התקציר בכרטיס הפרטים</span>' +
+            '</span>' +
+            '<span class="ui-toggle-pill">מוצג ✓</span>' +
+          '</button>' +
+          '<button id="btn-pref-showHeaderMeta" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="showHeaderMeta">' +
+            '<span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">' +
+              '<span class="perf-opt-title">תגיות גרסה ומקור פלייליסט</span>' +
+              '<span class="perf-opt-sub">מציג תגי גרסה ושם מקור בכותרת וב-OSD</span>' +
+            '</span>' +
+            '<span class="ui-toggle-pill">מוסתר</span>' +
+          '</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="perf-section-card ui-pref-card">' +
+        '<h3>צפיפות רשימה, גודל טקסט וצבע דגש</h3>' +
+        '<p class="perf-desc">צפיפות שורות הערוצים:</p>' +
+        '<div class="perf-options-grid ui-grid-3" id="ui-density-options">' +
+          '<button id="btn-density-comfortable" class="perf-option-btn focusable" data-ui-pref="density" data-ui-value="comfortable">' +
+            '<span class="perf-opt-title">מרווח (Comfortable)</span>' +
+            '<span class="perf-opt-sub">שורות גבוהות עם ריווח נדיב</span>' +
+          '</button>' +
+          '<button id="btn-density-balanced" class="perf-option-btn focusable" data-ui-pref="density" data-ui-value="balanced">' +
+            '<span class="perf-opt-title">מאוזן (Balanced)</span>' +
+            '<span class="perf-opt-sub">שילוב מיטבי של קריאות וכמות ערוצים</span>' +
+          '</button>' +
+          '<button id="btn-density-compact" class="perf-option-btn focusable" data-ui-pref="density" data-ui-value="compact">' +
+            '<span class="perf-opt-title">דחוס (Compact)</span>' +
+            '<span class="perf-opt-sub">מציג יותר ערוצים בו-זמנית על המסך</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">גודל גופן וטקסט:</p>' +
+        '<div class="perf-options-grid ui-grid-3" id="ui-scale-options">' +
+          '<button id="btn-scale-sm" class="perf-option-btn focusable" data-ui-pref="fontScale" data-ui-value="sm">' +
+            '<span class="perf-opt-title">קומפקטי (קטן)</span>' +
+            '<span class="perf-opt-sub">טקסט עדין ומאופק</span>' +
+          '</button>' +
+          '<button id="btn-scale-md" class="perf-option-btn focusable" data-ui-pref="fontScale" data-ui-value="md">' +
+            '<span class="perf-opt-title">רגיל (ברירת מחדל)</span>' +
+            '<span class="perf-opt-sub">מאוזן למרחק צפייה בסלון</span>' +
+          '</button>' +
+          '<button id="btn-scale-lg" class="perf-option-btn focusable" data-ui-pref="fontScale" data-ui-value="lg">' +
+            '<span class="perf-opt-title">מוגדל (קריא במיוחד)</span>' +
+            '<span class="perf-opt-sub">נוח לקריאה מרחוק</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">צבע הדגשה ראשי (Accent):</p>' +
+        '<div class="perf-options-grid ui-grid-5" id="ui-accent-options">' +
+          '<button id="btn-accent-sky" class="perf-option-btn focusable" data-ui-pref="accent" data-ui-value="sky">' +
+            '<span class="perf-opt-title"><span class="ui-accent-dot dot-sky"></span>תכלת (Sky)</span>' +
+            '<span class="perf-opt-sub">ברירת מחדל</span>' +
+          '</button>' +
+          '<button id="btn-accent-indigo" class="perf-option-btn focusable" data-ui-pref="accent" data-ui-value="indigo">' +
+            '<span class="perf-opt-title"><span class="ui-accent-dot dot-indigo"></span>אינדיגו</span>' +
+            '<span class="perf-opt-sub">כחול עמוק</span>' +
+          '</button>' +
+          '<button id="btn-accent-emerald" class="perf-option-btn focusable" data-ui-pref="accent" data-ui-value="emerald">' +
+            '<span class="perf-opt-title"><span class="ui-accent-dot dot-emerald"></span>אזמרגד</span>' +
+            '<span class="perf-opt-sub">ירוק חי</span>' +
+          '</button>' +
+          '<button id="btn-accent-amber" class="perf-option-btn focusable" data-ui-pref="accent" data-ui-value="amber">' +
+            '<span class="perf-opt-title"><span class="ui-accent-dot dot-amber"></span>ענבר</span>' +
+            '<span class="perf-opt-sub">זהב חם</span>' +
+          '</button>' +
+          '<button id="btn-accent-mono" class="perf-option-btn focusable" data-ui-pref="accent" data-ui-value="mono">' +
+            '<span class="perf-opt-title"><span class="ui-accent-dot dot-mono"></span>מונוכרום</span>' +
+            '<span class="perf-opt-sub">אפור נקי</span>' +
+          '</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="perf-section-card ui-pref-card">' +
+        '<h3>קלילות, אנימציות ותצוגה מקדימה</h3>' +
+        '<p class="perf-desc">רמת אנימציות ומעברים:</p>' +
+        '<div class="perf-options-grid ui-grid-3" id="ui-anim-options">' +
+          '<button id="btn-anim-normal" class="perf-option-btn focusable" data-ui-pref="animations" data-ui-value="normal">' +
+            '<span class="perf-opt-title">מלאות</span>' +
+            '<span class="perf-opt-sub">אנימציות ומעברים מלאים</span>' +
+          '</button>' +
+          '<button id="btn-anim-reduced" class="perf-option-btn focusable" data-ui-pref="animations" data-ui-value="reduced">' +
+            '<span class="perf-opt-title">מופחתות (מומלץ)</span>' +
+            '<span class="perf-opt-sub">מהיר, חלק וללא הבהובים</span>' +
+          '</button>' +
+          '<button id="btn-anim-off" class="perf-option-btn focusable" data-ui-pref="animations" data-ui-value="off">' +
+            '<span class="perf-opt-title">ללא אנימציות</span>' +
+            '<span class="perf-opt-sub">תגובה מיידית של 0ms</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">אפקטים חזותיים והצללות:</p>' +
+        '<div class="perf-options-grid ui-grid-3" id="ui-fx-options">' +
+          '<button id="btn-fx-full" class="perf-option-btn focusable" data-ui-pref="visualEffects" data-ui-value="full">' +
+            '<span class="perf-opt-title">מלא (Full FX)</span>' +
+            '<span class="perf-opt-sub">עומק, הילות וזכוכית מלאה</span>' +
+          '</button>' +
+          '<button id="btn-fx-light" class="perf-option-btn focusable" data-ui-pref="visualEffects" data-ui-value="light">' +
+            '<span class="perf-opt-title">קל (Light)</span>' +
+            '<span class="perf-opt-sub">משטחים נקיים ועומס GPU נמוך</span>' +
+          '</button>' +
+          '<button id="btn-fx-flat" class="perf-option-btn focusable" data-ui-pref="visualEffects" data-ui-value="flat">' +
+            '<span class="perf-opt-title">שטוח (Flat)</span>' +
+            '<span class="perf-opt-sub">ללא צללים וגרדיאנטים למהירות שיא</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">ניגון תצוגה מקדימה ברשימת הערוצים:</p>' +
+        '<div class="perf-options-grid ui-grid-3" id="ui-autoplay-options">' +
+          '<button id="btn-autoplay-instant" class="perf-option-btn focusable" data-ui-pref="previewAutoplay" data-ui-value="instant">' +
+            '<span class="perf-opt-title">מיידי (Instant)</span>' +
+            '<span class="perf-opt-sub">פותח את התצוגה המקדימה מיד ב-OK</span>' +
+          '</button>' +
+          '<button id="btn-autoplay-delayed" class="perf-option-btn focusable" data-ui-pref="previewAutoplay" data-ui-value="delayed">' +
+            '<span class="perf-opt-title">מושהה חכם (מומלץ)</span>' +
+            '<span class="perf-opt-sub">השהיה קלה למניעת טעינה בזפזופ</span>' +
+          '</button>' +
+          '<button id="btn-autoplay-off" class="perf-option-btn focusable" data-ui-pref="previewAutoplay" data-ui-value="off">' +
+            '<span class="perf-opt-title">כבוי (חיסכון מלא)</span>' +
+            '<span class="perf-opt-sub">לחיצה על ערוץ פותחת ישר מסך מלא</span>' +
+          '</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="perf-section-card ui-pref-card">' +
+        '<h3>סרגל מידע במסך מלא (OSD) ומצב פתיחה</h3>' +
+        '<p class="perf-desc">סגנון סרגל המידע (OSD):</p>' +
+        '<div class="perf-options-grid ui-grid-3" id="ui-osd-style-options">' +
+          '<button id="btn-osd-clean" class="perf-option-btn focusable" data-ui-pref="osdStyle" data-ui-value="clean">' +
+            '<span class="perf-opt-title">נקי (Clean)</span>' +
+            '<span class="perf-opt-sub">תוכנית נוכחית, הבאה ותקציר ללא עומס</span>' +
+          '</button>' +
+          '<button id="btn-osd-minimal" class="perf-option-btn focusable" data-ui-pref="osdStyle" data-ui-value="minimal">' +
+            '<span class="perf-opt-title">מינימליסטי (Minimal)</span>' +
+            '<span class="perf-opt-sub">פס תחתון דק עם ערוץ, תוכנית ושעה בלבד</span>' +
+          '</button>' +
+          '<button id="btn-osd-full" class="perf-option-btn focusable" data-ui-pref="osdStyle" data-ui-value="full">' +
+            '<span class="perf-opt-title">מלא (Full)</span>' +
+            '<span class="perf-opt-sub">כולל מקרא כפתורים מלא וגרסה</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">משך הצגת סרגל המידע (שניות):</p>' +
+        '<div class="perf-options-grid ui-grid-4" id="ui-osd-timeout-options">' +
+          '<button id="btn-osd-sec-3" class="perf-option-btn focusable" data-ui-pref="osdTimeoutSec" data-ui-value="3">' +
+            '<span class="perf-opt-title">3 שניות</span>' +
+            '<span class="perf-opt-sub">היעלמות מהירה</span>' +
+          '</button>' +
+          '<button id="btn-osd-sec-5" class="perf-option-btn focusable" data-ui-pref="osdTimeoutSec" data-ui-value="5">' +
+            '<span class="perf-opt-title">5 שניות</span>' +
+            '<span class="perf-opt-sub">ברירת מחדל</span>' +
+          '</button>' +
+          '<button id="btn-osd-sec-8" class="perf-option-btn focusable" data-ui-pref="osdTimeoutSec" data-ui-value="8">' +
+            '<span class="perf-opt-title">8 שניות</span>' +
+            '<span class="perf-opt-sub">קריאה נוחה</span>' +
+          '</button>' +
+          '<button id="btn-osd-sec-12" class="perf-option-btn focusable" data-ui-pref="osdTimeoutSec" data-ui-value="12">' +
+            '<span class="perf-opt-title">12 שניות</span>' +
+            '<span class="perf-opt-sub">זמן ממושך</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">מסך פתיחה בעליית האפליקציה:</p>' +
+        '<div class="perf-options-grid" id="ui-startup-options">' +
+          '<button id="btn-startup-browse" class="perf-option-btn focusable" data-ui-pref="startupMode" data-ui-value="browse">' +
+            '<span class="perf-opt-title">רשימת ערוצים (Browse)</span>' +
+            '<span class="perf-opt-sub">פתיחה במסך הדפדוף והתצוגה המקדימה</span>' +
+          '</button>' +
+          '<button id="btn-startup-fullscreen" class="perf-option-btn focusable" data-ui-pref="startupMode" data-ui-value="fullscreen">' +
+            '<span class="perf-opt-title">מסך מלא ישיר (Fullscreen)</span>' +
+            '<span class="perf-opt-sub">פתיחה ישירה של הערוץ האחרון במסך מלא</span>' +
+          '</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="perf-actions-bar">' +
+        '<div id="ui-prefs-status" class="perf-cache-status">מצב: נקי ומאוזן • צפיפות: מאוזנת • אנימציות: מופחתות</div>' +
+        '<div class="perf-action-btns">' +
+          '<button id="btn-reset-ui-prefs" class="btn-tv-secondary focusable">איפוס הגדרות עיצוב לברירת מחדל</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  ensureUiCustomizationDOM() {
+    if (typeof document === 'undefined') return;
+
+    const videoSurface = document.getElementById('video-surface');
+    if (videoSurface && !document.getElementById('preview-autoplay-off-badge')) {
+      const badge = document.createElement('div');
+      badge.id = 'preview-autoplay-off-badge';
+      badge.className = 'preview-autoplay-off-badge hidden';
+      badge.innerHTML = '<span>תצוגה מקדימה כבויה (מצב קל) — לחץ OK לצפייה במסך מלא</span>';
+      videoSurface.appendChild(badge);
+    }
+
+    const tabsBar = document.querySelector('#settings-modal .settings-tabs-bar');
+    const tabSources = document.getElementById('tab-btn-sources');
+    const tabChannels = document.getElementById('tab-btn-channels');
+    const tabPerf = document.getElementById('tab-btn-performance');
+    const tabAbout = document.getElementById('tab-btn-about');
+    if (tabSources) tabSources.textContent = 'מקורות M3U';
+    if (tabChannels) tabChannels.textContent = 'ערוצים ומספור';
+    if (tabPerf) tabPerf.textContent = 'ערכת נושא ובאפר';
+    if (tabAbout) tabAbout.textContent = 'עדכונים ואודות';
+
+    let appTabBtn = document.getElementById('tab-btn-appearance');
+    if (tabsBar && !appTabBtn) {
+      appTabBtn = document.createElement('button');
+      appTabBtn.id = 'tab-btn-appearance';
+      appTabBtn.className = 'settings-tab-btn focusable';
+      appTabBtn.setAttribute('data-settings-tab', 'appearance');
+      appTabBtn.textContent = 'עיצוב והתאמה אישית';
+      if (tabAbout && tabAbout.parentNode === tabsBar) {
+        tabsBar.insertBefore(appTabBtn, tabAbout);
+      } else if (tabPerf && tabPerf.parentNode === tabsBar) {
+        tabsBar.insertBefore(appTabBtn, tabPerf.nextSibling);
+      } else {
+        tabsBar.appendChild(appTabBtn);
+      }
+    }
+    if (appTabBtn && appTabBtn.dataset && appTabBtn.dataset.uiBound !== '1') {
+      appTabBtn.dataset.uiBound = '1';
+      appTabBtn.addEventListener('click', () => this.switchSettingsTab('appearance'));
+    }
+
+    const settingsCard =
+      document.querySelector('#settings-modal .modal-settings-card') ||
+      document.querySelector('#settings-modal .modal-card');
+    const perfPanel = document.getElementById('settings-tab-performance');
+    const aboutPanel = document.getElementById('settings-tab-about');
+    let appPanel = document.getElementById('settings-tab-appearance');
+    if (settingsCard && !appPanel) {
+      appPanel = document.createElement('div');
+      appPanel.id = 'settings-tab-appearance';
+      appPanel.className = 'modal-body settings-tab-content hidden';
+      appPanel.innerHTML = this._getAppearanceTabHTML();
+      if (aboutPanel && aboutPanel.parentNode === settingsCard) {
+        settingsCard.insertBefore(appPanel, aboutPanel);
+      } else if (perfPanel && perfPanel.parentNode === settingsCard) {
+        settingsCard.insertBefore(appPanel, perfPanel.nextSibling);
+      } else {
+        settingsCard.appendChild(appPanel);
+      }
+    }
+
+    if (appPanel) {
+      const presetBtns = appPanel.querySelectorAll('[data-ui-preset]');
+      for (let i = 0; i < presetBtns.length; i++) {
+        const btn = presetBtns[i];
+        if (btn && btn.dataset && btn.dataset.uiBound !== '1') {
+          btn.dataset.uiBound = '1';
+          btn.addEventListener('click', () => {
+            const presetName = btn.dataset.uiPreset;
+            if (presetName) this.applyUiPreset(presetName, false);
+          });
+        }
+      }
+
+      const toggleBtns = appPanel.querySelectorAll('[data-ui-toggle]');
+      for (let i = 0; i < toggleBtns.length; i++) {
+        const btn = toggleBtns[i];
+        if (btn && btn.dataset && btn.dataset.uiBound !== '1') {
+          btn.dataset.uiBound = '1';
+          btn.addEventListener('click', () => {
+            const key = btn.dataset.uiToggle;
+            if (key) this.toggleUiPref(key, false);
+          });
+        }
+      }
+
+      const prefBtns = appPanel.querySelectorAll('[data-ui-pref]');
+      for (let i = 0; i < prefBtns.length; i++) {
+        const btn = prefBtns[i];
+        if (btn && btn.dataset && btn.dataset.uiBound !== '1') {
+          btn.dataset.uiBound = '1';
+          btn.addEventListener('click', () => {
+            const key = btn.dataset.uiPref;
+            const val = btn.dataset.uiValue;
+            if (key && typeof val !== 'undefined') {
+              this.setUiPref(key, key === 'osdTimeoutSec' ? parseInt(val, 10) : val, false);
+            }
+          });
+        }
+      }
+
+      const resetBtn = document.getElementById('btn-reset-ui-prefs');
+      if (resetBtn && resetBtn.dataset && resetBtn.dataset.uiBound !== '1') {
+        resetBtn.dataset.uiBound = '1';
+        resetBtn.addEventListener('click', () => {
+          this.resetUiPrefs(false);
+        });
+      }
+    }
+  }
+
+  updateAutoplayOffBadge(forceHide) {
+    if (typeof document === 'undefined') return;
+    const badge = document.getElementById('preview-autoplay-off-badge');
+    if (!badge) return;
+    const prefs = this.getUiPrefs();
+    const shouldShow = !forceHide && prefs.previewAutoplay === 'off' && this.mode !== 'FULLSCREEN';
+    if (shouldShow) {
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+  }
+
+  renderAppearanceTab() {
+    this.ensureUiCustomizationDOM();
+    if (typeof document === 'undefined') return;
+    const appPanel = document.getElementById('settings-tab-appearance');
+    if (!appPanel) return;
+
+    const prefs = this.getUiPrefs();
+
+    const presetBtns = appPanel.querySelectorAll('[data-ui-preset]');
+    for (let i = 0; i < presetBtns.length; i++) {
+      const btn = presetBtns[i];
+      if (btn.dataset.uiPreset === prefs.preset) {
+        btn.classList.add('active-option');
+      } else {
+        btn.classList.remove('active-option');
+      }
+    }
+
+    const toggleBtns = appPanel.querySelectorAll('[data-ui-toggle]');
+    for (let i = 0; i < toggleBtns.length; i++) {
+      const btn = toggleBtns[i];
+      const key = btn.dataset.uiToggle;
+      const isOn = Boolean(prefs[key]);
+      if (isOn) {
+        btn.classList.add('active-option');
+      } else {
+        btn.classList.remove('active-option');
+      }
+      const pill = btn.querySelector('.ui-toggle-pill');
+      if (pill) {
+        pill.textContent = isOn ? 'מוצג ✓' : 'מוסתר';
+        if (isOn) {
+          pill.classList.add('is-on');
+          pill.classList.remove('is-off');
+        } else {
+          pill.classList.remove('is-on');
+          pill.classList.add('is-off');
+        }
+      }
+    }
+
+    const prefBtns = appPanel.querySelectorAll('[data-ui-pref]');
+    for (let i = 0; i < prefBtns.length; i++) {
+      const btn = prefBtns[i];
+      const key = btn.dataset.uiPref;
+      const rawVal = btn.dataset.uiValue;
+      const targetVal = key === 'osdTimeoutSec' ? parseInt(rawVal, 10) : rawVal;
+      if (prefs[key] === targetVal) {
+        btn.classList.add('active-option');
+      } else {
+        btn.classList.remove('active-option');
+      }
+    }
+
+    const statusEl = document.getElementById('ui-prefs-status');
+    if (statusEl) {
+      const presetMap = { clean: 'נקי ומאוזן', minimal: 'מינימליסטי וקל', full: 'מלא ומפורט', custom: 'מותאם אישית' };
+      const densityMap = { comfortable: 'מרווחת', balanced: 'מאוזנת', compact: 'דחוסה' };
+      const animMap = { normal: 'מלאות', reduced: 'מופחתות', off: 'כבויות' };
+      const autoplayMap = { instant: 'מיידי', delayed: 'מושהה', off: 'כבוי' };
+      statusEl.textContent =
+        'מצב: ' + (presetMap[prefs.preset] || prefs.preset) +
+        ' | צפיפות: ' + (densityMap[prefs.density] || prefs.density) +
+        ' | אנימציות: ' + (animMap[prefs.animations] || prefs.animations) +
+        ' | תצוגה מקדימה: ' + (autoplayMap[prefs.previewAutoplay] || prefs.previewAutoplay);
+    }
+  }
+
+  applyUiPrefs(silent) {
+    const prefs = this.getUiPrefs();
+    const prev = this._appliedUiPrefs || null;
+    this._appliedUiPrefs = prefs;
+
+    if (typeof window !== 'undefined') {
+      window.__IPTV_UI_PREFS = prefs;
+    }
+
+    if (typeof document !== 'undefined' && document.documentElement && document.documentElement.classList) {
+      const cls = document.documentElement.classList;
+      cls.remove('ui-density-comfortable', 'ui-density-balanced', 'ui-density-compact');
+      cls.add('ui-density-' + prefs.density);
+
+      cls.remove('ui-scale-sm', 'ui-scale-md', 'ui-scale-lg');
+      cls.add('ui-scale-' + prefs.fontScale);
+
+      cls.remove('ui-accent-sky', 'ui-accent-indigo', 'ui-accent-emerald', 'ui-accent-amber', 'ui-accent-mono');
+      cls.add('ui-accent-' + prefs.accent);
+
+      cls.remove('ui-osd-clean', 'ui-osd-minimal', 'ui-osd-full');
+      cls.add('ui-osd-' + prefs.osdStyle);
+
+      cls.remove('ui-anim-normal', 'ui-anim-reduced', 'ui-anim-off');
+      cls.add('ui-anim-' + prefs.animations);
+
+      cls.remove('ui-fx-full', 'ui-fx-light', 'ui-fx-flat');
+      cls.add('ui-fx-' + prefs.visualEffects);
+
+      const setFlagClass = (name, flag) => {
+        if (flag) cls.add(name);
+        else cls.remove(name);
+      };
+      setFlagClass('ui-hide-color-bar', !prefs.showColorBar);
+      setFlagClass('ui-hide-list-hints', !prefs.showListHints);
+      setFlagClass('ui-hide-row-epg', !prefs.showRowEpgBar);
+      setFlagClass('ui-monogram-logos', !prefs.showRowLogos);
+      setFlagClass('ui-hide-program-strip', !prefs.showProgramStrip);
+      setFlagClass('ui-clean-header', !prefs.showHeaderMeta);
+    }
+
+    this.ensureUiCustomizationDOM();
+
+    const logosChanged = Boolean(prev && prev.showRowLogos !== prefs.showRowLogos);
+    if (logosChanged) {
+      if (Array.isArray(this.visibleChannels) && this.visibleChannels.length > 0 && this._channelListEl) {
+        const modalFocusEl = this.isModalOpen() ? this.currentFocusedEl : null;
+        this.renderChannelList();
+        this.updateChannelFocusFast();
+        if (modalFocusEl) {
+          this.setFocusedElementFast(modalFocusEl);
+        }
+      }
+      const previewCh = this.previewedChannel || this.selectedChannel;
+      if (previewCh) {
+        this.previewChannelInfo(previewCh, true);
+      }
+    }
+
+    const layoutKeys = [
+      'density',
+      'fontScale',
+      'showColorBar',
+      'showListHints',
+      'showRowEpgBar',
+      'showProgramStrip',
+      'showHeaderMeta'
+    ];
+    let layoutChanged = !prev;
+    if (prev) {
+      for (let i = 0; i < layoutKeys.length; i++) {
+        const lk = layoutKeys[i];
+        if (prev[lk] !== prefs[lk]) {
+          layoutChanged = true;
+          break;
+        }
+      }
+    }
+
+    if (layoutChanged) {
+      this.invalidateChannelListMetrics();
+      if (this._channelListEl) {
+        this.measureChannelListMetrics(this._channelListEl);
+      }
+      const rows = this._channelRowEls || this.channelRowNodes || [];
+      if (rows.length > 0 && !logosChanged) {
+        const modalFocusEl = this.isModalOpen() ? this.currentFocusedEl : null;
+        this.updateChannelFocusFast();
+        if (modalFocusEl) {
+          this.setFocusedElementFast(modalFocusEl);
+        }
+      }
+      this.cachedPreviewRect = null;
+      this._lastVideoSurfaceKey = '';
+      this.updateVideoSurfacePosition(true);
+    }
+
+    if (prefs.previewAutoplay === 'off') {
+      this.cancelPendingPreviewPlayback();
+      if (this.mode !== 'FULLSCREEN' && this.player) {
+        if (typeof this.player.stop === 'function') {
+          this.player.stop();
+        }
+        const loader = document.getElementById('video-loader');
+        const errBadge = document.getElementById('video-error-badge');
+        const pauseBadge = document.getElementById('video-pause-indicator');
+        if (loader) loader.classList.add('hidden');
+        if (errBadge) errBadge.classList.add('hidden');
+        if (pauseBadge) pauseBadge.classList.add('hidden');
+      }
+      this.updateAutoplayOffBadge();
+    } else {
+      this.updateAutoplayOffBadge(true);
+      if (prev && prev.previewAutoplay === 'off' && !this.isSafeMode() && this.mode !== 'FULLSCREEN') {
+        const targetCh = this.selectedChannel || this.visibleChannels[this.focusedChannelIndex];
+        if (targetCh && this.player && !this.player.hls && !this.player._isNativePlayback && !this.player._isPlaying) {
+          this.highlightChannel(targetCh, prefs.previewAutoplay === 'instant');
+        }
+      }
+    }
+
+    this.renderAppearanceTab();
+
+    if (!silent) {
+      this.showToast('הגדרות העיצוב עודכנו ✓');
+    }
+    return prefs;
+  }
+
   cancelPendingPreviewPlayback() {
     if (this.previewDebounceTimer) {
       clearTimeout(this.previewDebounceTimer);
@@ -356,6 +1130,10 @@ class IPTVApp {
   scheduleInitialPreviewPlayback(channel, delayMs) {
     this.cancelInitialPreviewTimer();
     if (!channel || this.isSafeMode()) return;
+    if (this.getUiPrefs().previewAutoplay === 'off' && this.mode !== 'FULLSCREEN') {
+      this.updateAutoplayOffBadge();
+      return;
+    }
     const waitMs = typeof delayMs === 'number' && delayMs >= 0 ? delayMs : 1800;
     this.initialPreviewTimer = setTimeout(() => {
       this.initialPreviewTimer = null;
@@ -393,6 +1171,7 @@ class IPTVApp {
     window.app = this;
     try {
       this.ensureRuntimeState();
+      this.applyUiPrefs(true);
       this.loadFavorites();
       this.initPlayer();
       this.initRemote();
@@ -426,7 +1205,8 @@ class IPTVApp {
           this.loadActiveEPGSources(false);
         }
         this.applyChannelFilter();
-        this.restoreLastWatchedChannel(false);
+        const startupFullscreen = !this.isSafeMode() && this.getUiPrefs().startupMode === 'fullscreen';
+        this.restoreLastWatchedChannel(startupFullscreen);
         this.updateVideoSurfacePosition(true);
         this.hideBootSplash();
         if (!this.isSafeMode() && this.isAndroidTvWebView()) {
@@ -510,7 +1290,10 @@ class IPTVApp {
       const pendingCh = this._pendingInitialPreviewChannel;
       this._pendingInitialPreviewChannel = null;
       if (!this.player || !this.player.currentChannel) {
-        this.scheduleInitialPreviewPlayback(pendingCh, 1800);
+        const prefs = this.getUiPrefs();
+        if (prefs.previewAutoplay !== 'off' || this.mode === 'FULLSCREEN') {
+          this.scheduleInitialPreviewPlayback(pendingCh, prefs.previewAutoplay === 'instant' ? 0 : 1800);
+        }
       }
     }
   }
@@ -598,6 +1381,16 @@ class IPTVApp {
         if (!loader || !errBadge) return;
 
         if (state === 'loading' || state === 'buffering' || state === 'retrying') {
+          if (
+            this.mode !== 'FULLSCREEN' &&
+            this.getUiPrefs().previewAutoplay === 'off' &&
+            (!this.player || (!this.player.hls && !this.player._isNativePlayback))
+          ) {
+            loader.classList.add('hidden');
+            errBadge.classList.add('hidden');
+            if (pauseBadge) pauseBadge.classList.add('hidden');
+            return;
+          }
           loader.classList.remove('hidden');
           errBadge.classList.add('hidden');
           if (pauseBadge) pauseBadge.classList.add('hidden');
@@ -625,7 +1418,7 @@ class IPTVApp {
         this.refreshVisibleEPGLabels();
         if (this.selectedChannel && channel && this.selectedChannel.id === channel.id) {
           this.updateOSD(channel, false);
-          if (this.mode === 'FULLSCREEN') this.showOSD(5000);
+          if (this.mode === 'FULLSCREEN') this.showOSD();
         }
       }
     });
@@ -796,7 +1589,7 @@ class IPTVApp {
         if (!silentBackground) {
           this.onlyFavorites = false;
           this.applyChannelFilter();
-          const shouldFullscreen = false;
+          const shouldFullscreen = !this.isSafeMode() && this.getUiPrefs().startupMode === 'fullscreen';
           this.restoreLastWatchedChannel(shouldFullscreen);
           this.updateVideoSurfacePosition();
           this.hideBootSplash();
@@ -837,25 +1630,34 @@ class IPTVApp {
     this.updateChannelFocusFast();
     const startCh = this.visibleChannels[this.focusedChannelIndex];
     if (startCh) {
+      const prefs = this.getUiPrefs();
       if (this.isSafeMode()) {
         this.cancelInitialPreviewTimer();
         this.highlightChannel(startCh, false, true);
+        this.updateAutoplayOffBadge();
         return;
       }
-      if (this.isAndroidTvWebView()) {
+      if (prefs.previewAutoplay === 'off' && !openFullscreen) {
+        this.cancelPendingPreviewPlayback();
+        this.highlightChannel(startCh, false, true);
+        this.updateAutoplayOffBadge();
+        return;
+      }
+      if (this.isAndroidTvWebView() && !openFullscreen) {
         this.highlightChannel(startCh, false, true);
         if (this._bootSplashHidden) {
-          this.scheduleInitialPreviewPlayback(startCh, 1800);
+          this.scheduleInitialPreviewPlayback(startCh, prefs.previewAutoplay === 'instant' ? 0 : 1800);
         } else {
           this._pendingInitialPreviewChannel = startCh;
         }
       } else {
-        this.highlightChannel(startCh, true);
+        this.highlightChannel(startCh, Boolean(openFullscreen) || prefs.previewAutoplay === 'instant');
       }
       if (openFullscreen) {
         this.enterFullscreen();
       }
     }
+    this.updateAutoplayOffBadge();
   }
 
   /* --------------------------------------------------------------------------
@@ -890,12 +1692,12 @@ class IPTVApp {
       this.visibleChannels = this.allChannels.filter((c) => this.favorites.has(c.id));
       if (titleEl) titleEl.textContent = 'ערוצים מועדפים ★';
       if (filterBtn) filterBtn.classList.add('active-filter');
-      if (filterLabel) filterLabel.textContent = 'הצג את כל הערוצים';
+      if (filterLabel) filterLabel.textContent = 'כל הערוצים';
     } else {
       this.visibleChannels = this.allChannels.slice();
       if (titleEl) titleEl.textContent = 'כל הערוצים';
       if (filterBtn) filterBtn.classList.remove('active-filter');
-      if (filterLabel) filterLabel.textContent = 'מועדפים בלבד';
+      if (filterLabel) filterLabel.textContent = 'מועדפים';
     }
 
     if (countEl) {
@@ -1038,7 +1840,11 @@ class IPTVApp {
 
     const placeholderEl = logoWrap.firstChild;
     placeholderEl.textContent = monogram;
-    if (ch.logo) {
+    const showLogos =
+      typeof this._renderingShowRowLogos === 'boolean'
+        ? this._renderingShowRowLogos
+        : this.getUiPrefs().showRowLogos !== false;
+    if (ch.logo && showLogos) {
       const img = document.createElement('img');
       img.alt = '';
       img.loading = 'lazy';
@@ -1206,13 +2012,18 @@ class IPTVApp {
     }
 
     const total = this.visibleChannels.length;
+    this._renderingShowRowLogos = this.getUiPrefs().showRowLogos !== false;
     const frag = document.createDocumentFragment();
-    for (let idx = 0; idx < total; idx++) {
-      const ch = this.visibleChannels[idx];
-      const item = this.createChannelRowElement(ch, idx);
-      this._channelRowEls.push(item);
-      this._channelIndexById[ch.id] = idx;
-      frag.appendChild(item);
+    try {
+      for (let idx = 0; idx < total; idx++) {
+        const ch = this.visibleChannels[idx];
+        const item = this.createChannelRowElement(ch, idx);
+        this._channelRowEls.push(item);
+        this._channelIndexById[ch.id] = idx;
+        frag.appendChild(item);
+      }
+    } finally {
+      this._renderingShowRowLogos = null;
     }
     // Single DocumentFragment DOM append (1 layout instead of N chunked appends)
     listEl.appendChild(frag);
@@ -1332,9 +2143,11 @@ class IPTVApp {
     const logoImg = document.getElementById('preview-channel-logo');
     const logoPlaceholder = document.getElementById('preview-channel-placeholder');
     if (logoImg && logoPlaceholder) {
-      const nextLogo = channel.logo || '';
-      if (logoImg.dataset.loadedSrc !== nextLogo) {
-        logoImg.dataset.loadedSrc = nextLogo;
+      const showLogos = this.getUiPrefs().showRowLogos !== false;
+      const nextLogo = showLogos ? (channel.logo || '') : '';
+      const nextKey = (showLogos ? '1|' : '0|') + nextLogo;
+      if (logoImg.dataset.loadedSrc !== nextKey) {
+        logoImg.dataset.loadedSrc = nextKey;
         logoPlaceholder.textContent = this.getChannelMonogram(channel);
         logoImg.classList.add('hidden');
         logoPlaceholder.classList.remove('hidden');
@@ -1350,6 +2163,10 @@ class IPTVApp {
             logoPlaceholder.classList.remove('hidden');
           };
           logoImg.src = nextLogo;
+        } else {
+          logoImg.onload = null;
+          logoImg.onerror = null;
+          logoImg.removeAttribute('src');
         }
       }
     }
@@ -1411,25 +2228,55 @@ class IPTVApp {
       this.updateOSD(channel, false);
     }
 
+    const prefs = this.getUiPrefs();
+    const autoplayMode = prefs.previewAutoplay || 'delayed';
+
     this.cancelPendingPreviewPlayback();
     if (skipPlayback === true) {
+      this.updateAutoplayOffBadge();
+      return;
+    }
+    if (autoplayMode === 'off' && this.mode !== 'FULLSCREEN' && immediatePlay !== true) {
+      if (this.player && typeof this.player.stop === 'function') {
+        this.player.stop();
+      }
+      const loader = document.getElementById('video-loader');
+      const errBadge = document.getElementById('video-error-badge');
+      const pauseBadge = document.getElementById('video-pause-indicator');
+      if (loader) loader.classList.add('hidden');
+      if (errBadge) errBadge.classList.add('hidden');
+      if (pauseBadge) pauseBadge.classList.add('hidden');
+      this.updateAutoplayOffBadge();
       return;
     }
     if (immediatePlay === true) {
       try {
         localStorage.setItem(STORAGE_KEYS.LAST_CHANNEL, channel.id);
       } catch (e) {}
+      this.updateAutoplayOffBadge(true);
       this.player.play(channel);
     } else if (!this.isSafeMode()) {
-      const debounceMs = (this.isWebOSPlatform() || this.isTvPlatform()) ? 280 : 150;
-      this.previewDebounceTimer = setTimeout(() => {
-        this.previewDebounceTimer = null;
+      const debounceMs = autoplayMode === 'instant'
+        ? 0
+        : ((this.isWebOSPlatform() || this.isTvPlatform()) ? 280 : 150);
+      if (debounceMs === 0) {
         try {
           localStorage.setItem(STORAGE_KEYS.LAST_CHANNEL, channel.id);
         } catch (e) {}
+        this.updateAutoplayOffBadge(true);
         this.player.play(channel);
-      }, debounceMs);
+      } else {
+        this.previewDebounceTimer = setTimeout(() => {
+          this.previewDebounceTimer = null;
+          try {
+            localStorage.setItem(STORAGE_KEYS.LAST_CHANNEL, channel.id);
+          } catch (e) {}
+          this.updateAutoplayOffBadge(true);
+          this.player.play(channel);
+        }, debounceMs);
+      }
     }
+    this.updateAutoplayOffBadge();
   }
 
   updateEPGUI(channel, deferTimeline) {
@@ -1852,7 +2699,7 @@ class IPTVApp {
   }
 
   showOSD(duration) {
-    const waitMs = duration || 5000;
+    const waitMs = typeof duration === 'number' && duration > 0 ? duration : this.getOsdTimeoutMs();
     const osd = this._getOsdEls().osd;
     if (!osd) return;
     if (osd.classList.contains('hidden')) {
@@ -2147,7 +2994,7 @@ class IPTVApp {
           if (currentCh) {
             this.updateOSD(currentCh, false);
           }
-          this.showOSD(5500);
+          this.showOSD();
           return;
         }
 
@@ -2164,7 +3011,7 @@ class IPTVApp {
 
         const surfTarget = this.visibleChannels[this.surfingIndex];
         this.updateOSD(surfTarget, true);
-        this.showOSD(7000);
+        this.showOSD(Math.max(7000, this.getOsdTimeoutMs()));
         return;
       } else if (direction === 'left') {
         // In Hebrew RTL, Left arrow moves Forward along the progress bar
@@ -2319,7 +3166,7 @@ class IPTVApp {
         if (targetCh) {
           this.highlightChannel(targetCh, true);
           this.updateOSD(targetCh, false);
-          this.showOSD(4500);
+          this.showOSD();
         }
       } else {
         const osd = document.getElementById('fullscreen-osd');
@@ -2329,11 +3176,11 @@ class IPTVApp {
           if (this.selectedChannel) {
             this.updateOSD(this.selectedChannel, false);
           }
-          this.showOSD(5000);
+          this.showOSD();
         } else {
           // 2nd press of OK while Info-Bar is visible -> Toggle Pause / Play!
           this.togglePlayPause();
-          this.showOSD(5000);
+          this.showOSD();
         }
       }
       return;
@@ -2368,11 +3215,24 @@ class IPTVApp {
     if (this.focusArea === 'channels') {
       const targetCh = this.visibleChannels[this.focusedChannelIndex];
       if (!targetCh) return;
+      const prefs = this.getUiPrefs();
 
       if (!this.selectedChannel || this.selectedChannel.id !== targetCh.id) {
         // Channel is not currently playing -> Switch to it ONLY on OK press! (No redundant bottom toast)
         this.highlightChannel(targetCh, true);
+        if (prefs.previewAutoplay === 'off') {
+          this.enterFullscreen();
+        }
       } else {
+        if (
+          prefs.previewAutoplay === 'off' &&
+          this.player &&
+          !this.player.hls &&
+          !this.player._isNativePlayback &&
+          !this.player._isPlaying
+        ) {
+          this.highlightChannel(targetCh, true);
+        }
         // Channel is already playing -> Enter Fullscreen!
         this.enterFullscreen();
       }
@@ -2442,13 +3302,28 @@ class IPTVApp {
     clearTimeout(this._seekBadgeClearTimer);
 
     const targetChannel = this.selectedChannel;
+    if (this.player && !this.isSafeMode()) {
+      const hasActiveStream = Boolean(
+        this.player.currentChannel &&
+        this.player.currentChannel.id === targetChannel.id &&
+        (this.player.hls || this.player._isNativePlayback || this.player._isPlaying)
+      );
+      if (!hasActiveStream && !this.player.currentProgramme) {
+        try {
+          localStorage.setItem(STORAGE_KEYS.LAST_CHANNEL, targetChannel.id);
+        } catch (e) {}
+        this.player.play(targetChannel);
+      }
+    }
+    this.updateAutoplayOffBadge(true);
+
     this._cancelFullscreenRaf();
     const runEnterFrame = () => {
       this._fullscreenRafId = null;
       if (this.mode !== 'FULLSCREEN') return;
       this.updateVideoSurfacePosition(true);
       this.updateOSD(targetChannel, false);
-      this.showOSD(4500);
+      this.showOSD();
     };
 
     if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
@@ -2479,6 +3354,19 @@ class IPTVApp {
           if (idx !== -1) this.focusedChannelIndex = idx;
         }
       }
+
+      if (this.getUiPrefs().previewAutoplay === 'off') {
+        if (this.player && typeof this.player.stop === 'function') {
+          this.player.stop();
+        }
+        const loader = document.getElementById('video-loader');
+        const errBadge = document.getElementById('video-error-badge');
+        const pauseBadge = document.getElementById('video-pause-indicator');
+        if (loader) loader.classList.add('hidden');
+        if (errBadge) errBadge.classList.add('hidden');
+        if (pauseBadge) pauseBadge.classList.add('hidden');
+      }
+      this.updateAutoplayOffBadge();
 
       this._cancelFullscreenRaf();
       const runExitFrame = () => {
@@ -2520,7 +3408,7 @@ class IPTVApp {
     this.highlightChannel(targetChannel, true);
 
     if (this.mode === 'FULLSCREEN') {
-      this.showOSD(4500);
+      this.showOSD();
     } else {
       this.updateChannelFocusFast();
     }
@@ -2540,7 +3428,7 @@ class IPTVApp {
       }
       this.highlightChannel(ch, true);
       if (this.mode === 'FULLSCREEN') {
-        this.showOSD(4500);
+        this.showOSD();
       } else {
         this.updateChannelFocusFast();
       }
@@ -2713,7 +3601,7 @@ class IPTVApp {
     if (ch) {
       this.updateOSD(ch, false);
     }
-    this.showOSD(4500);
+    this.showOSD();
   }
 
   onRedButton() {
@@ -2733,7 +3621,7 @@ class IPTVApp {
       clearTimeout(this._seekBadgeClearTimer);
       this.updateOSD(ch, false);
       if (this.mode === 'FULLSCREEN') {
-        this.showOSD(4500);
+        this.showOSD();
       } else {
         this.previewChannelInfo(ch);
         this.showToast('חזרה לשידור חי: ' + ch.name);
@@ -2757,7 +3645,7 @@ class IPTVApp {
     this.player.startOver();
     this.updateOSD(ch, false);
     if (this.mode === 'FULLSCREEN') {
-      this.showOSD(4500);
+      this.showOSD();
     }
   }
 
@@ -2792,7 +3680,7 @@ class IPTVApp {
       if (ch) {
         this.updateOSD(ch, false);
       }
-      this.showOSD(4500);
+      this.showOSD();
     }
   }
 
@@ -3024,6 +3912,7 @@ class IPTVApp {
     this.previousModeBeforeModal = 'BROWSE';
     this.mode = 'SETTINGS';
     this.activeSettingsInputId = 'm3u-url-input';
+    this.ensureUiCustomizationDOM();
     this.switchSettingsTab('sources');
 
     const savedEpg = localStorage.getItem(STORAGE_KEYS.EPG_URL);
@@ -3047,11 +3936,13 @@ class IPTVApp {
   }
 
   switchSettingsTab(tabName) {
+    this.ensureUiCustomizationDOM();
     this.activeSettingsTab = tabName;
     const tabs = [
       { key: 'sources', btn: 'tab-btn-sources', panel: 'settings-tab-sources' },
       { key: 'channels', btn: 'tab-btn-channels', panel: 'settings-tab-channels' },
       { key: 'performance', btn: 'tab-btn-performance', panel: 'settings-tab-performance' },
+      { key: 'appearance', btn: 'tab-btn-appearance', panel: 'settings-tab-appearance' },
       { key: 'about', btn: 'tab-btn-about', panel: 'settings-tab-about' }
     ];
 
@@ -3073,6 +3964,8 @@ class IPTVApp {
       this.renderChannelEditorTab();
     } else if (tabName === 'performance') {
       this.renderPerformanceTab();
+    } else if (tabName === 'appearance') {
+      this.renderAppearanceTab();
     } else if (tabName === 'sources') {
       this.renderSourcesManagerList();
     } else if (tabName === 'about') {
@@ -3382,7 +4275,10 @@ class IPTVApp {
     if (nextScrollTop > 0) {
       let ancestor = target.parentElement;
       while (ancestor && ancestor !== container) {
-        if (ancestor.classList && ancestor.classList.contains('perf-section-card')) {
+        if (
+          ancestor.classList &&
+          (ancestor.classList.contains('perf-section-card') || ancestor.classList.contains('ui-pref-card'))
+        ) {
           const ct = (ancestor.getBoundingClientRect().top - cRect.top) / factor;
           if (relTop - ct <= 210) {
             cardTop = ct;
@@ -3519,6 +4415,26 @@ class IPTVApp {
 
       bestIndex = bestRowIndex !== -1 ? bestRowIndex : bestNearIndex;
     } else {
+      let curBody = null;
+      let bp = this.currentFocusedEl ? this.currentFocusedEl.parentElement : null;
+      while (bp && bp !== activeModal) {
+        if (bp.classList && bp.classList.contains('modal-body')) {
+          curBody = bp;
+          break;
+        }
+        bp = bp.parentElement;
+      }
+      const isHeaderEl = (el) => {
+        let p = el ? el.parentElement : null;
+        while (p && p !== activeModal) {
+          if (p.classList && p.classList.contains('modal-header')) return true;
+          p = p.parentElement;
+        }
+        return false;
+      };
+      let bestBodyIndex = -1;
+      let bestBodyScore = Infinity;
+
       for (let i = 0; i < focusables.length; i++) {
         if (i === activeIdx) continue;
         const rect = rects[i];
@@ -3549,6 +4465,16 @@ class IPTVApp {
           bestScore = score;
           bestIndex = i;
         }
+        if (direction === 'up' && curBody && curBody.contains(focusables[i]) && !isHeaderEl(focusables[i])) {
+          if (score < bestBodyScore) {
+            bestBodyScore = score;
+            bestBodyIndex = i;
+          }
+        }
+      }
+
+      if (direction === 'up' && curBody && bestBodyIndex !== -1 && bestIndex !== -1 && isHeaderEl(focusables[bestIndex])) {
+        bestIndex = bestBodyIndex;
       }
     }
 
@@ -3719,10 +4645,23 @@ class IPTVApp {
         this.focusArea = 'channels';
         this.focusedChannelIndex = idx;
         this.updateChannelFocusFast();
+        const prefs = this.getUiPrefs();
         if (this.selectedChannel && this.selectedChannel.id === ch.id) {
+          if (
+            prefs.previewAutoplay === 'off' &&
+            this.player &&
+            !this.player.hls &&
+            !this.player._isNativePlayback &&
+            !this.player._isPlaying
+          ) {
+            this.highlightChannel(ch, true);
+          }
           this.enterFullscreen();
         } else {
           this.highlightChannel(ch, true);
+          if (prefs.previewAutoplay === 'off') {
+            this.enterFullscreen();
+          }
         }
       });
 
@@ -3748,10 +4687,10 @@ class IPTVApp {
           const isOsdVisible = osd && !osd.classList.contains('hidden');
           if (!isOsdVisible) {
             if (this.selectedChannel) this.updateOSD(this.selectedChannel, false);
-            this.showOSD(5000);
+            this.showOSD();
           } else {
             this.togglePlayPause();
-            this.showOSD(5000);
+            this.showOSD();
           }
         } else {
           this.enterFullscreen();
@@ -3797,13 +4736,20 @@ class IPTVApp {
     const tabBtnSources = document.getElementById('tab-btn-sources');
     const tabBtnChannels = document.getElementById('tab-btn-channels');
     const tabBtnPerf = document.getElementById('tab-btn-performance');
+    const tabBtnAppearance = document.getElementById('tab-btn-appearance');
     const tabBtnAbout = document.getElementById('tab-btn-about');
     if (tabBtnSources) tabBtnSources.addEventListener('click', () => this.switchSettingsTab('sources'));
     if (tabBtnChannels) tabBtnChannels.addEventListener('click', () => this.switchSettingsTab('channels'));
     if (tabBtnPerf) tabBtnPerf.addEventListener('click', () => this.switchSettingsTab('performance'));
+    if (tabBtnAppearance && tabBtnAppearance.dataset && tabBtnAppearance.dataset.uiBound !== '1') {
+      tabBtnAppearance.dataset.uiBound = '1';
+      tabBtnAppearance.addEventListener('click', () => this.switchSettingsTab('appearance'));
+    }
     if (tabBtnAbout) tabBtnAbout.addEventListener('click', () => this.switchSettingsTab('about'));
 
     this.ensureThemeControlsDOM();
+    this.ensureUiCustomizationDOM();
+    this.renderAppearanceTab();
 
     // Buffer Mode option buttons
     const bufBtns = document.querySelectorAll('#buffer-mode-options .perf-option-btn');
