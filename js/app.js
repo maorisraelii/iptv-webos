@@ -107,7 +107,42 @@ class IPTVApp {
     this._activeSeekSpeedLabel = '';
     this._seekBadgeClearTimer = null;
 
+    this.ensureRuntimeState();
     this.init();
+  }
+
+  /**
+   * Idempotently initializes any runtime fields or caches added in newer app versions
+   * so an older base IPTVApp instance upgraded live via OTA can never throw on undefined properties.
+   */
+  ensureRuntimeState() {
+    if (!Array.isArray(this.allChannels)) this.allChannels = [];
+    if (!Array.isArray(this.visibleChannels)) this.visibleChannels = [];
+    if (!this.favorites || typeof this.favorites.has !== 'function') this.favorites = new Set();
+    if (!Array.isArray(this.channelRowNodes)) this.channelRowNodes = [];
+    if (!Array.isArray(this._channelRowEls)) this._channelRowEls = this.channelRowNodes;
+    if (!this._channelIndexById || typeof this._channelIndexById !== 'object') {
+      this._channelIndexById = Object.create(null);
+    }
+    if (!Array.isArray(this.timelineItemNodes)) this.timelineItemNodes = [];
+    if (!Array.isArray(this.timelineProgrammes)) this.timelineProgrammes = [];
+    if (!this._previewHeaderCache || typeof this._previewHeaderCache !== 'object') {
+      this._previewHeaderCache = Object.create(null);
+    }
+    if (!this._osdLastCache || typeof this._osdLastCache !== 'object') {
+      this._osdLastCache = Object.create(null);
+    }
+    if (typeof this._cachedRowHeight !== 'number') this._cachedRowHeight = 0;
+    if (typeof this._cachedRowBoxHeight !== 'number') this._cachedRowBoxHeight = 0;
+    if (typeof this._cachedListHeight !== 'number') this._cachedListHeight = 0;
+    if (typeof this._cachedListPaddingTop !== 'number') this._cachedListPaddingTop = 14;
+    if (typeof this._cachedListScrollTop !== 'number') this._cachedListScrollTop = 0;
+    if (typeof this._epgRefreshEpoch !== 'number') this._epgRefreshEpoch = 0;
+    if (typeof this._lastMiniTimelineSig !== 'string') this._lastMiniTimelineSig = '';
+    if (typeof this._lastVideoSurfaceKey !== 'string') this._lastVideoSurfaceKey = '';
+    if (typeof this._lastClockStr !== 'string') this._lastClockStr = '';
+    if (typeof this._lastClockMinute !== 'number') this._lastClockMinute = -1;
+    if (typeof this.focusedChannelIndex !== 'number') this.focusedChannelIndex = 0;
   }
 
   isSafeMode() {
@@ -340,6 +375,7 @@ class IPTVApp {
   init() {
     window.app = this;
     try {
+      this.ensureRuntimeState();
       this.loadFavorites();
       this.initPlayer();
       this.initRemote();
@@ -710,6 +746,15 @@ class IPTVApp {
       .fetchAllSources()
       .then((res) => {
         if (!res.compiledChannels || res.compiledChannels.length === 0) {
+          if (res.hadSourceError && Array.isArray(this.allChannels) && this.allChannels.length > 0) {
+            if (!silentBackground) {
+              this.showToast('שגיאה ברענון מקורות M3U — נשמרה רשימת הערוצים השמורה');
+              if (statusText) statusText.textContent = 'שגיאה בטעינה — נשמרה הרשימה הקיימת.';
+              this.hideBootSplash();
+            }
+            this.scheduleBootEPGLoad(false);
+            return;
+          }
           if (!silentBackground) {
             this.allChannels = [];
             this.applyChannelFilter();
@@ -1049,7 +1094,7 @@ class IPTVApp {
     if (h > 0) {
       this._cachedListHeight = h;
     }
-    const rows = this._channelRowEls;
+    const rows = this._channelRowEls || this.channelRowNodes || [];
     if (rows && rows.length > 0) {
       const firstRow = rows[0];
       const firstTop = firstRow.offsetTop;
@@ -1068,7 +1113,8 @@ class IPTVApp {
   }
 
   getVisibleChannelIndexRange(bufferRows) {
-    const total = this._channelRowEls.length;
+    const rows = this._channelRowEls || this.channelRowNodes || [];
+    const total = rows.length;
     if (total === 0) return { start: 0, end: -1 };
     const buf = typeof bufferRows === 'number' ? bufferRows : 4;
     const rowPitch = this._cachedRowHeight > 0 ? this._cachedRowHeight : 108;
@@ -1094,12 +1140,13 @@ class IPTVApp {
   }
 
   syncStaleVisibleEPGRows() {
-    const total = this._channelRowEls.length;
-    if (total === 0) return;
+    const rows = this._channelRowEls || this.channelRowNodes || [];
+    const total = rows.length;
+    if (total === 0 || !Array.isArray(this.visibleChannels)) return;
     const epoch = this._epgRefreshEpoch || 0;
     const range = this.getVisibleChannelIndexRange(4);
     for (let i = range.start; i <= range.end; i++) {
-      const row = this._channelRowEls[i];
+      const row = rows[i];
       if (row && row._epgEpoch !== epoch) {
         this.updateRowEPGDom(row, this.visibleChannels[i]);
       }
@@ -1184,18 +1231,20 @@ class IPTVApp {
   }
 
   refreshVisibleEPGLabels() {
-    const total = this._channelRowEls.length;
+    const rows = this._channelRowEls || this.channelRowNodes || [];
+    const total = rows.length;
     this._epgRefreshEpoch = (this._epgRefreshEpoch || 0) + 1;
-    if (total > 0) {
-      if (this._cachedRowHeight <= 0 || this._cachedListHeight <= 0) {
+    if (total > 0 && Array.isArray(this.visibleChannels)) {
+      if (!(this._cachedRowHeight > 0) || !(this._cachedListHeight > 0)) {
         this.measureChannelListMetrics();
       }
       const range = this.getVisibleChannelIndexRange(4);
       for (let i = range.start; i <= range.end; i++) {
-        this.updateRowEPGDom(this._channelRowEls[i], this.visibleChannels[i]);
+        this.updateRowEPGDom(rows[i], this.visibleChannels[i]);
       }
     }
-    const previewCh = this.visibleChannels[this.focusedChannelIndex] || this.selectedChannel;
+    const visible = Array.isArray(this.visibleChannels) ? this.visibleChannels : [];
+    const previewCh = visible[this.focusedChannelIndex] || this.selectedChannel;
     if (previewCh) {
       this.updateEPGUI(previewCh, false);
     }
@@ -1224,6 +1273,7 @@ class IPTVApp {
   }
 
   _setPreviewText(key, el, val) {
+    if (!this._previewHeaderCache) this._previewHeaderCache = Object.create(null);
     const str = val == null ? '' : String(val);
     if (el && this._previewHeaderCache[key] !== str) {
       this._previewHeaderCache[key] = str;
@@ -1233,6 +1283,7 @@ class IPTVApp {
 
   previewChannelInfo(channel, deferTimeline) {
     if (!channel) return;
+    if (!this._previewHeaderCache) this._previewHeaderCache = Object.create(null);
     clearTimeout(this.previewTimer);
     this.previewTimer = null;
     this.previewedChannel = channel;
@@ -1305,11 +1356,13 @@ class IPTVApp {
       if (oldPill) oldPill.textContent = 'לחץ OK למעבר';
     }
 
-    let newActiveRow = this._channelRowEls[this.focusedChannelIndex];
+    const rows = this._channelRowEls || this.channelRowNodes || [];
+    const indexMap = this._channelIndexById || (this._channelIndexById = Object.create(null));
+    let newActiveRow = rows[this.focusedChannelIndex];
     if (!newActiveRow || newActiveRow.dataset.channelId !== channel.id) {
-      const mappedIdx = this._channelIndexById[channel.id];
+      const mappedIdx = indexMap[channel.id];
       if (typeof mappedIdx === 'number') {
-        newActiveRow = this._channelRowEls[mappedIdx];
+        newActiveRow = rows[mappedIdx];
       }
     }
     if (newActiveRow) {
@@ -1427,6 +1480,7 @@ class IPTVApp {
 
   displaySynopsisForProgramme(prog) {
     if (!prog) return;
+    if (!this._previewHeaderCache) this._previewHeaderCache = Object.create(null);
     const badgeEl = document.getElementById('preview-epg-badge');
     const titleEl = document.getElementById('preview-epg-title');
     const timeEl = document.getElementById('preview-epg-time');
@@ -1612,6 +1666,7 @@ class IPTVApp {
   }
 
   _setOsdText(key, el, val) {
+    if (!this._osdLastCache) this._osdLastCache = Object.create(null);
     const str = val == null ? '' : String(val);
     if (el && this._osdLastCache[key] !== str) {
       this._osdLastCache[key] = str;
@@ -1622,7 +1677,7 @@ class IPTVApp {
   updateOSD(channel, isSurfing) {
     if (!channel) return;
     const els = this._getOsdEls();
-    const cache = this._osdLastCache;
+    const cache = this._osdLastCache || (this._osdLastCache = Object.create(null));
 
     this._setOsdText('num', els.num, channel.number);
     this._setOsdText('name', els.name, channel.name);
@@ -1853,8 +1908,10 @@ class IPTVApp {
     } else {
       // O(1) DOM update for the toggled channel row without rebuilding the whole list
       const nowFav = this.favorites.has(id);
-      const mappedIdx = this._channelIndexById[id];
-      const row = typeof mappedIdx === 'number' ? this._channelRowEls[mappedIdx] : null;
+      const indexMap = this._channelIndexById || (this._channelIndexById = Object.create(null));
+      const rows = this._channelRowEls || this.channelRowNodes || [];
+      const mappedIdx = indexMap[id];
+      const row = typeof mappedIdx === 'number' ? rows[mappedIdx] : null;
       if (row) {
         let starEl = row.querySelector('.channel-fav-star');
         if (nowFav && !starEl) {
@@ -1946,11 +2003,12 @@ class IPTVApp {
   updateChannelFocusFast() {
     const listEl = this._channelListEl || (this._channelListEl = document.getElementById('channel-list'));
     const idx = this.focusedChannelIndex;
-    const targetItem = this._channelRowEls[idx];
+    const rows = this._channelRowEls || this.channelRowNodes || [];
+    const targetItem = rows[idx];
     if (!targetItem || !listEl) return;
 
     // Measure list geometry ONCE lazily BEFORE any DOM class/text writes (zero read-after-write!)
-    if (this._cachedRowHeight <= 0 || this._cachedListHeight <= 0) {
+    if (!(this._cachedRowHeight > 0) || !(this._cachedListHeight > 0)) {
       this.measureChannelListMetrics(listEl);
     }
 
@@ -2395,7 +2453,8 @@ class IPTVApp {
       clearInterval(this.osdTickTimer);
 
       if (this.selectedChannel) {
-        const mappedIdx = this._channelIndexById[this.selectedChannel.id];
+        const indexMap = this._channelIndexById || (this._channelIndexById = Object.create(null));
+        const mappedIdx = indexMap[this.selectedChannel.id];
         if (typeof mappedIdx === 'number') {
           this.focusedChannelIndex = mappedIdx;
         } else {
@@ -2992,6 +3051,8 @@ class IPTVApp {
     });
 
     if (tabName === 'channels') {
+      const editorList = document.getElementById('channel-editor-list');
+      if (editorList) editorList.scrollTop = 0;
       this.renderChannelEditorTab();
     } else if (tabName === 'performance') {
       this.renderPerformanceTab();
@@ -3001,6 +3062,11 @@ class IPTVApp {
       if (this.otaManager && typeof this.otaManager.updateVersionBadgesUI === 'function') {
         this.otaManager.updateVersionBadgesUI();
       }
+    }
+
+    const activePanel = document.getElementById('settings-tab-' + tabName);
+    if (activePanel) {
+      activePanel.scrollTop = 0;
     }
   }
 
@@ -3241,12 +3307,126 @@ class IPTVApp {
   setupModalFocus(modalSelector) {
     const modal = document.querySelector(modalSelector);
     if (!modal) return;
+    const bodies = modal.querySelectorAll('.modal-body:not(.hidden)');
+    for (let i = 0; i < bodies.length; i++) {
+      bodies[i].scrollTop = 0;
+    }
     const focusables = Array.from(modal.querySelectorAll('.focusable')).filter(
       (el) => el.offsetWidth > 0 || el.offsetHeight > 0
     );
     if (focusables.length > 0) {
       this.focusedModalIndex = focusables.length > 1 ? 1 : 0;
-      this.setFocusedElementFast(focusables[this.focusedModalIndex]);
+      const initialTarget = focusables[this.focusedModalIndex];
+      this.setFocusedElementFast(initialTarget);
+      this.scrollModalTargetIntoView(initialTarget);
+    }
+  }
+
+  findModalScrollContainer(target) {
+    let node = target ? target.parentElement : null;
+    while (node && node !== document.body) {
+      if (
+        node.id === 'channel-editor-list' ||
+        node.id === 'search-results-list' ||
+        node.id === 'guide-programmes-list' ||
+        (node.classList && (node.classList.contains('modal-body') || node.classList.contains('settings-tab-content')))
+      ) {
+        if (node.scrollHeight > node.clientHeight + 2) {
+          return node;
+        }
+      }
+      if (node.classList && node.classList.contains('modal-card')) {
+        break;
+      }
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  scrollModalTargetIntoView(target) {
+    if (!target) return;
+    const container = this.findModalScrollContainer(target);
+    if (!container) return;
+
+    const cRect = container.getBoundingClientRect();
+    const tRect = target.getBoundingClientRect();
+    const scale = container.clientHeight > 0 && cRect.height > 0 ? (cRect.height / container.clientHeight) : 1;
+    const factor = scale > 0 ? scale : 1;
+    const relTop = (tRect.top - cRect.top) / factor;
+    const relBottom = (tRect.bottom - cRect.top) / factor;
+    const viewHeight = container.clientHeight;
+    const maxScroll = Math.max(0, container.scrollHeight - viewHeight);
+    if (maxScroll <= 0) return;
+
+    const pad = 28;
+    let nextScrollTop = container.scrollTop;
+
+    let cardTop = null;
+    if (nextScrollTop > 0) {
+      let ancestor = target.parentElement;
+      while (ancestor && ancestor !== container) {
+        if (ancestor.classList && ancestor.classList.contains('perf-section-card')) {
+          const ct = (ancestor.getBoundingClientRect().top - cRect.top) / factor;
+          if (relTop - ct <= 210) {
+            cardTop = ct;
+          }
+          break;
+        }
+        ancestor = ancestor.parentElement;
+      }
+    }
+
+    if (cardTop !== null && cardTop < pad && relBottom <= viewHeight - pad) {
+      nextScrollTop = Math.max(0, nextScrollTop + cardTop - pad);
+      if (nextScrollTop <= 140) {
+        nextScrollTop = 0;
+      }
+    } else if (relTop < pad) {
+      const desiredTop = cardTop !== null && cardTop < pad ? cardTop : relTop;
+      nextScrollTop = Math.max(0, nextScrollTop + desiredTop - pad);
+      if (nextScrollTop <= 140) {
+        nextScrollTop = 0;
+      }
+    } else if (relBottom > viewHeight - pad) {
+      nextScrollTop = Math.min(maxScroll, nextScrollTop + (relBottom - viewHeight) + pad);
+      if (maxScroll - nextScrollTop <= 90) {
+        nextScrollTop = maxScroll;
+      }
+    }
+
+    if (nextScrollTop !== container.scrollTop) {
+      container.scrollTop = Math.round(nextScrollTop);
+    }
+  }
+
+  resetActiveModalScroll() {
+    if (typeof document === 'undefined') return;
+    const activeModal = document.querySelector('.modal-backdrop:not(.hidden)');
+    if (!activeModal) return;
+    const visibleBody = activeModal.querySelector('.modal-body:not(.hidden)');
+    if (visibleBody && visibleBody.scrollTop > 0) {
+      visibleBody.scrollTop = 0;
+    }
+  }
+
+  scrollActiveModalBy(deltaPx) {
+    if (typeof document === 'undefined' || !deltaPx) return;
+    const activeModal = document.querySelector('.modal-backdrop:not(.hidden)');
+    if (!activeModal) return;
+
+    const candidates = [
+      activeModal.querySelector('#guide-programmes-list'),
+      activeModal.querySelector('#channel-editor-list'),
+      activeModal.querySelector('#search-results-list'),
+      activeModal.querySelector('.modal-body:not(.hidden)')
+    ];
+    for (let i = 0; i < candidates.length; i++) {
+      const el = candidates[i];
+      if (el && el.offsetHeight > 0 && el.scrollHeight > el.clientHeight + 2) {
+        const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
+        el.scrollTop = Math.max(0, Math.min(maxScroll, el.scrollTop + deltaPx));
+        return;
+      }
     }
   }
 
@@ -3330,8 +3510,19 @@ class IPTVApp {
       if (target.tagName === 'INPUT') {
         this.activeSettingsInputId = target.id;
       }
-      if (target.parentElement && (target.parentElement.id === 'search-results-list' || target.parentElement.id === 'channel-editor-list')) {
-        this.scrollContainerFast(target.parentElement, target);
+      let inModalHeader = false;
+      let p = target.parentElement;
+      while (p && p !== activeModal) {
+        if (p.classList && p.classList.contains('modal-header')) {
+          inModalHeader = true;
+          break;
+        }
+        p = p.parentElement;
+      }
+      if (inModalHeader) {
+        this.resetActiveModalScroll();
+      } else {
+        this.scrollModalTargetIntoView(target);
       }
     }
   }

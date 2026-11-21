@@ -3,7 +3,7 @@
  * Designed for LG webOS 4.0 - 24+ (Chromium 53+)
  */
 
-const APP_BUNDLE_VERSION = '5.2.0';
+const APP_BUNDLE_VERSION = '5.2.1';
 const APP_BUNDLE_CHANNEL = 'stable';
 const OTA_GIST_RAW_BASE = 'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw';
 const OTA_GITHUB_RAW_STABLE = 'https://raw.githubusercontent.com/maorisraelii/iptv-webos/main/ota-manifest.json';
@@ -306,10 +306,11 @@ class OTACloudManager {
     this.otaAutoTimer = null;
     this._isInstallingOta = false;
     this._appliedBundleSignature = null;
+    this._fetchingGlassCss = false;
 
     if (typeof window !== 'undefined') {
       if (!window.__ZENPLAY_BASE_BUNDLE_VERSION) {
-        window.__ZENPLAY_BASE_BUNDLE_VERSION = typeof APP_BUNDLE_VERSION !== 'undefined' ? APP_BUNDLE_VERSION : '5.2.0';
+        window.__ZENPLAY_BASE_BUNDLE_VERSION = typeof APP_BUNDLE_VERSION !== 'undefined' ? APP_BUNDLE_VERSION : '5.2.1';
       }
       if (!window.__ZENPLAY_BASE_BUNDLE_CHANNEL) {
         window.__ZENPLAY_BASE_BUNDLE_CHANNEL = 'stable';
@@ -325,7 +326,7 @@ class OTACloudManager {
     if (typeof window !== 'undefined' && window.__ZENPLAY_BASE_BUNDLE_VERSION) {
       return window.__ZENPLAY_BASE_BUNDLE_VERSION;
     }
-    return typeof APP_BUNDLE_VERSION !== 'undefined' ? APP_BUNDLE_VERSION : '5.2.0';
+    return typeof APP_BUNDLE_VERSION !== 'undefined' ? APP_BUNDLE_VERSION : '5.2.1';
   }
 
   getBaseBundleChannel() {
@@ -394,6 +395,24 @@ class OTACloudManager {
       localStorage.removeItem(OTA_STORAGE_KEYS.INSTALLED_VERSION);
       localStorage.removeItem(OTA_STORAGE_KEYS.INSTALLED_CHANNEL);
     } catch (e) {}
+  }
+
+  saveInstalledBundleSafe(bundleObj) {
+    if (!bundleObj || typeof bundleObj !== 'object') return false;
+    const serialized = JSON.stringify(bundleObj);
+    try {
+      localStorage.setItem(OTA_STORAGE_KEYS.INSTALLED_BUNDLE, serialized);
+      return true;
+    } catch (e) {
+      // If localStorage is tight (e.g. large EPG cache on Smart TV), evict recoverable EPG cache and retry once
+      try {
+        localStorage.removeItem('zenplay_iptv_epg_cache_v491');
+        localStorage.setItem(OTA_STORAGE_KEYS.INSTALLED_BUNDLE, serialized);
+        return true;
+      } catch (retryErr) {
+        return false;
+      }
+    }
   }
 
   reconcileBaseBundleUpgrade() {
@@ -615,6 +634,26 @@ class OTACloudManager {
       if (!this.isSavedBundleActive(bundle)) return false;
       const activeTheme =
         themeOverride || (this.app && typeof this.app.getTheme === 'function' ? this.app.getTheme() : 'classic');
+      if (activeTheme === 'glass' && !bundle.cssGlassPatch && !this._fetchingGlassCss) {
+        this._fetchingGlassCss = true;
+        this.fetchManifestWithFallback()
+          .then((manifest) => {
+            this._fetchingGlassCss = false;
+            if (manifest && manifest.cssGlassPatch) {
+              const latestBundle = this.getSavedBundle() || bundle;
+              latestBundle.cssGlassPatch = manifest.cssGlassPatch;
+              this.saveInstalledBundleSafe(latestBundle);
+              const nowTheme = this.app && typeof this.app.getTheme === 'function' ? this.app.getTheme() : 'classic';
+              if (nowTheme === 'glass') {
+                this._appliedBundleSignature = null;
+                this.applyThemeStylesheet('glass');
+              }
+            }
+          })
+          .catch(() => {
+            this._fetchingGlassCss = false;
+          });
+      }
       const rawCss =
         activeTheme === 'glass' && bundle.cssGlassPatch
           ? bundle.cssGlassPatch
@@ -931,19 +970,16 @@ class OTACloudManager {
           localStorage.setItem(OTA_STORAGE_KEYS.INSTALLED_CHANNEL, 'stable');
           localStorage.setItem(OTA_STORAGE_KEYS.UPDATE_CHANNEL, 'stable');
           localStorage.setItem(OTA_STORAGE_KEYS.LAST_BASE_BUNDLE_VERSION, baseVer);
-          localStorage.setItem(
-            OTA_STORAGE_KEYS.INSTALLED_BUNDLE,
-            JSON.stringify({
-              version: manifest.version,
-              channel: 'stable',
-              baseBundleVersion: baseVer,
-              appliedOnBaseVersion: baseVer,
-              updatedAt: Date.now(),
-              cssPatch: manifest.cssPatch || '',
-              cssGlassPatch: manifest.cssGlassPatch || '',
-              jsPatch: manifest.jsPatch || ''
-            })
-          );
+          this.saveInstalledBundleSafe({
+            version: manifest.version,
+            channel: 'stable',
+            baseBundleVersion: baseVer,
+            appliedOnBaseVersion: baseVer,
+            updatedAt: Date.now(),
+            cssPatch: manifest.cssPatch || '',
+            cssGlassPatch: manifest.cssGlassPatch || '',
+            jsPatch: manifest.jsPatch || ''
+          });
           localStorage.setItem(
             OTA_STORAGE_KEYS.JUST_UPDATED_INFO,
             JSON.stringify({

@@ -415,12 +415,24 @@ class RemoteController {
       return;
     }
 
-    // Channel Up / Down Rocker (CH+ = +1 Next Channel, CH- = -1 Previous Channel)
+    // Channel Up / Down Rocker (scrolls active modal if open; otherwise CH+ = +1 Next, CH- = -1 Prev)
     if (code === 33 || code === 427 || key === 'ChannelUp' || key === 'PageUp') {
+      if (this.app && typeof this.app.isModalOpen === 'function' && this.app.isModalOpen()) {
+        if (typeof this.app.scrollActiveModalBy === 'function') {
+          this.app.scrollActiveModalBy(-280);
+        }
+        return;
+      }
       this.app.changeChannelByOffset(1);
       return;
     }
     if (code === 34 || code === 428 || key === 'ChannelDown' || key === 'PageDown') {
+      if (this.app && typeof this.app.isModalOpen === 'function' && this.app.isModalOpen()) {
+        if (typeof this.app.scrollActiveModalBy === 'function') {
+          this.app.scrollActiveModalBy(280);
+        }
+        return;
+      }
       this.app.changeChannelByOffset(-1);
       return;
     }

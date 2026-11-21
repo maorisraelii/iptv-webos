@@ -497,7 +497,8 @@ class LineupStore {
         rawChannels: this.rawChannels,
         compiledChannels: this.compiledChannels,
         epgUrl: discoveredEpgUrl,
-        epgUrls: this.discoveredEpgUrls
+        epgUrls: this.discoveredEpgUrls,
+        hadSourceError: hadSourceError
       };
     });
   }

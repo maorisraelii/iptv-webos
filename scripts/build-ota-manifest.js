@@ -104,22 +104,8 @@ const jsPatch = `
       if (!app) return;
 
       syncClassProto({ prototype: Object.getPrototypeOf(app) }, OtaIPTVApp);
-
-      if (app.otaManager) {
-        syncClassProto({ prototype: Object.getPrototypeOf(app.otaManager) }, OtaOTACloudManager);
-        if (typeof app.otaManager.ensureOTAChannelControlsDOM === 'function') {
-          app.otaManager.ensureOTAChannelControlsDOM();
-        }
-        if (typeof app.otaManager.updateVersionBadgesUI === 'function') {
-          app.otaManager.updateVersionBadgesUI();
-        }
-      }
-
-      if (typeof app.ensureThemeControlsDOM === 'function') {
-        app.ensureThemeControlsDOM();
-      }
-      if (typeof app.applyTheme === 'function') {
-        app.applyTheme(app.getTheme(), true);
+      if (typeof app.ensureRuntimeState === 'function') {
+        app.ensureRuntimeState();
       }
 
       if (app.epg) {
@@ -178,17 +164,63 @@ const jsPatch = `
         syncClassProto({ prototype: Object.getPrototypeOf(app.remote) }, OtaRemoteController);
       }
 
-      if (!app.__zenplayOtaUpgradedV492) {
-        app.__zenplayOtaUpgradedV492 = true;
-        if (typeof app.loadActiveEPGSources === 'function') {
-          app.loadActiveEPGSources(false);
+      if (app.otaManager) {
+        syncClassProto({ prototype: Object.getPrototypeOf(app.otaManager) }, OtaOTACloudManager);
+        if (typeof app.otaManager.ensureOTAChannelControlsDOM === 'function') {
+          app.otaManager.ensureOTAChannelControlsDOM();
         }
-        if (typeof app.renderChannelList === 'function') {
-          app.renderChannelList();
-          if (app.focusArea === 'channels') app.updateChannelFocusFast();
+        if (typeof app.otaManager.updateVersionBadgesUI === 'function') {
+          app.otaManager.updateVersionBadgesUI();
+        }
+      }
+
+      if (typeof app.ensureThemeControlsDOM === 'function') {
+        app.ensureThemeControlsDOM();
+      }
+      if (typeof app.applyTheme === 'function') {
+        app.applyTheme(app.getTheme(), true);
+      }
+
+      if (typeof app.ensureRuntimeState === 'function') {
+        app.ensureRuntimeState();
+      }
+
+      if (app.__zenplayOtaUpgradedVersion !== '${version}') {
+        app.__zenplayOtaUpgradedVersion = '${version}';
+        var hasLoadedChannels =
+          (Array.isArray(app.allChannels) && app.allChannels.length > 0) ||
+          (Array.isArray(app.visibleChannels) && app.visibleChannels.length > 0);
+        if (hasLoadedChannels) {
+          if (Array.isArray(app.visibleChannels) && app.visibleChannels.length > 0) {
+            if (typeof app.renderChannelList === 'function') {
+              app.renderChannelList();
+              if (app.focusArea === 'channels' && typeof app.updateChannelFocusFast === 'function') {
+                app.updateChannelFocusFast();
+              }
+            }
+          } else if (typeof app.applyChannelFilter === 'function') {
+            app.applyChannelFilter();
+          }
+          if (!app.isSafeMode || !app.isSafeMode()) {
+            if (typeof app.loadActiveEPGSources === 'function') {
+              app.loadActiveEPGSources(false);
+            }
+          }
         }
         if (typeof app.updateVideoSurfacePosition === 'function') {
           app.updateVideoSurfacePosition(true);
+        }
+      } else if (
+        Array.isArray(app.allChannels) &&
+        app.allChannels.length > 0 &&
+        typeof document !== 'undefined' &&
+        document.querySelectorAll('#channel-list .channel-item').length === 0
+      ) {
+        if (typeof app.applyChannelFilter === 'function') {
+          app.applyChannelFilter();
+        }
+        if (!app.selectedChannel && Array.isArray(app.visibleChannels) && app.visibleChannels.length > 0 && typeof app.restoreLastWatchedChannel === 'function') {
+          app.restoreLastWatchedChannel(false);
         }
       }
     }

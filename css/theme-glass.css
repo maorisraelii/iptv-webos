@@ -1809,7 +1809,7 @@ body {
 
 .modal-card {
   width: 1480px;
-  max-height: 92vh;
+  max-height: 94vh;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.11) 0%, rgba(255, 255, 255, 0.03) 100%),
     rgba(20, 25, 38, 0.68);
@@ -1832,6 +1832,7 @@ body {
 .modal-settings-card {
   width: 1520px;
   height: 920px;
+  max-height: 94vh;
 }
 
 .modal-search-card {
@@ -1880,9 +1881,13 @@ body {
 }
 
 .modal-body {
-  padding: 20px 30px;
+  padding: 18px 28px 28px;
   overflow-y: auto;
-  flex: 1;
+  overflow-x: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ==========================================================================
@@ -2399,6 +2404,7 @@ body {
 #settings-tab-channels:not(.hidden) {
   display: flex;
   flex-direction: column;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -2537,22 +2543,22 @@ body {
   border-top-color: rgba(255, 255, 255, 0.30);
   box-shadow: 0 18px 46px rgba(0, 0, 0, 0.50), inset 0 1px 0 rgba(255, 255, 255, 0.20);
   border-radius: 20px;
-  padding: 18px 22px;
-  margin-bottom: 16px;
+  padding: 14px 20px;
+  margin-bottom: 12px;
 }
 
 .perf-section-card h3 {
-  font-size: 23px;
+  font-size: 22px;
   font-weight: 800;
   color: var(--primary-bright);
-  margin-bottom: 6px;
+  margin-bottom: 5px;
 }
 
 .perf-desc {
-  font-size: 19px;
+  font-size: 18px;
   color: var(--text-secondary);
-  margin-bottom: 14px;
-  line-height: 1.4;
+  margin-bottom: 10px;
+  line-height: 1.35;
 }
 
 .perf-options-grid {
@@ -2569,8 +2575,8 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-top-color: rgba(255, 255, 255, 0.26);
   border-radius: 18px;
-  padding: 11px 16px;
-  margin-bottom: 8px;
+  padding: 9px 14px;
+  margin-bottom: 7px;
   text-align: right;
   cursor: pointer;
   display: flex;
@@ -2602,14 +2608,14 @@ body {
 }
 
 .perf-opt-title {
-  font-size: 21px;
+  font-size: 20px;
   font-weight: 800;
   color: #ffffff;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 
 .perf-opt-sub {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-muted);
 }
@@ -2635,7 +2641,8 @@ body {
   border-top-color: rgba(255, 255, 255, 0.30);
   box-shadow: 0 18px 46px rgba(0, 0, 0, 0.50), inset 0 1px 0 rgba(255, 255, 255, 0.20);
   border-radius: 18px;
-  padding: 14px 20px;
+  padding: 12px 18px;
+  margin-bottom: 6px;
 }
 
 .perf-cache-status {

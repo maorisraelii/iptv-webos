@@ -1,0 +1,14 @@
+.git/
+node_modules/
+dist/
+build-out/
+*.ipk
+*.apk
+*.log
+android-tv/build/
+android-tv/app/build/
+android-tv/.gradle/
+android-installer/build/
+android-installer/app/build/
+android-installer/.gradle/
+temp_user_playlist.m3u

@@ -1,0 +1,12 @@
+services:
+  webos-test:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.webos
+    shm_size: "1gb"
+
+  android-test:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.android
+    shm_size: "1gb"

@@ -20,7 +20,7 @@ if (Get-Command gh -ErrorAction SilentlyContinue) {
     Write-Host "`n[OTA] Syncing unified ota-manifest.json (and legacy ota-manifest-beta.json), epg-il.xml & remote.html to Cloud OTA Gist..." -ForegroundColor Cyan
     gh gist edit b4408ca1c31143ed2f50164629f53f1c --filename ota-manifest.json ota-manifest.json 2>$null
     $tempBeta = Join-Path $env:TEMP "ota-manifest-beta.json"
-    Copy-Item "ota-manifest.json" -Destination $tempBeta -Force
+    node -e "const fs=require('fs'); const m=JSON.parse(fs.readFileSync('ota-manifest.json','utf8')); m.channel='beta'; fs.writeFileSync(process.argv[1], JSON.stringify(m, null, 2), 'utf8');" $tempBeta
     gh gist edit b4408ca1c31143ed2f50164629f53f1c --filename ota-manifest-beta.json $tempBeta 2>$null
     if ($LASTEXITCODE -ne 0) {
         gh gist edit b4408ca1c31143ed2f50164629f53f1c --add $tempBeta 2>$null

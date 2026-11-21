@@ -1,0 +1,35 @@
+name: Docker E2E Verification (Android & webOS)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  docker-webos:
+    name: webOS Docker Build & E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build webOS Docker image
+        run: docker build -f docker/Dockerfile.webos -t iptv-webos-test .
+
+      - name: Run webOS E2E test suite in Docker
+        run: docker run --rm --shm-size=1g iptv-webos-test
+
+  docker-android:
+    name: Android TV Docker Build & E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Android Docker image (JDK 17 + SDK 34 + Gradle)
+        run: docker build -f docker/Dockerfile.android -t iptv-android-test .
+
+      - name: Run Android TV E2E test suite in Docker
+        run: docker run --rm --shm-size=1g iptv-android-test

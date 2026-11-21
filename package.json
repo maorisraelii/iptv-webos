@@ -1,11 +1,14 @@
 {
   "name": "iptv-live-webos",
-  "version": "5.2.0",
+  "version": "5.2.1",
   "description": "High-performance IPTV Live TV & Catch-Up Player for LG webOS Smart TVs with Multi-M3U Merger, 7-Day Guide, Anti-Freeze HLS Buffer, and PC Web Studio",
   "main": "index.html",
   "scripts": {
     "start": "node sync-server.js",
     "studio": "node sync-server.js",
+    "test": "node scripts/test-e2e.js --platform=all",
+    "test:webos": "node scripts/test-e2e.js --platform=webos",
+    "test:android": "node scripts/test-e2e.js --platform=androidtv",
     "package": "powershell -ExecutionPolicy Bypass -File .\\package_ipk.ps1"
   },
   "keywords": [
