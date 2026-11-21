@@ -8,3 +8,5 @@ com.iptv.*.ipk
 temp_user_playlist.m3u
 *.m3u
 *.m3u8
+android-installer/.gradle/
+android-installer/build/
