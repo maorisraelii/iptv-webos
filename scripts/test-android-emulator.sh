@@ -118,6 +118,9 @@ fi
 echo "=== Collecting Logcat & Diagnostics ==="
 adb logcat -d > "$OUT_DIR/logcat-full.txt" 2>&1 || true
 
+echo "=== IPTVAndroidTV Lifecycle Logs ==="
+grep "IPTVAndroidTV" "$OUT_DIR/logcat-full.txt" || true
+
 if [ -f "$OUT_DIR/meminfo.txt" ]; then
   echo "=== Meminfo Summary ==="
   grep -Ei "TOTAL PSS|Native Heap|Dalvik Heap|EGL|GL |Graphics|WebView|Views:" "$OUT_DIR/meminfo.txt" || head -n 40 "$OUT_DIR/meminfo.txt"
@@ -132,16 +135,23 @@ echo "=== Filtered Logcat (last 300 lines) ==="
 grep -Ei "IPTVAndroidTV|AndroidRuntime|FATAL|Fatal signal|SIGSEGV|SIGABRT|SIGBUS|backtrace|chromium|WebView|RenderProcess|lmkd|lowmemorykiller|ActivityManager.*iptv|WindowManager.*iptv|OpenGLRenderer|MediaCodec|com\.iptv\.livetv" "$OUT_DIR/logcat-full.txt" | tail -n 300 || true
 
 FATAL_FOUND=0
-if grep -Eq "FATAL EXCEPTION|Fatal signal|WebView render process gone|WebView initialization failed|WIN DEATH.*com\.iptv\.livetv|Process com\.iptv\.livetv\.androidtv.*has died" "$OUT_DIR/logcat-full.txt"; then
+if grep -Eq "FATAL EXCEPTION|Fatal signal|StackOverflowError|FATAL:jni_android|WebView render process gone|WebView initialization failed|WIN DEATH.*com\.iptv\.livetv|Process com\.iptv\.livetv\.androidtv.*has died" "$OUT_DIR/logcat-full.txt"; then
   echo "=== Fatal Logcat Markers Matched ==="
-  grep -E "FATAL EXCEPTION|Fatal signal|WebView render process gone|WebView initialization failed|WIN DEATH.*com\.iptv\.livetv|Process com\.iptv\.livetv\.androidtv.*has died" "$OUT_DIR/logcat-full.txt" || true
+  grep -E "FATAL EXCEPTION|Fatal signal|StackOverflowError|FATAL:jni_android|WebView render process gone|WebView initialization failed|WIN DEATH.*com\.iptv\.livetv|Process com\.iptv\.livetv\.androidtv.*has died" "$OUT_DIR/logcat-full.txt" || true
   FATAL_FOUND=1
 fi
 
-if [ "$CRASH_DETECTED" -ne 0 ] || [ "$FATAL_FOUND" -ne 0 ]; then
-  echo "FAILED: CRASH_DETECTED=$CRASH_DETECTED FATAL_FOUND=$FATAL_FOUND"
+BOOT_HIDDEN=0
+if grep -q "IPTVAndroidTV.*Boot overlay hidden" "$OUT_DIR/logcat-full.txt"; then
+  BOOT_HIDDEN=1
+else
+  echo "ERROR: Boot overlay was never hidden (app stayed stuck on loading spinner!)"
+fi
+
+if [ "$CRASH_DETECTED" -ne 0 ] || [ "$FATAL_FOUND" -ne 0 ] || [ "$BOOT_HIDDEN" -ne 1 ]; then
+  echo "FAILED: CRASH_DETECTED=$CRASH_DETECTED FATAL_FOUND=$FATAL_FOUND BOOT_HIDDEN=$BOOT_HIDDEN"
   exit 1
 fi
 
-echo "PASSED: Android 14 TV emulator checks completed cleanly."
+echo "PASSED: Android 14 TV emulator checks completed cleanly (Boot overlay hidden, 0 crashes)."
 exit 0

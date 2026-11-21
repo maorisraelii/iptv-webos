@@ -77,6 +77,7 @@ class MainActivity : Activity() {
         @JavascriptInterface
         fun notifyAppReady() {
             try {
+                Log.i(TAG, "notifyAppReady received from JS")
                 if (::rootContainer.isInitialized) {
                     rootContainer.post {
                         if (!isTerminalCrashState && !pendingRecovery && webView != null) {
@@ -152,7 +153,7 @@ class MainActivity : Activity() {
     private val recentRenderLosses = ArrayList<Pair<Long, Boolean>>()
     private var lastJsError: String? = null
 
-    private val defaultVideoPoster: Bitmap by lazy {
+    private val transparentVideoPoster: Bitmap by lazy {
         Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply {
             eraseColor(Color.TRANSPARENT)
         }
@@ -173,6 +174,7 @@ class MainActivity : Activity() {
 
         installCrashHandler()
         evaluateBootGuard()
+        Log.i(TAG, "onCreate safeMode=$safeModeActive")
 
         try {
             window.setBackgroundDrawable(ColorDrawable(BACKGROUND_COLOR))
@@ -393,8 +395,13 @@ class MainActivity : Activity() {
                         view: WebView?,
                         request: WebResourceRequest?
                     ): Boolean {
-                        val scheme = request?.url?.scheme?.lowercase(Locale.US) ?: return false
-                        return scheme !in ALLOWED_SCHEMES
+                        return try {
+                            val scheme = request?.url?.scheme?.lowercase(Locale.US) ?: return false
+                            scheme !in ALLOWED_SCHEMES
+                        } catch (t: Throwable) {
+                            Log.w(TAG, "shouldOverrideUrlLoading notice", t)
+                            false
+                        }
                     }
 
                     override fun shouldInterceptRequest(
@@ -430,20 +437,30 @@ class MainActivity : Activity() {
                     }
 
                     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                        super.onPageStarted(view, url, favicon)
-                        cancelBootOverlayFallback()
+                        try {
+                            super.onPageStarted(view, url, favicon)
+                            Log.i(TAG, "onPageStarted url=$url")
+                            cancelBootOverlayFallback()
+                        } catch (t: Throwable) {
+                            Log.w(TAG, "onPageStarted notice", t)
+                        }
                     }
 
                     override fun onPageFinished(view: WebView?, url: String?) {
-                        super.onPageFinished(view, url)
-                        if (isTerminalCrashState) return
-                        isPageLoaded = true
-                        installWebKeyBridge()
-                        if (!isWebInputFocused) {
-                            (view ?: webView)?.requestFocus()
-                        }
-                        if (bootOverlay?.visibility != View.GONE) {
-                            scheduleBootOverlayFallback(BOOT_FALLBACK_DELAY_MS)
+                        try {
+                            super.onPageFinished(view, url)
+                            Log.i(TAG, "onPageFinished url=$url")
+                            if (isTerminalCrashState) return
+                            isPageLoaded = true
+                            installWebKeyBridge()
+                            if (!isWebInputFocused) {
+                                (view ?: webView)?.requestFocus()
+                            }
+                            if (bootOverlay?.visibility != View.GONE) {
+                                scheduleBootOverlayFallback(BOOT_FALLBACK_DELAY_MS)
+                            }
+                        } catch (t: Throwable) {
+                            Log.w(TAG, "onPageFinished notice", t)
                         }
                     }
 
@@ -496,8 +513,12 @@ class MainActivity : Activity() {
                         handler: SslErrorHandler?,
                         error: SslError?
                     ) {
-                        Log.w(TAG, "Proceeding past SSL error for ${error?.url}: ${error?.primaryError}")
-                        handler?.proceed()
+                        try {
+                            Log.w(TAG, "Proceeding past SSL error for ${error?.url}: ${error?.primaryError}")
+                            handler?.proceed()
+                        } catch (t: Throwable) {
+                            Log.w(TAG, "onReceivedSslError notice", t)
+                        }
                     }
 
                     override fun onRenderProcessGone(
@@ -509,7 +530,14 @@ class MainActivity : Activity() {
                 }
 
                 webChromeClient = object : WebChromeClient() {
-                    override fun getDefaultVideoPoster(): Bitmap = defaultVideoPoster
+                    override fun getDefaultVideoPoster(): Bitmap? {
+                        return try {
+                            this@MainActivity.transparentVideoPoster
+                        } catch (t: Throwable) {
+                            Log.w(TAG, "getDefaultVideoPoster notice", t)
+                            null
+                        }
+                    }
 
                     override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
                         try {
@@ -584,7 +612,9 @@ class MainActivity : Activity() {
             webView = wv
             showBootOverlayLoading()
             wv.requestFocus()
-            wv.loadUrl(currentEntryUrl())
+            val entryUrl = currentEntryUrl()
+            Log.i(TAG, "loadUrl $entryUrl")
+            wv.loadUrl(entryUrl)
         } catch (t: Throwable) {
             Log.e(TAG, "WebView initialization failed", t)
             persistCrashReport(
@@ -993,6 +1023,7 @@ class MainActivity : Activity() {
         val overlay = bootOverlay
         if (overlay != null && overlay.visibility != View.GONE) {
             overlay.visibility = View.GONE
+            Log.i(TAG, "Boot overlay hidden")
         }
         scheduleBootHealthyMark()
     }
@@ -1008,8 +1039,6 @@ class MainActivity : Activity() {
             return emptyStaticNotFoundResponse()
         }
 
-        val contentLength = resolveAssetContentLength(fullAssetPath, stream)
-
         val responseStream: InputStream = if (method == "HEAD") {
             try {
                 stream.close()
@@ -1021,12 +1050,9 @@ class MainActivity : Activity() {
         }
 
         val (mimeType, encoding) = resolveAssetMimeAndEncoding(assetPath)
-        val headers = LinkedHashMap<String, String>(4).apply {
+        val headers = LinkedHashMap<String, String>(2).apply {
             put("Access-Control-Allow-Origin", "*")
             put("Cache-Control", "no-cache")
-            if (contentLength > 0L) {
-                put("Content-Length", contentLength.toString())
-            }
         }
         return WebResourceResponse(
             mimeType,
@@ -1036,29 +1062,6 @@ class MainActivity : Activity() {
             headers,
             responseStream
         )
-    }
-
-    private fun resolveAssetContentLength(fullAssetPath: String, stream: InputStream): Long {
-        try {
-            val afd = applicationContext.assets.openFd(fullAssetPath)
-            try {
-                val fdLen = afd.length
-                if (fdLen > 0L) return fdLen
-            } finally {
-                try {
-                    afd.close()
-                } catch (_: Throwable) {
-                }
-            }
-        } catch (_: Throwable) {
-            // Compressed assets cannot be opened via openFd; fall back to AssetInputStream.available().
-        }
-        return try {
-            val avail = stream.available().toLong()
-            if (avail > 0L) avail else -1L
-        } catch (_: Throwable) {
-            -1L
-        }
     }
 
     private fun normalizeAssetPath(rawPath: String?): String? {
@@ -1180,6 +1183,7 @@ class MainActivity : Activity() {
                     candidate.useCaches = false
                     candidate.requestMethod = currentMethod
                     candidate.setRequestProperty("User-Agent", userAgent)
+                    candidate.setRequestProperty("Accept-Encoding", "identity")
                     requestHeaders?.forEach { (key, value) ->
                         if (key.equals("Accept", ignoreCase = true) ||
                             key.equals("Range", ignoreCase = true)
@@ -1270,7 +1274,8 @@ class MainActivity : Activity() {
             ) {
                 if (currentMethod == "HEAD" &&
                     statusCode != HttpURLConnection.HTTP_NO_CONTENT &&
-                    contentLength > 0L
+                    contentLength > 0L &&
+                    activeConn.contentEncoding.isNullOrBlank()
                 ) {
                     responseHeaders["Content-Length"] = contentLength.toString()
                 }
@@ -1286,7 +1291,7 @@ class MainActivity : Activity() {
                     activeConn.disconnect()
                     ByteArrayInputStream(ByteArray(0))
                 } else {
-                    if (contentLength > 0L) {
+                    if (contentLength > 0L && activeConn.contentEncoding.isNullOrBlank()) {
                         responseHeaders["Content-Length"] = contentLength.toString()
                     }
                     ConnectionManagedInputStream(upstreamStream, activeConn)
