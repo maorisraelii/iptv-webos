@@ -188,6 +188,9 @@ const jsPatch = `
       if (typeof app.applyUiPrefs === 'function') {
         app.applyUiPrefs(true);
       }
+      if (typeof app.applyAvPrefs === 'function') {
+        app.applyAvPrefs(true);
+      }
       if (typeof app.applyTheme === 'function') {
         app.applyTheme(app.getTheme(), true);
       }
