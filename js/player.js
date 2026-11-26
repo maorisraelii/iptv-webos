@@ -11,6 +11,32 @@
  */
 
 const BUFFER_STORAGE_KEY = 'zenplay_iptv_buffer_mode_v4';
+const PLAYER_AV_PREFS_KEY = 'zenplay_av_prefs_v1';
+const PLAYER_LOUDNESS_KEY = 'zenplay_channel_loudness_v1';
+const PLAYER_LOUDNESS_MAX_LEARNED = 250;
+const PLAYER_ZAP_FADE_MS = 280;
+const PLAYER_ZAP_FADE_START = 0.15;
+const PLAYER_LOUDNESS_SAMPLE_MS = 300;
+
+const PLAYER_DEFAULT_AV_PREFS = {
+  audioNormMode: 'off',
+  audioVoiceBoost: false,
+  audioZapFade: true,
+  videoQualityMode: 'smart',
+  streamLatencyMode: 'standard',
+  memorySaverMode: 'auto'
+};
+
+const PLAYER_AUDIO_NORM_CURVES = {
+  off: { threshold: 0, ratio: 1, knee: 0, attack: 0.003, release: 0.25, targetDb: -18, makeup: 1.0 },
+  gentle: { threshold: -20, ratio: 3, knee: 18, attack: 0.01, release: 0.25, targetDb: -18, makeup: 1.05 },
+  broadcast: { threshold: -26, ratio: 6, knee: 14, attack: 0.005, release: 0.22, targetDb: -16, makeup: 1.15 },
+  night: { threshold: -34, ratio: 10, knee: 10, attack: 0.003, release: 0.18, targetDb: -22, makeup: 1.3 }
+};
+
+const PLAYER_QUALITY_MODES = { smart: true, max: true, hd1080: true, hd720: true };
+const PLAYER_LATENCY_MODES = { standard: true, low: true };
+const PLAYER_MEMORY_MODES = { auto: true, aggressive: true, off: true };
 
 const BUFFER_PROFILES = {
   smart: {
@@ -100,9 +126,672 @@ class VideoPlayer {
     this.lastWatchdogTime = -1;
     this.stallTicks = 0;
 
+    // AV Audio & Quality Engine runtime state
+    this._avPrefs = null;
+    this._loudnessData = null;
+    this._zapFadeFactor = 1.0;
+    this._zapFadeTimer = null;
+    this._zapFadeRaf = null;
+    this._zapFadeStartMs = 0;
+    this._audioCtx = null;
+    this._mediaSourceNode = null;
+    this._mediaSourceVideo = null;
+    this._highPassFilter = null;
+    this._voiceBoostFilter = null;
+    this._rmsAutoGainNode = null;
+    this._compressorNode = null;
+    this._makeupGainNode = null;
+    this._analyserNode = null;
+    this._analyserFloatBuf = null;
+    this._analyserByteBuf = null;
+    this._webAudioGraphReady = false;
+    this._loudnessSampleTimer = null;
+    this._currentRmsGain = 1.0;
+    this._lastSampledDb = null;
+    this._lastLoudnessPersistMs = 0;
+    this._lastPersistedLoudnessChId = '';
+    this._lastPersistedGain = 1.0;
+
     this.bufferMode = this.loadBufferMode();
+    this._ensureAvRuntimeState();
     this.initListeners();
     this.startWatchdogAndQualityRamp();
+  }
+
+  _ensureAvRuntimeState() {
+    if (!this._avPrefs) {
+      this._avPrefs = this.loadAvPrefs();
+    }
+    if (!this._loudnessData) {
+      this._loudnessData = this.loadLoudnessData();
+    }
+    if (typeof this._zapFadeFactor !== 'number' || !isFinite(this._zapFadeFactor)) {
+      this._zapFadeFactor = 1.0;
+    }
+    if (typeof this._currentRmsGain !== 'number' || !isFinite(this._currentRmsGain)) {
+      this._currentRmsGain = 1.0;
+    }
+    if (typeof this._webAudioGraphReady !== 'boolean') {
+      this._webAudioGraphReady = false;
+    }
+  }
+
+  _sanitizeAvPrefs(raw, base) {
+    const fallback = base || PLAYER_DEFAULT_AV_PREFS;
+    const src = raw && typeof raw === 'object' ? raw : {};
+    return {
+      audioNormMode: PLAYER_AUDIO_NORM_CURVES[src.audioNormMode] ? src.audioNormMode : fallback.audioNormMode,
+      audioVoiceBoost: typeof src.audioVoiceBoost === 'boolean' ? src.audioVoiceBoost : Boolean(fallback.audioVoiceBoost),
+      audioZapFade: typeof src.audioZapFade === 'boolean' ? src.audioZapFade : Boolean(fallback.audioZapFade),
+      videoQualityMode: PLAYER_QUALITY_MODES[src.videoQualityMode] ? src.videoQualityMode : fallback.videoQualityMode,
+      streamLatencyMode: PLAYER_LATENCY_MODES[src.streamLatencyMode] ? src.streamLatencyMode : fallback.streamLatencyMode,
+      memorySaverMode: PLAYER_MEMORY_MODES[src.memorySaverMode] ? src.memorySaverMode : fallback.memorySaverMode
+    };
+  }
+
+  loadAvPrefs() {
+    let parsed = null;
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem(PLAYER_AV_PREFS_KEY);
+        if (raw) parsed = JSON.parse(raw);
+      }
+    } catch (e) {}
+    return this._sanitizeAvPrefs(parsed, PLAYER_DEFAULT_AV_PREFS);
+  }
+
+  getAvPrefs() {
+    this._ensureAvRuntimeState();
+    return {
+      audioNormMode: this._avPrefs.audioNormMode,
+      audioVoiceBoost: this._avPrefs.audioVoiceBoost,
+      audioZapFade: this._avPrefs.audioZapFade,
+      videoQualityMode: this._avPrefs.videoQualityMode,
+      streamLatencyMode: this._avPrefs.streamLatencyMode,
+      memorySaverMode: this._avPrefs.memorySaverMode
+    };
+  }
+
+  setAvPrefs(prefs) {
+    this._ensureAvRuntimeState();
+    const prev = this._avPrefs;
+    const next = this._sanitizeAvPrefs(prefs, prev);
+    this._avPrefs = next;
+
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const merged = {};
+        const existingRaw = localStorage.getItem(PLAYER_AV_PREFS_KEY);
+        if (existingRaw) {
+          try {
+            const existingObj = JSON.parse(existingRaw);
+            if (existingObj && typeof existingObj === 'object') {
+              const keys = Object.keys(existingObj);
+              for (let i = 0; i < keys.length; i++) {
+                merged[keys[i]] = existingObj[keys[i]];
+              }
+            }
+          } catch (e) {}
+        }
+        merged.audioNormMode = next.audioNormMode;
+        merged.audioVoiceBoost = next.audioVoiceBoost;
+        merged.audioZapFade = next.audioZapFade;
+        merged.videoQualityMode = next.videoQualityMode;
+        merged.streamLatencyMode = next.streamLatencyMode;
+        merged.memorySaverMode = next.memorySaverMode;
+        localStorage.setItem(PLAYER_AV_PREFS_KEY, JSON.stringify(merged));
+      }
+    } catch (e) {}
+
+    if (next.audioNormMode === 'off') {
+      this._currentRmsGain = 1.0;
+      this._stopLoudnessSampler();
+    } else if (prev.audioNormMode === 'off') {
+      const chId = this._getCurrentChannelId();
+      const learned = chId && this._loudnessData && this._loudnessData.learned ? this._loudnessData.learned[chId] : null;
+      if (learned && typeof learned.gain === 'number' && isFinite(learned.gain)) {
+        this._currentRmsGain = Math.max(0.35, Math.min(2.4, learned.gain));
+      } else {
+        this._currentRmsGain = 1.0;
+      }
+    }
+
+    if (!next.audioZapFade) {
+      this._cancelZapFade();
+      this._zapFadeFactor = 1.0;
+    }
+
+    if (next.audioNormMode !== 'off' || next.audioVoiceBoost) {
+      if (this.hls && !this._isNativePlayback) {
+        this.ensureWebAudioPipeline();
+      }
+    }
+    if (this._webAudioGraphReady) {
+      this._updateWebAudioParams();
+    }
+    this._syncLoudnessSamplerState();
+    this.applyEffectiveVolume();
+
+    if (this.hls) {
+      this._applyHlsConfigTuning(this._hlsIsCatchup);
+    }
+    this.applyVideoQualityMode();
+
+    return this.getAvPrefs();
+  }
+
+  _getChannelLoudnessId(channelOrId) {
+    if (typeof channelOrId === 'string') return channelOrId.trim();
+    if (typeof channelOrId === 'number' && isFinite(channelOrId)) return String(channelOrId);
+    if (channelOrId && typeof channelOrId === 'object') {
+      const id = channelOrId.id || channelOrId.uid || channelOrId.url || '';
+      return id ? String(id) : '';
+    }
+    return '';
+  }
+
+  _getCurrentChannelId() {
+    return this._getChannelLoudnessId(this.currentChannel);
+  }
+
+  _pruneLoudnessLru(learnedMap) {
+    if (!learnedMap || typeof learnedMap !== 'object') return;
+    const keys = Object.keys(learnedMap);
+    if (keys.length <= PLAYER_LOUDNESS_MAX_LEARNED) return;
+    keys.sort((a, b) => {
+      const ta = learnedMap[a] && typeof learnedMap[a].ts === 'number' ? learnedMap[a].ts : 0;
+      const tb = learnedMap[b] && typeof learnedMap[b].ts === 'number' ? learnedMap[b].ts : 0;
+      return ta - tb;
+    });
+    const toRemove = keys.length - PLAYER_LOUDNESS_MAX_LEARNED;
+    for (let i = 0; i < toRemove; i++) {
+      delete learnedMap[keys[i]];
+    }
+  }
+
+  loadLoudnessData() {
+    const empty = { trim: {}, learned: {} };
+    try {
+      if (typeof localStorage === 'undefined') return empty;
+      const raw = localStorage.getItem(PLAYER_LOUDNESS_KEY);
+      if (!raw) return empty;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return empty;
+      const trim = parsed.trim && typeof parsed.trim === 'object' ? parsed.trim : {};
+      const learned = parsed.learned && typeof parsed.learned === 'object' ? parsed.learned : {};
+      this._pruneLoudnessLru(learned);
+      return { trim: trim, learned: learned };
+    } catch (e) {
+      return empty;
+    }
+  }
+
+  _saveLoudnessData() {
+    this._ensureAvRuntimeState();
+    this._pruneLoudnessLru(this._loudnessData.learned);
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(PLAYER_LOUDNESS_KEY, JSON.stringify(this._loudnessData));
+      }
+    } catch (e) {}
+  }
+
+  setChannelVolumeTrim(channelId, trimDb) {
+    this._ensureAvRuntimeState();
+    const chId = (channelId === null || channelId === undefined)
+      ? this._getCurrentChannelId()
+      : this._getChannelLoudnessId(channelId);
+    if (!chId) return 0;
+    const num = Number(trimDb);
+    if (!isFinite(num)) return this.getChannelVolumeTrim(chId);
+    const clamped = Math.max(-6, Math.min(6, Math.round(num)));
+    if (clamped === 0) {
+      delete this._loudnessData.trim[chId];
+    } else {
+      this._loudnessData.trim[chId] = clamped;
+    }
+    this._saveLoudnessData();
+    if (this._webAudioGraphReady) {
+      this._updateWebAudioParams();
+    }
+    this.applyEffectiveVolume();
+    return clamped;
+  }
+
+  getChannelVolumeTrim(channelId) {
+    this._ensureAvRuntimeState();
+    const chId = (channelId === null || channelId === undefined)
+      ? this._getCurrentChannelId()
+      : this._getChannelLoudnessId(channelId);
+    if (!chId || !this._loudnessData || !this._loudnessData.trim) return 0;
+    const val = this._loudnessData.trim[chId];
+    return typeof val === 'number' && isFinite(val) ? Math.max(-6, Math.min(6, val)) : 0;
+  }
+
+  resetLoudnessMemory() {
+    this._ensureAvRuntimeState();
+    this._loudnessData = { trim: {}, learned: {} };
+    this._currentRmsGain = 1.0;
+    this._lastSampledDb = null;
+    this._lastLoudnessPersistMs = 0;
+    this._lastPersistedLoudnessChId = '';
+    this._lastPersistedGain = 1.0;
+    this._saveLoudnessData();
+    if (this._webAudioGraphReady) {
+      this._updateWebAudioParams();
+    }
+    this.applyEffectiveVolume();
+  }
+
+  _getChannelLearnedGain(channelId) {
+    this._ensureAvRuntimeState();
+    if (!channelId || !this._loudnessData || !this._loudnessData.learned) return 1.0;
+    const entry = this._loudnessData.learned[channelId];
+    if (entry && typeof entry.gain === 'number' && isFinite(entry.gain)) {
+      return Math.max(0.35, Math.min(2.4, entry.gain));
+    }
+    return 1.0;
+  }
+
+  _getAppliedNormGainLinear() {
+    this._ensureAvRuntimeState();
+    if (this._avPrefs.audioNormMode === 'off') return 1.0;
+    if (this._webAudioGraphReady) {
+      return Math.max(0.35, Math.min(2.4, this._currentRmsGain));
+    }
+    return this._getChannelLearnedGain(this._getCurrentChannelId());
+  }
+
+  applyEffectiveVolume() {
+    this._ensureAvRuntimeState();
+    const chId = this._getCurrentChannelId();
+    const trimDb = chId ? this.getChannelVolumeTrim(chId) : 0;
+    const trimLinear = Math.pow(10, trimDb / 20);
+    const learnedGain = this._avPrefs.audioNormMode !== 'off' ? this._getChannelLearnedGain(chId) : 1.0;
+    const fadeFactor = Math.max(0.15, Math.min(1.0, this._zapFadeFactor));
+
+    let effectiveGain;
+    if (this._webAudioGraphReady) {
+      // Positive trim & RMS normalization live inside Web Audio nodes to prevent double-applying gain
+      effectiveGain = trimDb < 0 ? trimLinear : 1.0;
+    } else {
+      effectiveGain = trimLinear * learnedGain;
+    }
+
+    const targetVol = Math.max(0.05, Math.min(1.0, effectiveGain * fadeFactor));
+    if (this.video) {
+      try {
+        if (typeof this.video.volume !== 'number' || Math.abs(this.video.volume - targetVol) > 0.0005) {
+          this.video.volume = targetVol;
+        }
+      } catch (e) {}
+    }
+    return targetVol;
+  }
+
+  _cancelZapFade() {
+    if (this._zapFadeTimer) {
+      clearTimeout(this._zapFadeTimer);
+      this._zapFadeTimer = null;
+    }
+    if (this._zapFadeRaf && typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+      try {
+        window.cancelAnimationFrame(this._zapFadeRaf);
+      } catch (e) {}
+      this._zapFadeRaf = null;
+    }
+  }
+
+  startSoftZapFade() {
+    this._ensureAvRuntimeState();
+    this._cancelZapFade();
+
+    if (!this._avPrefs.audioZapFade) {
+      this._zapFadeFactor = 1.0;
+      this.applyEffectiveVolume();
+      return;
+    }
+
+    this._zapFadeFactor = PLAYER_ZAP_FADE_START;
+    this._zapFadeStartMs = Date.now();
+    this.applyEffectiveVolume();
+
+    const stepFade = () => {
+      this._zapFadeTimer = null;
+      this._zapFadeRaf = null;
+      if (this._isCleaningUp || !this._avPrefs || !this._avPrefs.audioZapFade) {
+        this._zapFadeFactor = 1.0;
+        this.applyEffectiveVolume();
+        return;
+      }
+      const elapsed = Math.max(0, Date.now() - this._zapFadeStartMs);
+      const progress = Math.min(1, elapsed / PLAYER_ZAP_FADE_MS);
+      this._zapFadeFactor = PLAYER_ZAP_FADE_START + (1.0 - PLAYER_ZAP_FADE_START) * progress;
+      this.applyEffectiveVolume();
+      if (progress < 1) {
+        if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+          this._zapFadeRaf = window.requestAnimationFrame(stepFade);
+        } else {
+          this._zapFadeTimer = setTimeout(stepFade, 20);
+        }
+      }
+    };
+
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      this._zapFadeRaf = window.requestAnimationFrame(stepFade);
+    } else {
+      this._zapFadeTimer = setTimeout(stepFade, 20);
+    }
+  }
+
+  _setAudioParam(param, value, timeConstant) {
+    if (!param) return;
+    try {
+      const ctx = this._audioCtx;
+      const now = ctx && typeof ctx.currentTime === 'number' ? ctx.currentTime : 0;
+      if (timeConstant && timeConstant > 0 && typeof param.setTargetAtTime === 'function') {
+        param.setTargetAtTime(value, now, timeConstant);
+      } else if (typeof param.setValueAtTime === 'function') {
+        param.setValueAtTime(value, now);
+      } else {
+        param.value = value;
+      }
+    } catch (e) {
+      try {
+        param.value = value;
+      } catch (e2) {}
+    }
+  }
+
+  _updateWebAudioParams() {
+    if (!this._webAudioGraphReady) return;
+    const prefs = this._avPrefs || PLAYER_DEFAULT_AV_PREFS;
+    const normMode = prefs.audioNormMode || 'off';
+    const curve = PLAYER_AUDIO_NORM_CURVES[normMode] || PLAYER_AUDIO_NORM_CURVES.off;
+    const voiceBoost = Boolean(prefs.audioVoiceBoost);
+    const trimDb = this.getChannelVolumeTrim();
+    const posTrimGain = trimDb > 0 ? Math.pow(10, trimDb / 20) : 1.0;
+
+    if (this._highPassFilter) {
+      this._setAudioParam(this._highPassFilter.frequency, voiceBoost ? 90 : 20, 0.04);
+    }
+    if (this._voiceBoostFilter) {
+      this._setAudioParam(this._voiceBoostFilter.gain, voiceBoost ? 3.5 : 0, 0.04);
+    }
+    if (this._rmsAutoGainNode) {
+      this._setAudioParam(this._rmsAutoGainNode.gain, normMode === 'off' ? 1.0 : this._currentRmsGain, 0.08);
+    }
+    if (this._compressorNode) {
+      this._setAudioParam(this._compressorNode.threshold, curve.threshold, 0);
+      this._setAudioParam(this._compressorNode.ratio, curve.ratio, 0);
+      this._setAudioParam(this._compressorNode.knee, curve.knee, 0);
+      this._setAudioParam(this._compressorNode.attack, curve.attack, 0);
+      this._setAudioParam(this._compressorNode.release, curve.release, 0);
+    }
+    if (this._makeupGainNode) {
+      this._setAudioParam(this._makeupGainNode.gain, curve.makeup * posTrimGain, 0.05);
+    }
+  }
+
+  ensureWebAudioPipeline() {
+    this._ensureAvRuntimeState();
+    const prefs = this._avPrefs;
+
+    // AUDIO SAFETY: Never touch createMediaElementSource on native/cross-origin streams or when both features are off
+    if (!this.video || !this.hls || this._isNativePlayback) {
+      return false;
+    }
+    if (prefs.audioNormMode === 'off' && !prefs.audioVoiceBoost) {
+      if (this._webAudioGraphReady) {
+        this._updateWebAudioParams();
+      }
+      this._stopLoudnessSampler();
+      return false;
+    }
+
+    const AudioCtx = typeof window !== 'undefined' ? (window.AudioContext || window.webkitAudioContext) : null;
+    if (!AudioCtx) {
+      return false;
+    }
+
+    if (!this._audioCtx) {
+      try {
+        this._audioCtx = new AudioCtx();
+      } catch (e) {
+        return false;
+      }
+    }
+
+    // AUDIO SAFETY: Never attach createMediaElementSource while AudioContext is suspended (prevents cold-boot mute)
+    if (!this._audioCtx || this._audioCtx.state !== 'running') {
+      return false;
+    }
+
+    if (this._webAudioGraphReady && this._mediaSourceVideo === this.video) {
+      this._updateWebAudioParams();
+      this._syncLoudnessSamplerState();
+      return true;
+    }
+
+    try {
+      const ctx = this._audioCtx;
+      if (!this._mediaSourceNode || this._mediaSourceVideo !== this.video) {
+        this._mediaSourceNode = ctx.createMediaElementSource(this.video);
+        this._mediaSourceVideo = this.video;
+      }
+
+      this._highPassFilter = ctx.createBiquadFilter();
+      this._highPassFilter.type = 'highpass';
+      this._setAudioParam(this._highPassFilter.Q, 0.7, 0);
+
+      this._voiceBoostFilter = ctx.createBiquadFilter();
+      this._voiceBoostFilter.type = 'peaking';
+      this._setAudioParam(this._voiceBoostFilter.frequency, 2400, 0);
+      this._setAudioParam(this._voiceBoostFilter.Q, 1.1, 0);
+
+      this._rmsAutoGainNode = ctx.createGain();
+      this._compressorNode = ctx.createDynamicsCompressor();
+      this._makeupGainNode = ctx.createGain();
+      this._analyserNode = ctx.createAnalyser();
+      this._analyserNode.fftSize = 512;
+
+      const chId = this._getCurrentChannelId();
+      if (prefs.audioNormMode !== 'off' && chId) {
+        this._currentRmsGain = this._getChannelLearnedGain(chId);
+      } else {
+        this._currentRmsGain = 1.0;
+      }
+
+      this._mediaSourceNode.connect(this._highPassFilter);
+      this._highPassFilter.connect(this._voiceBoostFilter);
+      this._voiceBoostFilter.connect(this._rmsAutoGainNode);
+      this._rmsAutoGainNode.connect(this._compressorNode);
+      this._compressorNode.connect(this._makeupGainNode);
+      this._makeupGainNode.connect(this._analyserNode);
+      this._analyserNode.connect(ctx.destination);
+
+      this._webAudioGraphReady = true;
+      this._updateWebAudioParams();
+      this.applyEffectiveVolume();
+      this._syncLoudnessSamplerState();
+      return true;
+    } catch (e) {
+      this._webAudioGraphReady = false;
+      return false;
+    }
+  }
+
+  resumeAudioPipeline() {
+    this._ensureAvRuntimeState();
+    const prefs = this._avPrefs;
+    const hasPromise = typeof Promise === 'function';
+
+    if (prefs.audioNormMode === 'off' && !prefs.audioVoiceBoost && !this._webAudioGraphReady) {
+      return hasPromise ? Promise.resolve(false) : false;
+    }
+
+    const AudioCtx = typeof window !== 'undefined' ? (window.AudioContext || window.webkitAudioContext) : null;
+    if (!AudioCtx) {
+      return hasPromise ? Promise.resolve(false) : false;
+    }
+
+    if (!this._audioCtx) {
+      try {
+        this._audioCtx = new AudioCtx();
+      } catch (e) {
+        return hasPromise ? Promise.resolve(false) : false;
+      }
+    }
+
+    if (this._audioCtx.state === 'running') {
+      const ok = this.ensureWebAudioPipeline();
+      return hasPromise ? Promise.resolve(ok) : ok;
+    }
+
+    if (typeof this._audioCtx.resume === 'function') {
+      try {
+        return this._audioCtx.resume().then(
+          () => {
+            if (this._audioCtx && this._audioCtx.state === 'running') {
+              return this.ensureWebAudioPipeline();
+            }
+            return false;
+          },
+          () => false
+        );
+      } catch (e) {
+        return hasPromise ? Promise.resolve(false) : false;
+      }
+    }
+
+    return hasPromise ? Promise.resolve(false) : false;
+  }
+
+  _stopLoudnessSampler() {
+    if (this._loudnessSampleTimer) {
+      clearInterval(this._loudnessSampleTimer);
+      this._loudnessSampleTimer = null;
+    }
+  }
+
+  _syncLoudnessSamplerState() {
+    this._ensureAvRuntimeState();
+    const shouldRun = Boolean(
+      this._webAudioGraphReady &&
+      this._audioCtx &&
+      this._audioCtx.state === 'running' &&
+      this._analyserNode &&
+      this.hls &&
+      !this._isNativePlayback &&
+      !this._isCleaningUp &&
+      this.video &&
+      !this.video.paused &&
+      !this.userPaused &&
+      this._avPrefs.audioNormMode !== 'off'
+    );
+
+    if (!shouldRun) {
+      this._stopLoudnessSampler();
+      return;
+    }
+
+    if (!this._loudnessSampleTimer) {
+      this._loudnessSampleTimer = setInterval(() => {
+        this.sampleChannelLoudness();
+      }, PLAYER_LOUDNESS_SAMPLE_MS);
+    }
+  }
+
+  sampleChannelLoudness() {
+    this._ensureAvRuntimeState();
+    if (
+      !this._webAudioGraphReady ||
+      !this._audioCtx ||
+      this._audioCtx.state !== 'running' ||
+      !this._analyserNode ||
+      !this.hls ||
+      this._isNativePlayback ||
+      this._isCleaningUp ||
+      this._avPrefs.audioNormMode === 'off' ||
+      (this.video && (this.video.paused || this.userPaused))
+    ) {
+      return null;
+    }
+
+    const analyser = this._analyserNode;
+    const len = analyser.fftSize || 512;
+    let sumSq = 0;
+
+    try {
+      if (typeof analyser.getFloatTimeDomainData === 'function' && typeof Float32Array === 'function') {
+        if (!this._analyserFloatBuf || this._analyserFloatBuf.length !== len) {
+          this._analyserFloatBuf = new Float32Array(len);
+        }
+        analyser.getFloatTimeDomainData(this._analyserFloatBuf);
+        for (let i = 0; i < len; i++) {
+          const s = this._analyserFloatBuf[i];
+          sumSq += s * s;
+        }
+      } else if (typeof analyser.getByteTimeDomainData === 'function' && typeof Uint8Array === 'function') {
+        if (!this._analyserByteBuf || this._analyserByteBuf.length !== len) {
+          this._analyserByteBuf = new Uint8Array(len);
+        }
+        analyser.getByteTimeDomainData(this._analyserByteBuf);
+        for (let i = 0; i < len; i++) {
+          const s = (this._analyserByteBuf[i] - 128) / 128;
+          sumSq += s * s;
+        }
+      } else {
+        return null;
+      }
+    } catch (e) {
+      return null;
+    }
+
+    const rms = Math.sqrt(sumSq / len);
+    const dbfs = rms > 1e-6 ? (20 * Math.log(rms)) / Math.LN10 : -100;
+
+    // Ignore silence / dead air so we never boost background noise during channel loads
+    if (dbfs <= -55) {
+      return { dbfs: dbfs, rms: rms, gain: this._currentRmsGain, skipped: true };
+    }
+
+    const curve = PLAYER_AUDIO_NORM_CURVES[this._avPrefs.audioNormMode] || PLAYER_AUDIO_NORM_CURVES.gentle;
+    const targetDb = curve.targetDb;
+    const deltaDb = Math.max(-12, Math.min(12, targetDb - dbfs));
+    const idealGain = this._currentRmsGain * Math.pow(10, deltaDb / 20);
+    const nextGain = Math.max(0.35, Math.min(2.4, this._currentRmsGain + (idealGain - this._currentRmsGain) * 0.25));
+
+    this._currentRmsGain = nextGain;
+    this._lastSampledDb = dbfs;
+    if (this._rmsAutoGainNode) {
+      this._setAudioParam(this._rmsAutoGainNode.gain, nextGain, 0.12);
+    }
+
+    const chId = this._getCurrentChannelId();
+    if (chId) {
+      const now = Date.now();
+      const roundedDb = Math.round(dbfs * 10) / 10;
+      const roundedGain = Math.round(nextGain * 1000) / 1000;
+      this._loudnessData.learned[chId] = {
+        db: roundedDb,
+        gain: roundedGain,
+        ts: now
+      };
+      if (
+        !this._lastLoudnessPersistMs ||
+        this._lastPersistedLoudnessChId !== chId ||
+        now - this._lastLoudnessPersistMs >= 1200 ||
+        Math.abs(roundedGain - (this._lastPersistedGain || 1.0)) >= 0.03
+      ) {
+        this._lastLoudnessPersistMs = now;
+        this._lastPersistedLoudnessChId = chId;
+        this._lastPersistedGain = roundedGain;
+        this._saveLoudnessData();
+      }
+    }
+
+    return { dbfs: dbfs, rms: rms, gain: nextGain, skipped: false };
   }
 
   isAndroidTvWebView() {
@@ -121,38 +810,91 @@ class VideoPlayer {
 
   loadBufferMode() {
     try {
-      const saved = localStorage.getItem(BUFFER_STORAGE_KEY);
-      if (saved && BUFFER_PROFILES[saved]) {
-        return saved;
+      if (typeof localStorage !== 'undefined') {
+        const saved = localStorage.getItem(BUFFER_STORAGE_KEY);
+        if (saved && BUFFER_PROFILES[saved]) {
+          return saved;
+        }
       }
     } catch (e) {}
     return 'smart';
+  }
+
+  _getEffectiveHlsTuning(isCatchup) {
+    this._ensureAvRuntimeState();
+    const prof = this.getBufferProfile();
+    const av = this._avPrefs;
+    const isAndroidTv = this.isAndroidTvWebView();
+
+    let maxBufferLength = prof.maxBufferLength;
+    let maxMaxBufferLength = prof.maxMaxBufferLength;
+    let backBufferLength = prof.backBufferLength;
+    let maxBufferSize = 60 * 1000 * 1000;
+
+    if (av.memorySaverMode === 'aggressive') {
+      maxBufferLength = Math.min(prof.maxBufferLength, 20);
+      maxMaxBufferLength = Math.min(prof.maxMaxBufferLength, 35);
+      backBufferLength = Math.min(prof.backBufferLength, 10);
+      maxBufferSize = 20 * 1000 * 1000;
+    } else if (isAndroidTv) {
+      maxBufferLength = Math.min(prof.maxBufferLength, 24);
+      maxMaxBufferLength = Math.min(prof.maxMaxBufferLength, 45);
+      backBufferLength = Math.min(prof.backBufferLength, 15);
+      maxBufferSize = 30 * 1000 * 1000;
+    }
+
+    const isLowLatency = av.streamLatencyMode === 'low';
+    const liveSyncDurationCount = isCatchup ? 99999 : (isLowLatency ? 2 : prof.liveSyncDurationCount);
+    const liveMaxLatencyDurationCount = isCatchup ? Infinity : (isLowLatency ? 5 : prof.liveMaxLatencyDurationCount);
+    const abrEwmaFastLive = isLowLatency ? 1.8 : 2.5;
+    const isMaxQuality = av.videoQualityMode === 'max';
+    const isSmartQuality = av.videoQualityMode === 'smart';
+    const startLevel = isSmartQuality ? 0 : -1;
+    const abrEwmaDefaultEstimate = isMaxQuality ? 12000000 : 2500000;
+
+    return {
+      maxBufferLength: maxBufferLength,
+      maxMaxBufferLength: maxMaxBufferLength,
+      backBufferLength: backBufferLength,
+      maxBufferSize: maxBufferSize,
+      liveSyncDurationCount: liveSyncDurationCount,
+      liveMaxLatencyDurationCount: liveMaxLatencyDurationCount,
+      abrEwmaFastLive: abrEwmaFastLive,
+      startLevel: startLevel,
+      abrEwmaDefaultEstimate: abrEwmaDefaultEstimate
+    };
+  }
+
+  _applyHlsConfigTuning(isCatchup) {
+    if (!this.hls) return;
+    const tuning = this._getEffectiveHlsTuning(Boolean(isCatchup));
+    if (this.hls.config) {
+      this.hls.config.maxBufferLength = tuning.maxBufferLength;
+      this.hls.config.maxMaxBufferLength = tuning.maxMaxBufferLength;
+      this.hls.config.backBufferLength = tuning.backBufferLength;
+      this.hls.config.maxBufferSize = tuning.maxBufferSize;
+      this.hls.config.liveSyncDurationCount = tuning.liveSyncDurationCount;
+      this.hls.config.liveMaxLatencyDurationCount = tuning.liveMaxLatencyDurationCount;
+      this.hls.config.abrEwmaFastLive = tuning.abrEwmaFastLive;
+      this.hls.config.startLevel = tuning.startLevel;
+      this.hls.config.abrEwmaDefaultEstimate = tuning.abrEwmaDefaultEstimate;
+    }
+    this.hls.startLevel = tuning.startLevel;
   }
 
   setBufferMode(mode) {
     if (!BUFFER_PROFILES[mode]) return;
     this.bufferMode = mode;
     try {
-      localStorage.setItem(BUFFER_STORAGE_KEY, mode);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(BUFFER_STORAGE_KEY, mode);
+      }
     } catch (e) {}
 
-    if (this.hls && this.hls.config) {
-      const prof = BUFFER_PROFILES[mode];
-      const isAndroidTv = this.isAndroidTvWebView();
-      this.hls.config.maxBufferLength = isAndroidTv ? Math.min(prof.maxBufferLength, 24) : prof.maxBufferLength;
-      this.hls.config.maxMaxBufferLength = isAndroidTv ? Math.min(prof.maxMaxBufferLength, 45) : prof.maxMaxBufferLength;
-      this.hls.config.backBufferLength = isAndroidTv ? Math.min(prof.backBufferLength, 15) : prof.backBufferLength;
-      if (isAndroidTv) {
-        this.hls.config.maxBufferSize = 30 * 1000 * 1000;
-      }
-      this.hls.config.liveSyncDurationCount = prof.liveSyncDurationCount;
-      this.hls.config.liveMaxLatencyDurationCount = prof.liveMaxLatencyDurationCount;
-      if (!prof.progressiveQuality) {
-        this.hls.autoLevelCapping = -1;
-      } else {
-        this.updateProgressiveQualityByBuffer();
-      }
+    if (this.hls) {
+      this._applyHlsConfigTuning(this._hlsIsCatchup);
     }
+    this.applyVideoQualityMode();
   }
 
   getBufferProfile() {
@@ -180,35 +922,87 @@ class VideoPlayer {
   }
 
   /**
-   * Progressive Quality Ramp-Up (Smart ABR):
-   * - Starts channel playback on the lightest/fastest level so the channel opens immediately
-   *   and builds initial buffer rapidly.
-   * - As forward buffer grows:
-   *   * < 4s buffer: cap to lower/medium quality so segments download 3x faster and prevent stalls
-   *   * 4s - 9s buffer: allow up to medium-high quality
-   *   * >= 9s buffer: uncap completely (-1 = Full HD 1080p / highest quality)
-   * - Never touches playbackRate or seeks currentTime, so zero decoder freezes occur.
+   * Applies video quality mode ('smart' | 'max' | 'hd1080' | 'hd720') to active HLS levels.
    */
-  updateProgressiveQualityByBuffer() {
-    if (!this.hls || !this.hls.levels || this.hls.levels.length <= 1) {
-      this.currentQualityTier = 'full';
+  applyVideoQualityMode() {
+    this._ensureAvRuntimeState();
+    const qMode = this._avPrefs.videoQualityMode || 'smart';
+
+    if (!this.hls) {
+      this.currentQualityTier = qMode === 'smart' ? 'auto' : qMode;
       return;
     }
 
-    const prof = this.getBufferProfile();
-    if (!prof.progressiveQuality) {
+    const levels = this.hls.levels || [];
+
+    if (qMode === 'max') {
+      this.hls.startLevel = -1;
+      if (this.hls.config) {
+        this.hls.config.startLevel = -1;
+        this.hls.config.abrEwmaDefaultEstimate = 12000000;
+      }
+      this.hls.autoLevelCapping = -1;
+      if (levels.length > 0) {
+        let maxIdx = levels.length - 1;
+        let bestBr = -1;
+        for (let i = 0; i < levels.length; i++) {
+          const lvl = levels[i] || {};
+          const br = typeof lvl.bitrate === 'number' ? lvl.bitrate : 0;
+          if (br >= bestBr) {
+            bestBr = br;
+            maxIdx = i;
+          }
+        }
+        this.hls.nextLevel = maxIdx;
+      }
+      this.currentQualityTier = 'max-hd';
+      return;
+    }
+
+    if (qMode === 'hd1080' || qMode === 'hd720') {
+      const maxH = qMode === 'hd720' ? 720 : 1080;
+      if (levels.length === 0) {
+        this.hls.autoLevelCapping = -1;
+        this.currentQualityTier = qMode;
+        return;
+      }
+      let capIdx = -1;
+      for (let i = 0; i < levels.length; i++) {
+        const lvl = levels[i];
+        if (lvl && (!lvl.height || lvl.height <= maxH)) {
+          capIdx = i;
+        }
+      }
+      if (capIdx === -1) {
+        capIdx = 0;
+      }
+      this.hls.autoLevelCapping = capIdx;
+      if (typeof this.hls.nextLevel === 'number' && this.hls.nextLevel > capIdx) {
+        this.hls.nextLevel = -1;
+      }
+      if (typeof this.hls.currentLevel === 'number' && this.hls.currentLevel > capIdx) {
+        this.hls.currentLevel = -1;
+      }
+      this.currentQualityTier = qMode;
+      return;
+    }
+
+    // 'smart' Progressive Quality Ramp-Up
+    if (levels.length <= 1) {
       this.hls.autoLevelCapping = -1;
       this.currentQualityTier = 'full';
       return;
     }
 
-    const totalLevels = this.hls.levels.length;
+    const totalLevels = levels.length;
     const maxLevelIdx = totalLevels - 1;
     const midLevelIdx = Math.max(1, Math.ceil(maxLevelIdx / 2));
     const forwardSec = this.getForwardBufferSeconds();
 
     if (forwardSec < 3.5) {
       // Low buffer: cap to fastest/lightest level (0) so buffer refills rapidly without stalling
+      if (this.hls.config) this.hls.config.startLevel = 0;
+      this.hls.startLevel = 0;
       this.hls.autoLevelCapping = 0;
       this.currentQualityTier = 'low-fast';
     } else if (forwardSec < 8.5) {
@@ -222,7 +1016,73 @@ class VideoPlayer {
     }
   }
 
+  /**
+   * Progressive Quality Ramp-Up (Smart ABR):
+   * - Starts channel playback on the lightest/fastest level so the channel opens immediately
+   *   and builds initial buffer rapidly.
+   * - As forward buffer grows:
+   *   * < 3.5s buffer: cap to lower/medium quality so segments download faster and prevent stalls
+   *   * 3.5s - 8.5s buffer: allow up to medium-high quality
+   *   * >= 8.5s buffer: uncap completely (-1 = Full HD 1080p / highest quality)
+   * - Respects explicit videoQualityMode caps ('max', 'hd1080', 'hd720').
+   */
+  updateProgressiveQualityByBuffer() {
+    this.applyVideoQualityMode();
+  }
+
+  getStreamStats() {
+    this._ensureAvRuntimeState();
+    let width = 0;
+    let height = 0;
+    let bitrateKbps = 0;
+
+    if (this.video) {
+      if (typeof this.video.videoWidth === 'number' && this.video.videoWidth > 0) {
+        width = this.video.videoWidth;
+      }
+      if (typeof this.video.videoHeight === 'number' && this.video.videoHeight > 0) {
+        height = this.video.videoHeight;
+      }
+    }
+
+    if (this.hls && this.hls.levels && this.hls.levels.length > 0) {
+      let lvlIdx = typeof this.hls.currentLevel === 'number' && this.hls.currentLevel >= 0
+        ? this.hls.currentLevel
+        : (typeof this.hls.loadLevel === 'number' && this.hls.loadLevel >= 0
+          ? this.hls.loadLevel
+          : (typeof this.hls.nextLevel === 'number' && this.hls.nextLevel >= 0 ? this.hls.nextLevel : -1));
+      const lvl = lvlIdx >= 0 ? this.hls.levels[lvlIdx] : null;
+      if (lvl) {
+        if (!width && typeof lvl.width === 'number' && lvl.width > 0) width = lvl.width;
+        if (!height && typeof lvl.height === 'number' && lvl.height > 0) height = lvl.height;
+        if (typeof lvl.bitrate === 'number' && lvl.bitrate > 0) {
+          bitrateKbps = Math.round(lvl.bitrate / 1000);
+        }
+      }
+    }
+
+    const bufferSec = Math.round(this.getForwardBufferSeconds() * 10) / 10;
+    const normGain = this._getAppliedNormGainLinear();
+    let appliedGainDb = Math.round(((20 * Math.log(Math.max(0.01, normGain))) / Math.LN10) * 10) / 10;
+    if (appliedGainDb === 0) appliedGainDb = 0;
+
+    return {
+      width: width,
+      height: height,
+      bitrateKbps: bitrateKbps,
+      bufferSec: bufferSec,
+      qualityTier: this.currentQualityTier || 'auto',
+      audioNormMode: this._avPrefs.audioNormMode || 'off',
+      appliedGainDb: appliedGainDb,
+      channelTrimDb: this.getChannelVolumeTrim(),
+      isNative: Boolean(this._isNativePlayback),
+      isPaused: this.isPaused()
+    };
+  }
+
   initListeners() {
+    if (!this.video || typeof this.video.addEventListener !== 'function') return;
+
     this.video.addEventListener('loadstart', () => {
       this._isPlaying = false;
       this.triggerState('loading');
@@ -241,6 +1101,8 @@ class VideoPlayer {
       this.stallTicks = 0;
       this.userPaused = false;
       this._isPlaying = true;
+      this.applyEffectiveVolume();
+      this._syncLoudnessSamplerState();
       this.triggerState('playing');
     });
 
@@ -251,12 +1113,14 @@ class VideoPlayer {
         this.stallTicks = 0;
         this.userPaused = false;
         this._isPlaying = true;
+        this._syncLoudnessSamplerState();
         this.triggerState('playing');
       }
     });
 
     this.video.addEventListener('pause', () => {
       this._isPlaying = false;
+      this._stopLoudnessSampler();
       if (this.userPaused) {
         this.triggerState('paused');
       }
@@ -268,12 +1132,14 @@ class VideoPlayer {
     });
 
     this.video.addEventListener('ended', () => {
+      this._stopLoudnessSampler();
       if (this.currentProgramme) {
         this.handleCatchupStreamBoundary(true);
       }
     });
 
     this.video.addEventListener('error', () => {
+      this._stopLoudnessSampler();
       if (this._isCleaningUp || !this.currentChannel) return;
       this._isPlaying = false;
       if (this.currentProgramme && this.currentChannel) {
@@ -379,6 +1245,7 @@ class VideoPlayer {
     this.watchdogInterval = setInterval(() => {
       if (!this.video || !this.currentChannel || this.userPaused) {
         this.stallTicks = 0;
+        this._stopLoudnessSampler();
         return;
       }
 
@@ -387,20 +1254,19 @@ class VideoPlayer {
           this.handleCatchupStreamBoundary(true);
         }
         this.stallTicks = 0;
+        this._stopLoudnessSampler();
         return;
       }
 
       // Smoothly ramp quality up/down as buffer accumulates
       this.updateProgressiveQualityByBuffer();
 
-      // Hardware Audio Watchdog: prevent silent muted drop or volume attenuation
+      // Hardware Audio Watchdog: prevent silent muted drop without clobbering trim or zap fade
       if (this.video && !this.userPaused) {
         if (this.video.muted) {
           this.video.muted = false;
         }
-        if (this.video.volume < 1.0) {
-          this.video.volume = 1.0;
-        }
+        this.applyEffectiveVolume();
       }
 
       const ct = this.video.currentTime || 0;
@@ -451,7 +1317,7 @@ class VideoPlayer {
           if (start > cur + 0.1 && start - cur < 4.5 && end > start + 0.5) {
             this.video.currentTime = start + 0.15;
             this.video.muted = false;
-            this.video.volume = 1.0;
+            this.applyEffectiveVolume();
             const p = this.video.play();
             if (p && typeof p.catch === 'function') p.catch(() => {});
             return;
@@ -477,6 +1343,8 @@ class VideoPlayer {
     clearTimeout(this._catchupSeekDebounceTimer);
     this._catchupSeekDebounceTimer = null;
     this._pendingCatchupTargetMs = 0;
+    this._cancelZapFade();
+    this._zapFadeFactor = 1.0;
   }
 
   safePlayWithUnmute() {
@@ -494,7 +1362,7 @@ class VideoPlayer {
               this._unmuteTimer = null;
               if (this.video && !this.userPaused) {
                 this.video.muted = false;
-                this.video.volume = 1.0;
+                this.applyEffectiveVolume();
               }
             }, 100);
           })
@@ -505,6 +1373,9 @@ class VideoPlayer {
 
   play(channel, customStreamUrl) {
     if (!channel || !channel.url) return;
+    this._ensureAvRuntimeState();
+    this._stopLoudnessSampler();
+
     this.currentChannel = channel;
     if (!customStreamUrl) {
       this.currentProgramme = null;
@@ -521,14 +1392,25 @@ class VideoPlayer {
     this.stallTicks = 0;
     this.lastWatchdogTime = -1;
 
+    const chId = this._getChannelLoudnessId(channel);
+    if (this._avPrefs.audioNormMode !== 'off' && chId) {
+      this._currentRmsGain = this._getChannelLearnedGain(chId);
+      const learnedEntry = this._loudnessData && this._loudnessData.learned ? this._loudnessData.learned[chId] : null;
+      if (learnedEntry) {
+        learnedEntry.ts = Date.now();
+      }
+    } else {
+      this._currentRmsGain = 1.0;
+    }
+
     const url = (customStreamUrl || channel.url).trim();
     this._currentUrl = url;
     const isHls = url.indexOf('.m3u8') !== -1 || url.indexOf('m3u8') !== -1;
     const isCatchup = Boolean(customStreamUrl && this.currentProgramme) || url.indexOf('utc=') !== -1;
+    const hasHlsLib = typeof window !== 'undefined' && Boolean(window.Hls && window.Hls.isSupported());
     const canReuseHls = Boolean(
       isHls &&
-      window.Hls &&
-      window.Hls.isSupported() &&
+      hasHlsLib &&
       this.hls &&
       this._hlsIsCatchup === isCatchup
     );
@@ -540,14 +1422,18 @@ class VideoPlayer {
       this.cleanUp();
     }
 
+    if (this._webAudioGraphReady) {
+      this._updateWebAudioParams();
+    }
+
     if (this.video) {
       this.video.muted = false;
-      this.video.volume = 1.0;
     }
+    this.startSoftZapFade();
 
     this.triggerState('loading');
 
-    if (window.Hls && window.Hls.isSupported() && isHls) {
+    if (hasHlsLib && isHls) {
       this.playHls(url, canReuseHls);
     } else {
       this.playNative(url);
@@ -620,39 +1506,41 @@ class VideoPlayer {
 
   playHls(url, reuseExisting) {
     try {
+      this._ensureAvRuntimeState();
       const isCatchup = Boolean(this.currentProgramme || (url && url.indexOf('utc=') !== -1));
-      const prof = this.getBufferProfile();
       this._hlsIsCatchup = isCatchup;
 
       if (reuseExisting && this.hls) {
         this._hlsReused = true;
         this.hls.stopLoad();
-        if (this.hls.config) {
-          this.hls.config.startLevel = prof.progressiveQuality ? 0 : -1;
+        this._applyHlsConfigTuning(isCatchup);
+        this.applyVideoQualityMode();
+        if (this._audioCtx && this._audioCtx.state === 'running' && (this._avPrefs.audioNormMode !== 'off' || this._avPrefs.audioVoiceBoost)) {
+          this.ensureWebAudioPipeline();
         }
-        this.hls.autoLevelCapping = prof.progressiveQuality ? 0 : -1;
         this.hls.loadSource(url);
         return;
       }
 
       this._hlsReused = false;
-      const isAndroidTv = this.isAndroidTvWebView();
+      const tuning = this._getEffectiveHlsTuning(isCatchup);
       const hlsConfig = {
         enableWorker: false,
         // For Start-Over / Catch-up, begin playback from the start of the event
         startPosition: isCatchup ? 0 : -1,
-        // Progressive Quality Ramp-Up: start on level 0 for instant channel start, then ramp up as buffer fills
-        startLevel: prof.progressiveQuality ? 0 : -1,
+        // Progressive Quality Ramp-Up / Quality Mode start level
+        startLevel: tuning.startLevel,
         capLevelToPlayerSize: false,
         // Audio Synchronization & Codec Support
         maxAudioFramesDrift: 1,
         forceKeyFrameOnDiscontinuity: true,
-        // Buffer Configuration (capped on Android TV WebView to prevent 1.5GB/2GB renderer OOM)
-        maxBufferLength: isAndroidTv ? Math.min(prof.maxBufferLength, 24) : prof.maxBufferLength,
-        maxMaxBufferLength: isAndroidTv ? Math.min(prof.maxMaxBufferLength, 45) : prof.maxMaxBufferLength,
-        backBufferLength: isAndroidTv ? Math.min(prof.backBufferLength, 15) : prof.backBufferLength,
-        liveSyncDurationCount: isCatchup ? 99999 : prof.liveSyncDurationCount,
-        liveMaxLatencyDurationCount: isCatchup ? Infinity : prof.liveMaxLatencyDurationCount,
+        // Buffer & Memory Configuration
+        maxBufferLength: tuning.maxBufferLength,
+        maxMaxBufferLength: tuning.maxMaxBufferLength,
+        backBufferLength: tuning.backBufferLength,
+        maxBufferSize: tuning.maxBufferSize,
+        liveSyncDurationCount: tuning.liveSyncDurationCount,
+        liveMaxLatencyDurationCount: tuning.liveMaxLatencyDurationCount,
         lowLatencyMode: false,
         // Discontinuity & Hole Healing
         maxBufferHole: 0.5,
@@ -661,9 +1549,9 @@ class VideoPlayer {
         nudgeMaxRetry: 10,
         maxFragLookUpTolerance: 0.5,
         // Progressive ABR Tuning
-        abrEwmaFastLive: 2.5,
+        abrEwmaFastLive: tuning.abrEwmaFastLive,
         abrEwmaSlowLive: 6.0,
-        abrEwmaDefaultEstimate: 2500000,
+        abrEwmaDefaultEstimate: tuning.abrEwmaDefaultEstimate,
         abrBandWidthFactor: 0.85,
         abrBandWidthUpFactor: 0.7,
         // Resilient network retries
@@ -676,9 +1564,6 @@ class VideoPlayer {
         fragLoadingMaxRetry: 6,
         fragLoadingRetryDelay: 700
       };
-      if (isAndroidTv) {
-        hlsConfig.maxBufferSize = 30 * 1000 * 1000;
-      }
       this.hls = new window.Hls(hlsConfig);
 
       const hlsInstance = this.hls;
@@ -696,17 +1581,20 @@ class VideoPlayer {
             this.video.currentTime = 0;
           } catch (e) {}
         }
-        // Initialize progressive quality cap based on initial empty buffer so first segments load fast
-        this.updateProgressiveQualityByBuffer();
+        // Initialize quality mode / progressive cap
+        this.applyVideoQualityMode();
+        if (this._audioCtx && this._audioCtx.state === 'running' && (this._avPrefs.audioNormMode !== 'off' || this._avPrefs.audioVoiceBoost)) {
+          this.ensureWebAudioPipeline();
+        }
         this.safePlayWithUnmute();
       });
 
-      // Ensure audio track is always active and unmuted
+      // Ensure audio track is always active and unmuted without clobbering trim/fade
       hlsInstance.on(window.Hls.Events.AUDIO_TRACK_LOADED, () => {
         if (this.hls !== hlsInstance) return;
         if (this.video && !this.userPaused) {
           this.video.muted = false;
-          this.video.volume = 1.0;
+          this.applyEffectiveVolume();
         }
       });
 
@@ -714,7 +1602,7 @@ class VideoPlayer {
         if (this.hls !== hlsInstance) return;
         if (this.video && !this.userPaused) {
           this.video.muted = false;
-          this.video.volume = 1.0;
+          this.applyEffectiveVolume();
         }
       });
 
@@ -778,7 +1666,7 @@ class VideoPlayer {
             this.hls.recoverMediaError();
             if (this.video && !this.userPaused) {
               this.video.muted = false;
-              this.video.volume = 1.0;
+              this.applyEffectiveVolume();
             }
             return;
           }
@@ -823,10 +1711,11 @@ class VideoPlayer {
     try {
       this._isNativePlayback = true;
       this._isPlaying = false;
+      this._stopLoudnessSampler();
       this.video.src = url;
       this.video.load();
       this.video.muted = false;
-      this.video.volume = 1.0;
+      this.applyEffectiveVolume();
       this.safePlayWithUnmute();
     } catch (e) {
       this.handlePlaybackError('שגיאה בהפעלת הנגן');
@@ -844,7 +1733,8 @@ class VideoPlayer {
         if (this.currentChannel) {
           const targetUrl = (this._currentUrl || this.currentChannel.url || '').trim();
           const isHls = targetUrl.indexOf('.m3u8') !== -1 || targetUrl.indexOf('m3u8') !== -1;
-          if (isHls && window.Hls && window.Hls.isSupported() && !this.usedNativeFallback) {
+          const hasHlsLib = typeof window !== 'undefined' && Boolean(window.Hls && window.Hls.isSupported());
+          if (isHls && hasHlsLib && !this.usedNativeFallback) {
             this.cleanUp();
             this.playHls(targetUrl, false);
           } else {
@@ -861,12 +1751,16 @@ class VideoPlayer {
     if (!this.video) return false;
     if (this.video.paused) {
       this.userPaused = false;
+      this.applyEffectiveVolume();
+      this.resumeAudioPipeline();
       const p = this.video.play();
       if (p && typeof p.catch === 'function') p.catch(() => {});
+      this._syncLoudnessSamplerState();
       this.triggerState('playing');
       return false;
     } else {
       this.userPaused = true;
+      this._stopLoudnessSampler();
       this.video.pause();
       this.triggerState('paused');
       return true;
@@ -1045,6 +1939,7 @@ class VideoPlayer {
   cleanUp() {
     this._isCleaningUp = true;
     try {
+      this._stopLoudnessSampler();
       this.clearTimers();
       this._hlsReused = false;
       this._hlsIsCatchup = false;
@@ -1075,7 +1970,7 @@ class VideoPlayer {
             this.video.load(); // Forces webOS/Android TV to release hardware decoder pipeline only when media was attached
           }
           this.video.muted = false;
-          this.video.volume = 1.0;
+          this.applyEffectiveVolume();
         } catch (e) {}
       }
     } finally {
@@ -1086,7 +1981,28 @@ class VideoPlayer {
   destroy() {
     clearInterval(this.watchdogInterval);
     this.watchdogInterval = null;
+    this._stopLoudnessSampler();
     this.cleanUp();
+    if (this._audioCtx) {
+      try {
+        if (typeof this._audioCtx.close === 'function' && this._audioCtx.state !== 'closed') {
+          const p = this._audioCtx.close();
+          if (p && typeof p.catch === 'function') p.catch(() => {});
+        }
+      } catch (e) {}
+    }
+    this._audioCtx = null;
+    this._mediaSourceNode = null;
+    this._mediaSourceVideo = null;
+    this._highPassFilter = null;
+    this._voiceBoostFilter = null;
+    this._rmsAutoGainNode = null;
+    this._compressorNode = null;
+    this._makeupGainNode = null;
+    this._analyserNode = null;
+    this._analyserFloatBuf = null;
+    this._analyserByteBuf = null;
+    this._webAudioGraphReady = false;
     this.currentChannel = null;
     this.currentProgramme = null;
     this.catchupOriginStartMs = 0;
@@ -1102,7 +2018,10 @@ class VideoPlayer {
     if (!this.video) return;
     try {
       this.video.muted = false;
-      this.video.volume = 1.0;
+      this.applyEffectiveVolume();
+      if (this._audioCtx && this._audioCtx.state === 'suspended') {
+        this.resumeAudioPipeline();
+      }
       // Only trigger HLS media recovery when the pipeline is actually errored or stalled,
       // avoiding unnecessary MSE SourceBuffer flushes on normal focus/visibility changes.
       if (this.hls && (this.video.error || this.video.readyState < 2 || this.stallTicks >= 2)) {
@@ -1116,11 +2035,12 @@ class VideoPlayer {
           p.catch(() => {
             if (!this.video || this.userPaused) return;
             this.video.muted = false;
-            this.video.volume = 1.0;
+            this.applyEffectiveVolume();
             this.video.play().catch(() => {});
           });
         }
       }
+      this._syncLoudnessSamplerState();
     } catch (e) {
       console.warn('recoverAudioSink notice:', e);
     }
