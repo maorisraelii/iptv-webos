@@ -296,7 +296,7 @@ html, body {
   background-color: var(--bg-card);
   border: 1px solid rgba(148, 163, 184, 0.08);
   cursor: pointer;
-  contain: layout style paint;
+  contain: layout style;
   transition: background-color 0.08s ease, border-color 0.08s ease;
 }
 
@@ -1029,6 +1029,37 @@ html, body {
   display: none !important;
 }
 
+#stream-stats-badge,
+.stream-stats-badge {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  background-color: rgba(6, 9, 18, 0.84);
+  border: 1px solid var(--accent-border-soft);
+  color: var(--accent-text);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.3px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.video-surface:not(.fullscreen-mode) #stream-stats-badge:not(.force-visible),
+.video-surface:not(.fullscreen-mode) .stream-stats-badge:not(.force-visible),
+.video-surface.preview-mode #stream-stats-badge:not(.force-visible),
+.video-surface.preview-mode .stream-stats-badge:not(.force-visible) {
+  display: none !important;
+}
+
 .preview-autoplay-off-badge {
   position: absolute;
   top: 50%;
@@ -1153,7 +1184,7 @@ html, body {
   padding: 18px 44px 26px;
   background-color: rgba(6, 9, 18, 0.90);
   border-top: 1px solid var(--border-subtle);
-  will-change: transform;
+  will-change: auto;
   contain: layout style;
   z-index: 110;
 }
@@ -1755,6 +1786,13 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 
+.modal-body.settings-tab-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 .modal-body::-webkit-scrollbar,
 .guide-list-col::-webkit-scrollbar,
 .channel-editor-list::-webkit-scrollbar,
@@ -1997,7 +2035,7 @@ html, body {
 }
 
 /* ==========================================================================
-   Settings Modal Tabs (5-Tab Sleek Header Fit + Sources / Channels / Perf / Appearance / About)
+   Settings Modal Tabs (6-Tab Sleek Header Fit + Sources / Channels / Perf / Appearance / AV / About)
    ========================================================================== */
 
 .settings-tabs-bar {
@@ -2013,15 +2051,23 @@ html, body {
   background-color: rgba(148, 163, 184, 0.08);
   color: #cbd5e1;
   border: 1px solid var(--border-subtle);
-  padding: 8px 15px;
+  padding: 9px 16px;
   border-radius: 11px;
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 800;
   margin-left: 8px;
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
   transition: background-color 0.1s ease, border-color 0.1s ease, color 0.1s ease;
+}
+
+@media (max-width: 1480px) {
+  .settings-tab-btn {
+    font-size: 16px;
+    padding: 8px 12px;
+    margin-left: 6px;
+  }
 }
 
 .settings-tab-btn:last-child {
@@ -2421,6 +2467,11 @@ html, body {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.perf-options-grid:last-child {
+  margin-bottom: 0;
 }
 
 .perf-option-btn {
@@ -2491,12 +2542,14 @@ html, body {
   color: var(--text-secondary);
 }
 
+.perf-option-btn.focused .perf-opt-title,
+.perf-option-btn:hover .perf-opt-title,
 .perf-option-btn.focused .perf-opt-sub,
 .perf-option-btn:hover .perf-opt-sub {
   color: #ffffff;
 }
 
-/* Toggle Buttons in Appearance Tab */
+/* Toggle Buttons in Appearance & AV Tabs */
 .perf-option-btn.ui-toggle-btn {
   position: relative;
   display: flex;
@@ -3498,13 +3551,472 @@ html.ui-osd-full .osd-epg-desc {
 }
 
 /* ==========================================================================
-   Shared UI Contract: Lightness / Visual Effects & Animations
+   Shared UI Contract v5.4.0: Workspace Layout, Widths, Radii, Backgrounds,
+   OSD Opacity, Granular Visibility, Aspect Ratio, Crisp Video & Focus Styles
    ========================================================================== */
 
-html.ui-fx-light .top-nav-btn.focused,
-html.ui-fx-light .top-nav-btn:hover,
+/* Workspace Layout Side (Default: Channel List Right, Preview Left) */
+html.ui-layout-left .main-workspace {
+  flex-direction: row-reverse;
+}
+
+html.ui-layout-left .channel-list-panel {
+  margin-left: 0;
+  margin-right: 18px;
+}
+
+html.ui-layout-left .preview-stage {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* Channel List Width / Preview Stage Proportions (16:9 Scaled) */
+html.ui-list-narrow .preview-stage {
+  width: 1020px;
+}
+
+html.ui-list-narrow .preview-frame-wrapper {
+  width: 1020px;
+  height: 574px;
+  margin-bottom: 10px;
+}
+
+html.ui-list-narrow .channel-details-card {
+  padding: 11px 18px;
+}
+
+html.ui-list-narrow:not(.ui-hide-program-strip) .epg-synopsis {
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+html.ui-list-balanced .preview-stage {
+  width: 960px;
+}
+
+html.ui-list-balanced .preview-frame-wrapper {
+  width: 960px;
+  height: 540px;
+}
+
+html.ui-list-wide .preview-stage {
+  width: 840px;
+}
+
+html.ui-list-wide .preview-frame-wrapper {
+  width: 840px;
+  height: 472px;
+}
+
+/* Corner Radius Presets (Keep .modal-settings-card at 24px!) */
+html.ui-radius-sharp .channel-list-panel,
+html.ui-radius-sharp .channel-details-card,
+html.ui-radius-sharp .preview-frame,
+html.ui-radius-sharp .osd-card,
+html.ui-radius-sharp .modal-card:not(.modal-settings-card),
+html.ui-radius-sharp .modal-guide-card,
+html.ui-radius-sharp .modal-search-card,
+html.ui-radius-sharp .modal-ota-card,
+html.ui-radius-sharp .channel-number-jump,
+html.ui-radius-sharp .about-card,
+html.ui-radius-sharp .guide-selected-card,
+html.ui-radius-sharp .search-right-panel,
+html.ui-radius-sharp .channel-editor-list,
+html.ui-radius-sharp .sources-manager-section,
+html.ui-radius-sharp .perf-section-card,
+html.ui-radius-sharp .ui-pref-card,
+html.ui-radius-sharp .pc-sync-box,
+html.ui-radius-sharp .qr-cloud-sync-box,
+html.ui-radius-sharp .perf-actions-bar,
+html.ui-radius-sharp .preview-epg-box,
+html.ui-radius-sharp .osd-schedule-grid,
+html.ui-radius-sharp .about-developer-box,
+html.ui-radius-sharp .about-features-box,
+html.ui-radius-sharp .virtual-keyboard,
+html.ui-radius-sharp .empty-state-card,
+html.ui-radius-sharp .toast,
+html.ui-radius-sharp .video-pause-indicator,
+html.ui-radius-sharp .preview-autoplay-off-badge,
+html.ui-radius-sharp .ota-popup-body {
+  border-radius: 6px;
+}
+
+html.ui-radius-sharp .video-surface.preview-mode {
+  border-radius: 6px !important;
+}
+
+html.ui-radius-sharp .channel-item,
+html.ui-radius-sharp.ui-density-compact .channel-item,
+html.ui-radius-sharp .program-strip-item,
+html.ui-radius-sharp .guide-prog-item,
+html.ui-radius-sharp .editor-channel-row,
+html.ui-radius-sharp .source-item-row,
+html.ui-radius-sharp .about-info-item,
+html.ui-radius-sharp .perf-option-btn,
+html.ui-radius-sharp .top-nav-btn,
+html.ui-radius-sharp .brand-badge,
+html.ui-radius-sharp .header-clock,
+html.ui-radius-sharp .header-count-pill,
+html.ui-radius-sharp .header-version-pill,
+html.ui-radius-sharp .btn-card-guide,
+html.ui-radius-sharp .btn-tv-primary,
+html.ui-radius-sharp .btn-tv-secondary,
+html.ui-radius-sharp .settings-tab-btn,
+html.ui-radius-sharp .modal-close-btn,
+html.ui-radius-sharp .guide-day-tab,
+html.ui-radius-sharp .source-item-btn,
+html.ui-radius-sharp .editor-btn,
+html.ui-radius-sharp .kb-key,
+html.ui-radius-sharp .tv-input,
+html.ui-radius-sharp .channel-logo-thumb,
+html.ui-radius-sharp.ui-density-compact .channel-logo-thumb,
+html.ui-radius-sharp .details-logo-box,
+html.ui-radius-sharp .osd-logo-box,
+html.ui-radius-sharp .jump-logo-box,
+html.ui-radius-sharp .jump-num-box,
+html.ui-radius-sharp .pairing-code-pill,
+html.ui-radius-sharp .osd-exit-btn,
+html.ui-radius-sharp .osd-arrows-indicator,
+html.ui-radius-sharp .osd-surf-prompt,
+html.ui-radius-sharp .preview-fullscreen-badge,
+html.ui-radius-sharp .video-catchup-badge,
+html.ui-radius-sharp .channel-ok-pill,
+html.ui-radius-sharp .channel-playing-badge,
+html.ui-radius-sharp .channel-mini-rem-badge,
+html.ui-radius-sharp .epg-badge-now,
+html.ui-radius-sharp .osd-epg-badge-now,
+html.ui-radius-sharp .epg-adj-label,
+html.ui-radius-sharp .epg-adj-badge,
+html.ui-radius-sharp .osd-sched-badge,
+html.ui-radius-sharp .details-live-pill,
+html.ui-radius-sharp .details-group-pill,
+html.ui-radius-sharp .details-source-pill,
+html.ui-radius-sharp .osd-live-tag,
+html.ui-radius-sharp .osd-quality-tag,
+html.ui-radius-sharp .osd-version-tag,
+html.ui-radius-sharp .osd-footer-ver,
+html.ui-radius-sharp .strip-item-tag,
+html.ui-radius-sharp .guide-prog-badge,
+html.ui-radius-sharp .guide-status-badge,
+html.ui-radius-sharp .guide-subtitle-pill,
+html.ui-radius-sharp .key-pill,
+html.ui-radius-sharp .qr-easy-badge,
+html.ui-radius-sharp .qr-code-frame,
+html.ui-radius-sharp .about-app-icon,
+html.ui-radius-sharp .editor-ch-source,
+html.ui-radius-sharp .settings-status-box,
+html.ui-radius-sharp .ota-status-pill,
+html.ui-radius-sharp .ota-version-compare,
+html.ui-radius-sharp .ui-toggle-pill,
+html.ui-radius-sharp .stream-stats-badge,
+html.ui-radius-sharp .channel-mini-progress-track,
+html.ui-radius-sharp .channel-mini-progress-fill,
+html.ui-radius-sharp .epg-progress-track,
+html.ui-radius-sharp .epg-progress-fill {
+  border-radius: 4px;
+}
+
+html.ui-radius-pill .channel-list-panel,
+html.ui-radius-pill .channel-details-card,
+html.ui-radius-pill .preview-frame,
+html.ui-radius-pill .osd-card,
+html.ui-radius-pill.ui-osd-clean .osd-card,
+html.ui-radius-pill.ui-osd-minimal .osd-card,
+html.ui-radius-pill .modal-card:not(.modal-settings-card),
+html.ui-radius-pill .modal-guide-card,
+html.ui-radius-pill .modal-search-card,
+html.ui-radius-pill .modal-ota-card,
+html.ui-radius-pill .channel-number-jump,
+html.ui-radius-pill .about-card,
+html.ui-radius-pill .guide-selected-card,
+html.ui-radius-pill .search-right-panel,
+html.ui-radius-pill .channel-editor-list,
+html.ui-radius-pill .sources-manager-section,
+html.ui-radius-pill .perf-section-card,
+html.ui-radius-pill .ui-pref-card,
+html.ui-radius-pill .pc-sync-box,
+html.ui-radius-pill .qr-cloud-sync-box,
+html.ui-radius-pill .empty-state-card,
+html.ui-radius-pill .ota-popup-body {
+  border-radius: 28px;
+}
+
+html.ui-radius-pill .video-surface.preview-mode {
+  border-radius: 28px !important;
+}
+
+html.ui-radius-pill .preview-epg-box,
+html.ui-radius-pill .osd-schedule-grid,
+html.ui-radius-pill .about-developer-box,
+html.ui-radius-pill .about-features-box,
+html.ui-radius-pill .virtual-keyboard,
+html.ui-radius-pill .perf-actions-bar,
+html.ui-radius-pill .channel-item,
+html.ui-radius-pill.ui-density-compact .channel-item,
+html.ui-radius-pill .editor-channel-row,
+html.ui-radius-pill .source-item-row,
+html.ui-radius-pill .about-info-item,
+html.ui-radius-pill .perf-option-btn,
+html.ui-radius-pill .guide-prog-item,
+html.ui-radius-pill .program-strip-item,
+html.ui-radius-pill .toast,
+html.ui-radius-pill .video-pause-indicator,
+html.ui-radius-pill .preview-autoplay-off-badge,
+html.ui-radius-pill .jump-num-box {
+  border-radius: 20px;
+}
+
+html.ui-radius-pill .top-nav-btn,
+html.ui-radius-pill .brand-badge,
+html.ui-radius-pill .header-clock,
+html.ui-radius-pill .header-count-pill,
+html.ui-radius-pill .header-version-pill,
+html.ui-radius-pill .btn-card-guide,
+html.ui-radius-pill .btn-tv-primary,
+html.ui-radius-pill .btn-tv-secondary,
+html.ui-radius-pill .settings-tab-btn,
+html.ui-radius-pill .modal-close-btn,
+html.ui-radius-pill .guide-day-tab,
+html.ui-radius-pill .source-item-btn,
+html.ui-radius-pill .editor-btn,
+html.ui-radius-pill .kb-key,
+html.ui-radius-pill .tv-input,
+html.ui-radius-pill .pairing-code-pill,
+html.ui-radius-pill .osd-exit-btn,
+html.ui-radius-pill .osd-surf-prompt,
+html.ui-radius-pill .preview-fullscreen-badge,
+html.ui-radius-pill .video-catchup-badge,
+html.ui-radius-pill .channel-ok-pill,
+html.ui-radius-pill .channel-playing-badge,
+html.ui-radius-pill .channel-mini-rem-badge,
+html.ui-radius-pill .epg-badge-now,
+html.ui-radius-pill .osd-epg-badge-now,
+html.ui-radius-pill .epg-adj-label,
+html.ui-radius-pill .epg-adj-badge,
+html.ui-radius-pill .osd-sched-badge,
+html.ui-radius-pill .details-live-pill,
+html.ui-radius-pill .details-group-pill,
+html.ui-radius-pill .details-source-pill,
+html.ui-radius-pill .osd-live-tag,
+html.ui-radius-pill .osd-quality-tag,
+html.ui-radius-pill .osd-version-tag,
+html.ui-radius-pill .osd-footer-ver,
+html.ui-radius-pill .strip-item-tag,
+html.ui-radius-pill .guide-prog-badge,
+html.ui-radius-pill .guide-status-badge,
+html.ui-radius-pill .guide-subtitle-pill,
+html.ui-radius-pill .key-pill,
+html.ui-radius-pill .qr-easy-badge,
+html.ui-radius-pill .editor-ch-source,
+html.ui-radius-pill .settings-status-box,
+html.ui-radius-pill .ota-status-pill,
+html.ui-radius-pill .ota-version-compare,
+html.ui-radius-pill .ui-toggle-pill,
+html.ui-radius-pill .stream-stats-badge {
+  border-radius: 999px;
+}
+
+html.ui-radius-sharp .modal-settings-card,
+html.ui-radius-rounded .modal-settings-card,
+html.ui-radius-pill .modal-settings-card {
+  border-radius: 24px;
+}
+
+/* Background Tones (Midnight / True OLED / Slate / DeepBlue) */
+html.ui-bg-midnight {
+  --bg-deep: #060912;
+  --bg-panel: #0c1220;
+  --bg-card: #111a2c;
+  --bg-card-hover: #17233b;
+  --bg-inset: #080d19;
+  --border-subtle: rgba(148, 163, 184, 0.14);
+  --border-strong: rgba(148, 163, 184, 0.24);
+}
+
+html.ui-bg-oled {
+  --bg-deep: #000000;
+  --bg-panel: #06070a;
+  --bg-card: #0c0e14;
+  --bg-card-hover: #121620;
+  --bg-inset: #030406;
+  --border-subtle: #1a2234;
+  --border-strong: #28354f;
+}
+
+html.ui-bg-oled,
+html.ui-bg-oled body {
+  background-color: #000000;
+}
+
+html.ui-bg-oled .list-instruction-bar {
+  background-color: #090b10;
+}
+
+html.ui-bg-oled .channel-item,
+html.ui-bg-oled .guide-prog-item,
+html.ui-bg-oled .editor-channel-row {
+  border-color: #1a2234;
+}
+
+html.ui-bg-oled .fullscreen-osd {
+  background-color: rgba(0, 0, 0, 0.92);
+}
+
+html.ui-bg-oled .channel-number-jump {
+  background-color: rgba(6, 7, 10, 0.97);
+}
+
+html.ui-bg-oled.ui-osd-minimal .osd-card {
+  background-color: rgba(6, 7, 10, 0.95);
+}
+
+html.ui-bg-slate {
+  --bg-deep: #111318;
+  --bg-panel: #181b22;
+  --bg-card: #21252f;
+  --bg-card-hover: #292e3b;
+  --bg-inset: #14171d;
+  --border-subtle: rgba(203, 213, 225, 0.14);
+  --border-strong: rgba(203, 213, 225, 0.24);
+}
+
+html.ui-bg-slate,
+html.ui-bg-slate body {
+  background-color: #111318;
+}
+
+html.ui-bg-slate .list-instruction-bar {
+  background-color: rgba(33, 37, 47, 0.90);
+}
+
+html.ui-bg-slate .fullscreen-osd {
+  background-color: rgba(17, 19, 24, 0.92);
+}
+
+html.ui-bg-slate .channel-number-jump {
+  background-color: rgba(24, 27, 34, 0.97);
+}
+
+html.ui-bg-slate.ui-osd-minimal .osd-card {
+  background-color: rgba(24, 27, 34, 0.95);
+}
+
+html.ui-bg-deepblue {
+  --bg-deep: #050c1f;
+  --bg-panel: #0a1632;
+  --bg-card: #102044;
+  --bg-card-hover: #162b59;
+  --bg-inset: #071026;
+  --border-subtle: rgba(125, 211, 252, 0.16);
+  --border-strong: rgba(125, 211, 252, 0.28);
+}
+
+html.ui-bg-deepblue,
+html.ui-bg-deepblue body {
+  background-color: #050c1f;
+}
+
+html.ui-bg-deepblue .list-instruction-bar {
+  background-color: rgba(16, 32, 68, 0.88);
+}
+
+html.ui-bg-deepblue .fullscreen-osd {
+  background-color: rgba(5, 12, 31, 0.92);
+}
+
+html.ui-bg-deepblue .channel-number-jump {
+  background-color: rgba(10, 22, 50, 0.97);
+}
+
+html.ui-bg-deepblue.ui-osd-minimal .osd-card {
+  background-color: rgba(10, 22, 50, 0.95);
+}
+
+/* OSD Card Opacity Presets */
+html.ui-osd-op-solid .osd-card,
+html.ui-osd-op-solid.ui-osd-minimal .osd-card {
+  background-color: rgba(8, 12, 22, 0.98);
+}
+
+html.ui-osd-op-balanced .osd-card,
+html.ui-osd-op-balanced.ui-osd-minimal .osd-card {
+  background-color: rgba(8, 12, 22, 0.90);
+}
+
+html.ui-osd-op-light .osd-card,
+html.ui-osd-op-light.ui-osd-minimal .osd-card {
+  background-color: rgba(8, 12, 22, 0.72);
+}
+
+html.ui-osd-op-solid:not(.ui-osd-minimal) .fullscreen-osd {
+  background-color: rgba(6, 9, 18, 0.96);
+}
+
+html.ui-osd-op-balanced:not(.ui-osd-minimal) .fullscreen-osd {
+  background-color: rgba(6, 9, 18, 0.86);
+}
+
+html.ui-osd-op-light:not(.ui-osd-minimal) .fullscreen-osd {
+  background-color: rgba(6, 9, 18, 0.56);
+}
+
+/* Granular Visibility Toggles */
+html.ui-hide-clock #clock,
+html.ui-hide-clock #osd-clock {
+  display: none !important;
+}
+
+html.ui-hide-synopsis #preview-epg-desc,
+html.ui-hide-synopsis #osd-epg-desc {
+  display: none !important;
+}
+
+html.ui-hide-prev-next .epg-prev-next-bar,
+html.ui-hide-prev-next .osd-schedule-grid {
+  display: none !important;
+}
+
+html.ui-hide-ch-num .channel-number,
+html.ui-hide-ch-num .details-ch-num,
+html.ui-hide-ch-num .osd-channel-num {
+  display: none !important;
+}
+
+/* Video Aspect Ratio & Crisp Picture Rendering */
+html.video-aspect-contain #tv-video,
+html.video-aspect-contain .video-surface.preview-mode #tv-video {
+  object-fit: contain;
+  transform: none;
+}
+
+html.video-aspect-cover #tv-video,
+html.video-aspect-cover .video-surface.preview-mode #tv-video {
+  object-fit: cover;
+  transform: none;
+}
+
+html.video-aspect-fill #tv-video,
+html.video-aspect-fill .video-surface.preview-mode #tv-video {
+  object-fit: fill;
+  transform: none;
+}
+
+html.video-aspect-zoom #tv-video,
+html.video-aspect-zoom .video-surface.preview-mode #tv-video {
+  object-fit: cover;
+  transform: scale(1.12);
+  transform-origin: center center;
+}
+
+html.video-crisp #tv-video {
+  image-rendering: -webkit-optimize-contrast;
+}
+
+/* ==========================================================================
+   Shared UI Contract: Lightness, Focus Styles & Animations
+   ========================================================================== */
+
 html.ui-fx-light .channel-item,
-html.ui-fx-light .channel-item.focused,
 html.ui-fx-light .channel-list-panel,
 html.ui-fx-light .channel-details-card,
 html.ui-fx-light .preview-epg-box,
@@ -3527,38 +4039,159 @@ html.ui-fx-light .channel-details-card,
 html.ui-fx-light .preview-epg-box,
 html.ui-fx-light .perf-section-card,
 html.ui-fx-light .ui-pref-card {
-  border-color: rgba(148, 163, 184, 0.14);
+  border-color: var(--border-subtle);
 }
 
-html.ui-fx-flat *,
-html.ui-fx-flat *::before,
-html.ui-fx-flat *::after {
+/* Focus Styles: Glow (Soft Halo) / Border (Crisp 3px Outline) / Solid (Full Accent Fill) */
+html.ui-focus-glow:not(.ui-fx-flat) .channel-item.focused,
+html.ui-focus-glow:not(.ui-fx-flat) .program-strip-item.focused,
+html.ui-focus-glow:not(.ui-fx-flat) .program-strip-item:hover,
+html.ui-focus-glow:not(.ui-fx-flat) .guide-prog-item.focused,
+html.ui-focus-glow:not(.ui-fx-flat) .guide-prog-item:hover,
+html.ui-focus-glow:not(.ui-fx-flat) .top-nav-btn.focused,
+html.ui-focus-glow:not(.ui-fx-flat) .top-nav-btn:hover,
+html.ui-focus-glow:not(.ui-fx-flat) .btn-card-guide.focused,
+html.ui-focus-glow:not(.ui-fx-flat) .btn-card-guide:hover,
+html.ui-focus-glow:not(.ui-fx-flat) .guide-day-tab.focused,
+html.ui-focus-glow:not(.ui-fx-flat) .guide-day-tab:hover,
+html.ui-focus-glow:not(.ui-fx-flat) .settings-tab-btn.focused,
+html.ui-focus-glow:not(.ui-fx-flat) .settings-tab-btn:hover,
+html.ui-focus-glow:not(.ui-fx-flat) .source-item-btn.focused,
+html.ui-focus-glow:not(.ui-fx-flat) .source-item-btn:hover,
+html.ui-focus-glow:not(.ui-fx-flat) .btn-tv-secondary.focused,
+html.ui-focus-glow:not(.ui-fx-flat) .btn-tv-secondary:hover,
+html.ui-focus-glow:not(.ui-fx-flat) .editor-btn.focused,
+html.ui-focus-glow:not(.ui-fx-flat) .editor-btn:hover,
+html.ui-focus-glow:not(.ui-fx-flat) .perf-option-btn.focused,
+html.ui-focus-glow:not(.ui-fx-flat) .perf-option-btn:hover,
+html.ui-focus-glow:not(.ui-fx-flat) .kb-key.focused,
+html.ui-focus-glow:not(.ui-fx-flat) .kb-key:hover {
+  background-color: var(--accent-surface-strong);
+  border-color: var(--primary-bright);
+  color: #ffffff;
+  box-shadow: 0 0 0 2px var(--accent-ring), 0 0 14px var(--accent-ring) !important;
+}
+
+html.ui-focus-glow:not(.ui-fx-flat) .btn-tv-primary.focused,
+html.ui-focus-glow:not(.ui-fx-flat) .btn-tv-primary:hover {
+  background-color: var(--primary-accent);
+  border-color: #ffffff;
+  color: #ffffff;
+  box-shadow: 0 0 0 2px var(--accent-ring), 0 0 14px var(--accent-ring) !important;
+}
+
+html.ui-focus-glow:not(.ui-fx-flat) .channel-item.active.focused {
+  border-color: #fde68a;
+  box-shadow: 0 0 0 2px rgba(253, 230, 138, 0.48), 0 0 14px rgba(245, 158, 11, 0.30) !important;
+}
+
+html.ui-focus-glow:not(.ui-fx-flat) .modal-close-btn.focused,
+html.ui-focus-glow:not(.ui-fx-flat) .modal-close-btn:hover,
+html.ui-focus-glow:not(.ui-fx-flat) .osd-exit-btn.focused,
+html.ui-focus-glow:not(.ui-fx-flat) .osd-exit-btn:hover {
+  background-color: var(--danger-color);
+  border-color: #ffffff;
+  color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(251, 113, 133, 0.48), 0 0 14px rgba(225, 29, 72, 0.34) !important;
+}
+
+html.ui-focus-border:not(.ui-fx-flat) .channel-item.focused,
+html.ui-focus-border:not(.ui-fx-flat) .program-strip-item.focused,
+html.ui-focus-border:not(.ui-fx-flat) .program-strip-item:hover,
+html.ui-focus-border:not(.ui-fx-flat) .guide-prog-item.focused,
+html.ui-focus-border:not(.ui-fx-flat) .guide-prog-item:hover,
+html.ui-focus-border:not(.ui-fx-flat) .top-nav-btn.focused,
+html.ui-focus-border:not(.ui-fx-flat) .top-nav-btn:hover,
+html.ui-focus-border:not(.ui-fx-flat) .btn-card-guide.focused,
+html.ui-focus-border:not(.ui-fx-flat) .btn-card-guide:hover,
+html.ui-focus-border:not(.ui-fx-flat) .guide-day-tab.focused,
+html.ui-focus-border:not(.ui-fx-flat) .guide-day-tab:hover,
+html.ui-focus-border:not(.ui-fx-flat) .settings-tab-btn.focused,
+html.ui-focus-border:not(.ui-fx-flat) .settings-tab-btn:hover,
+html.ui-focus-border:not(.ui-fx-flat) .source-item-btn.focused,
+html.ui-focus-border:not(.ui-fx-flat) .source-item-btn:hover,
+html.ui-focus-border:not(.ui-fx-flat) .btn-tv-primary.focused,
+html.ui-focus-border:not(.ui-fx-flat) .btn-tv-primary:hover,
+html.ui-focus-border:not(.ui-fx-flat) .btn-tv-secondary.focused,
+html.ui-focus-border:not(.ui-fx-flat) .btn-tv-secondary:hover,
+html.ui-focus-border:not(.ui-fx-flat) .editor-btn.focused,
+html.ui-focus-border:not(.ui-fx-flat) .editor-btn:hover,
+html.ui-focus-border:not(.ui-fx-flat) .perf-option-btn.focused,
+html.ui-focus-border:not(.ui-fx-flat) .perf-option-btn:hover,
+html.ui-focus-border:not(.ui-fx-flat) .kb-key.focused,
+html.ui-focus-border:not(.ui-fx-flat) .kb-key:hover {
+  background-color: var(--bg-card-hover);
+  border-color: #ffffff;
+  color: #ffffff;
+  box-shadow: inset 0 0 0 2px var(--primary-bright) !important;
+}
+
+html.ui-focus-border:not(.ui-fx-flat) .channel-item.active.focused {
+  background-color: var(--bg-card-hover);
+  border-color: #fde68a;
+  box-shadow: inset 0 0 0 2px #f59e0b !important;
+}
+
+html.ui-focus-border:not(.ui-fx-flat) .modal-close-btn.focused,
+html.ui-focus-border:not(.ui-fx-flat) .modal-close-btn:hover,
+html.ui-focus-border:not(.ui-fx-flat) .osd-exit-btn.focused,
+html.ui-focus-border:not(.ui-fx-flat) .osd-exit-btn:hover {
+  background-color: rgba(225, 29, 72, 0.24);
+  border-color: #ffffff;
+  color: #ffffff;
+  box-shadow: inset 0 0 0 2px #fb7185 !important;
+}
+
+html.ui-focus-solid .channel-item.focused,
+html.ui-focus-solid .program-strip-item.focused,
+html.ui-focus-solid .program-strip-item:hover,
+html.ui-focus-solid .guide-prog-item.focused,
+html.ui-focus-solid .guide-prog-item:hover,
+html.ui-focus-solid .top-nav-btn.focused,
+html.ui-focus-solid .top-nav-btn:hover,
+html.ui-focus-solid .btn-card-guide.focused,
+html.ui-focus-solid .btn-card-guide:hover,
+html.ui-focus-solid .guide-day-tab.focused,
+html.ui-focus-solid .guide-day-tab:hover,
+html.ui-focus-solid .settings-tab-btn.focused,
+html.ui-focus-solid .settings-tab-btn:hover,
+html.ui-focus-solid .source-item-btn.focused,
+html.ui-focus-solid .source-item-btn:hover,
+html.ui-focus-solid .btn-tv-primary.focused,
+html.ui-focus-solid .btn-tv-primary:hover,
+html.ui-focus-solid .btn-tv-secondary.focused,
+html.ui-focus-solid .btn-tv-secondary:hover,
+html.ui-focus-solid .editor-btn.focused,
+html.ui-focus-solid .editor-btn:hover,
+html.ui-focus-solid .perf-option-btn.focused,
+html.ui-focus-solid .perf-option-btn:hover,
+html.ui-focus-solid .kb-key.focused,
+html.ui-focus-solid .kb-key:hover {
+  background-color: var(--primary-accent);
+  border-color: #ffffff;
+  color: #ffffff;
   box-shadow: none !important;
-  background-image: none !important;
 }
 
-html.ui-fx-flat .channel-mini-progress-fill,
-html.ui-fx-flat .epg-progress-fill {
-  background-color: var(--primary-bright) !important;
+html.ui-focus-solid .channel-item.active.focused {
+  background-color: var(--primary-accent);
+  border-color: #fde68a;
+  box-shadow: none !important;
 }
 
-html.ui-fx-flat .channel-mini-progress-fill.ending-soon,
-html.ui-fx-flat .epg-progress-fill.ending-soon {
-  background-color: #f59e0b !important;
-}
-
-html.ui-fx-flat .channel-list-panel,
-html.ui-fx-flat .channel-details-card,
-html.ui-fx-flat .preview-epg-box,
-html.ui-fx-flat .osd-card,
-html.ui-fx-flat .modal-card,
-html.ui-fx-flat .perf-section-card,
-html.ui-fx-flat .ui-pref-card {
-  border-width: 1px !important;
+html.ui-focus-solid .modal-close-btn.focused,
+html.ui-focus-solid .modal-close-btn:hover,
+html.ui-focus-solid .osd-exit-btn.focused,
+html.ui-focus-solid .osd-exit-btn:hover {
+  background-color: var(--danger-color);
+  border-color: #ffffff;
+  color: #ffffff;
+  box-shadow: none !important;
 }
 
 /* ==========================================================================
    60fps Hardware Performance Engine for LG webOS & Android TV (Classic Theme)
+   Zero box-shadow blur on .channel-item, zero idle animations, zero forced layout
    ========================================================================== */
 
 .tv-platform #channel-list .channel-item {
@@ -3635,7 +4268,33 @@ html.tv-platform.ui-hide-list-hints #channel-list .channel-ok-pill {
   box-shadow: none !important;
 }
 
-.tv-platform .fullscreen-osd,
+/* Zero box-shadow blur on .tv-platform focused items (0px blur spread rings only) */
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .channel-item.focused,
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .program-strip-item.focused,
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .guide-prog-item.focused,
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .top-nav-btn.focused,
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .btn-card-guide.focused,
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .guide-day-tab.focused,
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .settings-tab-btn.focused,
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .source-item-btn.focused,
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .btn-tv-primary.focused,
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .btn-tv-secondary.focused,
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .editor-btn.focused,
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .perf-option-btn.focused,
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .kb-key.focused {
+  box-shadow: 0 0 0 2px var(--accent-ring) !important;
+}
+
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .channel-item.active.focused {
+  box-shadow: 0 0 0 2px rgba(253, 230, 138, 0.48) !important;
+}
+
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .modal-close-btn.focused,
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .osd-exit-btn.focused {
+  box-shadow: 0 0 0 2px rgba(251, 113, 133, 0.48) !important;
+}
+
+html.tv-platform .fullscreen-osd,
 .tv-platform .osd-overlay,
 .tv-platform .boot-splash {
   transition: opacity 0.14s ease-out !important;
@@ -3661,8 +4320,58 @@ html.tv-platform.ui-hide-list-hints #channel-list .channel-ok-pill {
 .tv-platform .osd-live-tag,
 .tv-platform .splash-logo,
 .tv-platform .boot-logo,
-.tv-platform .splash-bar-fill {
+.tv-platform .splash-bar-fill,
+.tv-platform .surf-dot,
+.tv-platform .color-badge,
+.tv-platform .stream-stats-badge {
   animation: none !important;
+}
+
+/* Global Flat FX Override (Desktop + TV) */
+html.ui-fx-flat *,
+html.ui-fx-flat *::before,
+html.ui-fx-flat *::after {
+  box-shadow: none !important;
+  background-image: none !important;
+}
+
+html.ui-fx-flat .channel-mini-progress-fill,
+html.ui-fx-flat .epg-progress-fill {
+  background-color: var(--primary-bright) !important;
+}
+
+html.ui-fx-flat .channel-mini-progress-fill.ending-soon,
+html.ui-fx-flat .epg-progress-fill.ending-soon {
+  background-color: #f59e0b !important;
+}
+
+html.ui-fx-flat .channel-list-panel,
+html.ui-fx-flat .channel-details-card,
+html.ui-fx-flat .preview-epg-box,
+html.ui-fx-flat .osd-card,
+html.ui-fx-flat .modal-card,
+html.ui-fx-flat .perf-section-card,
+html.ui-fx-flat .ui-pref-card {
+  border-width: 1px !important;
+}
+
+html.ui-fx-flat.ui-focus-border .channel-item.focused,
+html.ui-fx-flat.ui-focus-border .program-strip-item.focused,
+html.ui-fx-flat.ui-focus-border .guide-prog-item.focused,
+html.ui-fx-flat.ui-focus-border .top-nav-btn.focused,
+html.ui-fx-flat.ui-focus-border .btn-card-guide.focused,
+html.ui-fx-flat.ui-focus-border .guide-day-tab.focused,
+html.ui-fx-flat.ui-focus-border .settings-tab-btn.focused,
+html.ui-fx-flat.ui-focus-border .source-item-btn.focused,
+html.ui-fx-flat.ui-focus-border .btn-tv-primary.focused,
+html.ui-fx-flat.ui-focus-border .btn-tv-secondary.focused,
+html.ui-fx-flat.ui-focus-border .editor-btn.focused,
+html.ui-fx-flat.ui-focus-border .perf-option-btn.focused,
+html.ui-fx-flat.ui-focus-border .kb-key.focused {
+  background-color: var(--bg-card-hover);
+  border-color: #ffffff;
+  outline: 3px solid var(--primary-bright);
+  outline-offset: -3px;
 }
 
 /* Reduced / Off Animation Rules (override desktop & TV transitions cleanly) */
