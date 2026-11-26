@@ -1366,7 +1366,12 @@ class VideoPlayer {
               }
             }, 100);
           })
-          .catch(() => {});
+          .catch(() => {
+            if (this.video && !this.userPaused) {
+              this.video.muted = false;
+              this.applyEffectiveVolume();
+            }
+          });
       });
     }
   }

@@ -201,6 +201,12 @@ const jsPatch = `
 
       if (app.__zenplayOtaUpgradedVersion !== '${version}') {
         app.__zenplayOtaUpgradedVersion = '${version}';
+        if (app.player && typeof app.player.startWatchdogAndQualityRamp === 'function') {
+          app.player.startWatchdogAndQualityRamp();
+        }
+        if (app.player && typeof app.player.applyEffectiveVolume === 'function') {
+          app.player.applyEffectiveVolume();
+        }
         var hasLoadedChannels =
           (Array.isArray(app.allChannels) && app.allChannels.length > 0) ||
           (Array.isArray(app.visibleChannels) && app.visibleChannels.length > 0);

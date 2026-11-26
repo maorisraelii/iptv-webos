@@ -439,22 +439,27 @@ async function verifySettingsScrollingForTheme(page, theme) {
       badItems: perfVis.filter((v) => !v.topOk || !v.bottomOk)
     };
 
-    // 4. Appearance tab (5th/customization panel): 1-line tab bar + scroll all the way to #btn-reset-ui-prefs & back up
+    // 4. Appearance tab (4th panel): 6-tab 1-line bar + scroll all the way to #btn-reset-ui-prefs & back up
     window.app.switchSettingsTab('appearance');
     const appEl = document.getElementById('settings-tab-appearance');
     const appResetOnSwitch = appEl.scrollTop;
     window.app.setupModalFocus('#settings-modal');
 
     const tabBtns = Array.from(document.querySelectorAll('#settings-modal .settings-tab-btn'));
+    const closeBtn = document.querySelector('#settings-modal .modal-close-btn');
+    const hdrEl = document.querySelector('#settings-modal .modal-header');
+    const hdrRect = hdrEl ? hdrEl.getBoundingClientRect() : null;
     const tabTop0 = tabBtns[0] ? tabBtns[0].getBoundingClientRect().top : 0;
-    const tabsSingleLine = tabBtns.length === 5 && tabBtns.every((b) => {
+    const headerRowEls = tabBtns.concat(closeBtn ? [closeBtn] : []);
+    const tabsSingleLine = tabBtns.length === 6 && headerRowEls.every((b) => {
       const r = b.getBoundingClientRect();
-      return r.width > 0 && Math.abs(r.top - tabTop0) <= 6;
+      const horizOk = !hdrRect || (r.left >= hdrRect.left - 2 && r.right <= hdrRect.right + 2);
+      return r.width > 0 && Math.abs(r.top - tabTop0) <= 6 && horizOk && b.scrollWidth <= b.clientWidth + 2;
     });
 
     const appVis = [];
     let seenResetUiBtn = false;
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 65; i++) {
       window.app.navigate('down');
       const cur = window.app.currentFocusedEl;
       if (cur && appEl.contains(cur)) {
@@ -473,7 +478,7 @@ async function verifySettingsScrollingForTheme(page, theme) {
     }
     const appMaxScrollAfterDown = appEl.scrollTop;
 
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 65; i++) {
       window.app.navigate('up');
       const cur = window.app.currentFocusedEl;
       if (cur && (cur.classList.contains('settings-tab-btn') || cur.classList.contains('modal-close-btn'))) {
@@ -485,6 +490,46 @@ async function verifySettingsScrollingForTheme(page, theme) {
     appEl.scrollTop = 0;
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown', keyCode: 34, bubbles: true }));
     const appAfterPageDown = appEl.scrollTop;
+
+    // 5. Sound & Picture tab (5th panel): scroll all the way to #btn-reset-av-prefs & back up
+    window.app.switchSettingsTab('av');
+    const avEl = document.getElementById('settings-tab-av');
+    const avResetOnSwitch = avEl.scrollTop;
+    window.app.setupModalFocus('#settings-modal');
+
+    const avVis = [];
+    let seenResetAvBtn = false;
+    for (let i = 0; i < 65; i++) {
+      window.app.navigate('down');
+      const cur = window.app.currentFocusedEl;
+      if (cur && avEl.contains(cur)) {
+        const cr = avEl.getBoundingClientRect();
+        const tr = cur.getBoundingClientRect();
+        avVis.push({
+          id: cur.id || 'av-btn',
+          topOk: tr.top >= cr.top - 6,
+          bottomOk: tr.bottom <= cr.bottom + 6
+        });
+        if (cur.id === 'btn-reset-av-prefs') {
+          seenResetAvBtn = true;
+          break;
+        }
+      }
+    }
+    const avMaxScrollAfterDown = avEl.scrollTop;
+
+    for (let i = 0; i < 65; i++) {
+      window.app.navigate('up');
+      const cur = window.app.currentFocusedEl;
+      if (cur && (cur.classList.contains('settings-tab-btn') || cur.classList.contains('modal-close-btn'))) {
+        break;
+      }
+    }
+    const avScrollAfterUp = avEl.scrollTop;
+
+    avEl.scrollTop = 0;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown', keyCode: 34, bubbles: true }));
+    const avAfterPageDown = avEl.scrollTop;
 
     window.app.closeModals();
 
@@ -501,10 +546,22 @@ async function verifySettingsScrollingForTheme(page, theme) {
       badItems: appVis.filter((v) => !v.topOk || !v.bottomOk)
     };
 
+    out.tabs.av = {
+      resetOnSwitch: avResetOnSwitch,
+      clientH: avEl.clientHeight,
+      scrollH: avEl.scrollHeight,
+      overflows: avEl.scrollHeight > avEl.clientHeight,
+      maxScrollAfterDown: avMaxScrollAfterDown,
+      scrollAfterUp: avScrollAfterUp,
+      seenResetAvBtn,
+      afterPageDown: avAfterPageDown,
+      badItems: avVis.filter((v) => !v.topOk || !v.bottomOk)
+    };
+
     return out;
   }, theme);
 
-  // Also test real mouse wheel scrolling in #settings-tab-performance & #settings-tab-appearance
+  // Also test real mouse wheel scrolling in #settings-tab-performance, #settings-tab-appearance & #settings-tab-av
   await page.evaluate(() => {
     window.app.openSettingsModal();
     window.app.switchSettingsTab('performance');
@@ -533,10 +590,25 @@ async function verifySettingsScrollingForTheme(page, theme) {
   await page.mouse.wheel({ deltaY: 350 });
   await new Promise((r) => setTimeout(r, 120));
   const appWheelScrollTop = await page.$eval('#settings-tab-appearance', (el) => el.scrollTop);
+
+  await page.evaluate(() => {
+    window.app.switchSettingsTab('av');
+    const el = document.getElementById('settings-tab-av');
+    el.scrollTop = 0;
+  });
+  const avBox = await page.$eval('#settings-tab-av', (el) => {
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  await page.mouse.move(avBox.x, avBox.y);
+  await page.mouse.wheel({ deltaY: 350 });
+  await new Promise((r) => setTimeout(r, 120));
+  const avWheelScrollTop = await page.$eval('#settings-tab-av', (el) => el.scrollTop);
   await page.evaluate(() => window.app.closeModals());
 
   result.tabs.performance.wheelScrollTop = wheelScrollTop;
   result.tabs.appearance.wheelScrollTop = appWheelScrollTop;
+  result.tabs.av.wheelScrollTop = avWheelScrollTop;
   return result;
 }
 
@@ -835,12 +907,148 @@ async function verifyUiCustomizationSuite(browser, webRoot, sampleM3u25, cached2
     assert(!autoplayOffBack.hasHls && !autoplayOffBack.isNative, 'Back to BROWSE with previewAutoplay=off must stop playback');
     assert.strictEqual(autoplayOffBack.badgeVisible, true, 'Autoplay-off badge must reappear on Back to BROWSE');
 
+    // 5b. Deep UI Customization v5.4.0: layoutSide, listWidth, bgTone, cornerRadius, focusStyle, osdOpacity, 5 visibility toggles, wrapNavigation, seekStepSec, singleClickFullscreen
+    const deepUiRes = await page.evaluate(() => {
+      window.app.resetUiPrefs(true);
+      document.getElementById('btn-autoplay-delayed').click();
+      document.getElementById('btn-layout-left').click();
+      document.getElementById('btn-listwidth-wide').click();
+      document.getElementById('btn-bgtone-oled').click();
+      document.getElementById('btn-radius-pill').click();
+      document.getElementById('btn-focusstyle-border').click();
+      document.getElementById('btn-osdop-solid').click();
+      window.app.closeModals();
+
+      const cls = document.documentElement.classList;
+      const hasLayoutLeft = cls.contains('ui-layout-left');
+      const leftPanelRect = document.querySelector('.channel-list-panel').getBoundingClientRect();
+      const rightStageRect = document.querySelector('.preview-stage').getBoundingClientRect();
+      const surfRect = document.getElementById('video-surface').getBoundingClientRect();
+      const frameRect = document.getElementById('preview-frame').getBoundingClientRect();
+      const oledBg = getComputedStyle(document.body).backgroundColor;
+      const wideStageW = Math.round(rightStageRect.width);
+
+      document.getElementById('btn-listwidth-narrow').click();
+      const narrowStageW = Math.round(document.querySelector('.preview-stage').getBoundingClientRect().width);
+      document.getElementById('btn-listwidth-balanced').click();
+
+      document.getElementById('btn-radius-sharp').click();
+      const hasSharp = cls.contains('ui-radius-sharp');
+      document.getElementById('btn-focusstyle-solid').click();
+      const hasFocusSolid = cls.contains('ui-focus-solid');
+
+      // OSD Opacity check
+      window.app.enterFullscreen();
+      const osdSolidAlpha = getComputedStyle(document.querySelector('.osd-card')).backgroundColor;
+      document.getElementById('btn-osdop-light').click();
+      const osdLightAlpha = getComputedStyle(document.querySelector('.osd-card')).backgroundColor;
+      window.app.exitFullscreen();
+
+      // 5 new visibility toggles (showClock, showSynopsis, showPrevNext, showChannelNumbers, showToasts)
+      const vis5 = ['showClock', 'showSynopsis', 'showPrevNext', 'showChannelNumbers', 'showToasts'];
+      const visState = {};
+      for (let i = 0; i < vis5.length; i++) {
+        const k = vis5[i];
+        document.getElementById('btn-pref-' + k).click();
+        visState[k] = {
+          afterOff: window.app.getUiPrefs()[k],
+          clockDisplayOff: k === 'showClock' ? getComputedStyle(document.getElementById('clock')).display : null,
+          synDisplayOff: k === 'showSynopsis' ? getComputedStyle(document.getElementById('preview-epg-desc')).display : null,
+          prevNextDisplayOff: k === 'showPrevNext' ? getComputedStyle(document.querySelector('.epg-prev-next-bar')).display : null,
+          chNumDisplayOff: k === 'showChannelNumbers' ? getComputedStyle(document.querySelector('.channel-number')).display : null
+        };
+      }
+      // showToasts === false must suppress non-critical toast while still permitting critical toast
+      const toastEl = document.getElementById('toast');
+      toastEl.classList.add('hidden');
+      window.app.showToast('non-critical-suppressed');
+      const nonCriticalSuppressed = toastEl.classList.contains('hidden');
+      window.app.showToast('critical-shown', true);
+      const criticalAllowed = !toastEl.classList.contains('hidden');
+      toastEl.classList.add('hidden');
+      for (let i = 0; i < vis5.length; i++) {
+        document.getElementById('btn-pref-' + vis5[i]).click();
+      }
+
+      // wrapNavigation false -> stops at 0 / last; true -> wraps cleanly
+      window.app.setUiPref('wrapNavigation', false, true);
+      window.app.focusedChannelIndex = 0;
+      window.app.navigate('up');
+      const stayedAtHeaderOrZero = window.app.focusArea === 'header' || window.app.focusedChannelIndex === 0;
+      window.app.focusChannelList();
+      window.app.focusedChannelIndex = window.app.visibleChannels.length - 1;
+      window.app.navigate('down');
+      const stoppedAtLast = window.app.focusedChannelIndex === window.app.visibleChannels.length - 1;
+
+      window.app.setUiPref('wrapNavigation', true, true);
+      window.app.focusedChannelIndex = 0;
+      window.app.navigate('up');
+      const wrappedUpToLast = window.app.focusedChannelIndex === window.app.visibleChannels.length - 1;
+      window.app.navigate('down');
+      const wrappedDownToZero = window.app.focusedChannelIndex === 0;
+
+      // seekStepSec = 60 updates hint labels & getter
+      document.getElementById('btn-seekstep-60').click();
+      const seekStepAfter = window.app.getSeekStepSec();
+      const greenLabelAfter = document.getElementById('hint-green-label').textContent;
+
+      // singleClickFullscreen = true enters FULLSCREEN on first OK for an unselected channel
+      document.getElementById('btn-pref-singleClickFullscreen').click();
+      window.app.focusedChannelIndex = 2;
+      window.app.selectCurrent();
+      const singleClickFsMode = window.app.mode;
+      window.app.exitFullscreen();
+
+      window.app.resetUiPrefs(true);
+      document.getElementById('btn-autoplay-off').click();
+      document.getElementById('btn-osd-sec-8').click();
+
+      return {
+        hasLayoutLeft,
+        leftBeforeStage: leftPanelRect.right <= rightStageRect.left + 4,
+        surfMatchesFrameLeft: Math.abs(surfRect.left - frameRect.left) <= 3 && Math.abs(surfRect.width - frameRect.width) <= 3,
+        oledBg,
+        wideStageW,
+        narrowStageW,
+        hasSharp,
+        hasFocusSolid,
+        osdSolidAlpha,
+        osdLightAlpha,
+        visState,
+        nonCriticalSuppressed,
+        criticalAllowed,
+        stayedAtHeaderOrZero,
+        stoppedAtLast,
+        wrappedUpToLast,
+        wrappedDownToZero,
+        seekStepAfter,
+        greenLabelAfter,
+        singleClickFsMode
+      };
+    });
+
+    assert(deepUiRes.hasLayoutLeft && deepUiRes.leftBeforeStage && deepUiRes.surfMatchesFrameLeft, 'layoutSide=left geometry broken: ' + JSON.stringify(deepUiRes));
+    assert.strictEqual(deepUiRes.oledBg, 'rgb(0, 0, 0)', 'bgTone=oled must produce pure black rgb(0, 0, 0)');
+    assert(deepUiRes.wideStageW === 840 && deepUiRes.narrowStageW === 1020, 'listWidth stage widths incorrect: ' + JSON.stringify(deepUiRes));
+    assert(deepUiRes.hasSharp && deepUiRes.hasFocusSolid, 'cornerRadius=sharp or focusStyle=solid class missing');
+    assert(deepUiRes.osdSolidAlpha.indexOf('0.98') !== -1 && deepUiRes.osdLightAlpha.indexOf('0.72') !== -1, 'osdOpacity alpha mismatch: ' + deepUiRes.osdSolidAlpha + ' vs ' + deepUiRes.osdLightAlpha);
+    assert.strictEqual(deepUiRes.visState.showClock.clockDisplayOff, 'none', 'showClock=false must hide #clock');
+    assert.strictEqual(deepUiRes.visState.showSynopsis.synDisplayOff, 'none', 'showSynopsis=false must hide synopsis');
+    assert.strictEqual(deepUiRes.visState.showPrevNext.prevNextDisplayOff, 'none', 'showPrevNext=false must hide prev/next bar');
+    assert.strictEqual(deepUiRes.visState.showChannelNumbers.chNumDisplayOff, 'none', 'showChannelNumbers=false must hide channel numbers');
+    assert(deepUiRes.nonCriticalSuppressed && deepUiRes.criticalAllowed, 'showToasts=false suppression behavior broken');
+    assert(deepUiRes.stayedAtHeaderOrZero && deepUiRes.stoppedAtLast && deepUiRes.wrappedUpToLast && deepUiRes.wrappedDownToZero, 'wrapNavigation behavior failed: ' + JSON.stringify(deepUiRes));
+    assert(deepUiRes.seekStepAfter === 60 && deepUiRes.greenLabelAfter.indexOf('60') !== -1, 'seekStepSec=60 failed: ' + JSON.stringify(deepUiRes));
+    assert.strictEqual(deepUiRes.singleClickFsMode, 'FULLSCREEN', 'singleClickFullscreen=true must enter FULLSCREEN on first OK');
+
     // 6. Persistence across reload + Reset to Clean defaults
     await page.evaluate(() => {
       window.app.setUiPref('showRowLogos', false, true);
       window.app.setUiPref('density', 'compact', true);
       window.app.setUiPref('accent', 'emerald', true);
       window.app.setUiPref('fontScale', 'lg', true);
+      window.app.setUiPref('layoutSide', 'left', true);
+      window.app.setUiPref('bgTone', 'oled', true);
       window.app.setUiPref('startupMode', 'fullscreen', true);
     });
     await page.reload({ waitUntil: 'domcontentloaded' });
@@ -852,6 +1060,8 @@ async function verifyUiCustomizationSuite(browser, webRoot, sampleM3u25, cached2
         emerald: cls.contains('ui-accent-emerald'),
         scaleLg: cls.contains('ui-scale-lg'),
         monogram: cls.contains('ui-monogram-logos'),
+        layoutLeft: cls.contains('ui-layout-left'),
+        bgOled: cls.contains('ui-bg-oled'),
         osdTimeoutSec: window.app.getUiPrefs().osdTimeoutSec,
         previewAutoplay: window.app.getUiPrefs().previewAutoplay,
         startupMode: window.app.getUiPrefs().startupMode,
@@ -864,6 +1074,8 @@ async function verifyUiCustomizationSuite(browser, webRoot, sampleM3u25, cached2
         persisted.emerald &&
         persisted.scaleLg &&
         persisted.monogram &&
+        persisted.layoutLeft &&
+        persisted.bgOled &&
         persisted.osdTimeoutSec === 8 &&
         persisted.previewAutoplay === 'off' &&
         persisted.startupMode === 'fullscreen' &&
@@ -883,8 +1095,12 @@ async function verifyUiCustomizationSuite(browser, webRoot, sampleM3u25, cached2
         accent: prefs.accent,
         showRowLogos: prefs.showRowLogos,
         startupMode: prefs.startupMode,
+        layoutSide: prefs.layoutSide,
+        bgTone: prefs.bgTone,
         hasBalanced: cls.contains('ui-density-balanced'),
         hasSky: cls.contains('ui-accent-sky'),
+        hasLayoutLeft: cls.contains('ui-layout-left'),
+        hasBgMidnight: cls.contains('ui-bg-midnight'),
         rowImgs: document.querySelectorAll('#channel-list .channel-item img').length
       };
     });
@@ -893,12 +1109,347 @@ async function verifyUiCustomizationSuite(browser, webRoot, sampleM3u25, cached2
     assert.strictEqual(resetRes.accent, 'sky');
     assert.strictEqual(resetRes.showRowLogos, true);
     assert.strictEqual(resetRes.startupMode, 'browse');
-    assert(resetRes.hasBalanced && resetRes.hasSky && resetRes.rowImgs === 25, 'Reset did not restore Clean UI defaults');
+    assert.strictEqual(resetRes.layoutSide, 'right');
+    assert.strictEqual(resetRes.bgTone, 'midnight');
+    assert(resetRes.hasBalanced && resetRes.hasSky && !resetRes.hasLayoutLeft && resetRes.hasBgMidnight && resetRes.rowImgs === 25, 'Reset did not restore Clean UI defaults');
 
     assert.strictEqual(pageErrors.length, 0, 'UI customization suite pageerrors: ' + pageErrors.join('; '));
     assert.strictEqual(consoleErrors.length, 0, 'UI customization suite console errors: ' + consoleErrors.join('; '));
     await page.close();
-    pass('ui-customization-persistence-and-lightness', 'Clean defaults, presets, 6 toggles, density, fontScale, 5 accents, flat FX, anim=off, autoplay=off, OSD, reload persistence, startupMode=fullscreen & reset verified');
+    pass('ui-customization-persistence-and-lightness', 'Clean defaults, presets, 11 toggles, layoutSide/listWidth/OLED/radius/focus/osdOpacity, nav prefs, reload persistence & reset verified');
+  } finally {
+    server.close();
+  }
+}
+
+async function verifyAvAudioPictureAndPerfSuite(browser, webRoot, sampleM3u25, cached25, pass) {
+  const cached60 = buildSampleCachedChannels(60);
+  const m3u60 = buildSampleM3u(60);
+  const { server, port } = await createStaticServer({ webRoot, sampleM3u: m3u60 });
+  try {
+    const { page, pageErrors, consoleErrors } = await openConfiguredPage(browser, port, {
+      width: 1920,
+      height: 1080,
+      setupFn: (sampleUrl, cached) => {
+        window.webOSSystem = { close: function () {} };
+        window.__cmesCount = 0;
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC && AC.prototype && AC.prototype.createMediaElementSource) {
+          const origCmes = AC.prototype.createMediaElementSource;
+          AC.prototype.createMediaElementSource = function () {
+            window.__cmesCount++;
+            return origCmes.apply(this, arguments);
+          };
+        }
+        localStorage.setItem('zenplay_iptv_sources_v2', JSON.stringify([{ id: 'src_1', name: 'Test', url: sampleUrl, enabled: true }]));
+        localStorage.setItem('zenplay_iptv_cached_lineup_v2', JSON.stringify({ v: 2, updatedAt: Date.now(), discoveredEpgUrls: [], rawChannels: cached }));
+      },
+      setupArgs: ['http://127.0.0.1:' + port + '/sample.m3u', cached60]
+    });
+
+    // 1. Zero silent-audio regression on boot & Original picture preset zero GPU filter
+    const bootRes = await page.evaluate(() => {
+      const vid = document.getElementById('tv-video');
+      const av = window.app.getAvPrefs();
+      const bootVol = vid.volume;
+      const prevPlay = vid.play;
+      vid.play = function () { return Promise.resolve(); };
+      window.app.player.play(window.app.visibleChannels[0]);
+      const mutedAfterTvPlay = vid.muted;
+      const volAfterTvPlay = vid.volume;
+      vid.play = prevPlay;
+      return {
+        cmesCount: window.__cmesCount,
+        volume: bootVol,
+        mutedAfterTvPlay,
+        volAfterTvPlay,
+        audioNormMode: av.audioNormMode,
+        audioVoiceBoost: av.audioVoiceBoost,
+        picturePreset: av.picturePreset,
+        filter: vid.style.filter,
+        webkitFilter: vid.style.webkitFilter,
+        statsHidden: document.getElementById('stream-stats-badge').classList.contains('hidden'),
+        hasStatsTimer: Boolean(window.app._streamStatsTimer),
+        hasLoudnessTimer: Boolean(window.app.player._loudnessSampleTimer)
+      };
+    });
+    assert.strictEqual(bootRes.cmesCount, 0, 'Boot with audioNormMode=off & voiceBoost=false must NEVER call createMediaElementSource');
+    assert.strictEqual(bootRes.volume, 1, 'Boot video.volume must be 1 (zero silent boot)');
+    assert.strictEqual(bootRes.mutedAfterTvPlay, false, 'TV autoplay boot video.muted must be false');
+    assert(bootRes.volAfterTvPlay >= 0.15 && bootRes.volAfterTvPlay <= 1, 'TV zap fade / effective volume active on boot');
+    await new Promise((r) => setTimeout(r, 340));
+    const postFadeVol = await page.evaluate(() => document.getElementById('tv-video').volume);
+    assert.strictEqual(postFadeVol, 1, 'Post zap-fade video.volume must reach 1.0');
+    assert.strictEqual(bootRes.picturePreset, 'original');
+    assert.strictEqual(bootRes.filter, '', 'Original preset must keep video.style.filter empty');
+    assert.strictEqual(bootRes.webkitFilter, '', 'Original preset must keep video.style.webkitFilter empty');
+    assert.strictEqual(bootRes.statsHidden, true);
+    assert.strictEqual(bootRes.hasStatsTimer, false);
+    assert.strictEqual(bootRes.hasLoudnessTimer, false);
+
+    // 2. Audio Volume Normalization modes, Voice Boost, Zap Fade, Per-channel Trim & Reset
+    const audioRes = await page.evaluate(() => {
+      window.app.openSettingsModal();
+      window.app.switchSettingsTab('av');
+      const modes = [];
+      for (const m of ['gentle', 'broadcast', 'night', 'off']) {
+        document.getElementById('btn-av-norm-' + m).click();
+        modes.push(window.app.getAvPrefs().audioNormMode);
+      }
+      document.getElementById('btn-av-audioVoiceBoost').click();
+      const boostOn = window.app.getAvPrefs().audioVoiceBoost;
+      document.getElementById('btn-av-audioVoiceBoost').click();
+      const boostOff = window.app.getAvPrefs().audioVoiceBoost;
+
+      document.getElementById('btn-av-audioZapFade').click();
+      const fadeOff = window.app.getAvPrefs().audioZapFade;
+      document.getElementById('btn-av-audioZapFade').click();
+      const fadeOn = window.app.getAvPrefs().audioZapFade;
+
+      // Suspended AudioContext / native playback safety guard check
+      const player = window.app.player;
+      const cmesBeforeGuard = window.__cmesCount;
+      const prevNative = player._isNativePlayback;
+      const prevGraphReady = player._webAudioGraphReady;
+      const prevAudioCtx = player._audioCtx;
+      const prevMediaSrc = player._mediaSourceNode;
+
+      player._webAudioGraphReady = false;
+      player._mediaSourceNode = null;
+      player._isNativePlayback = true;
+      player.setAvPrefs({ audioNormMode: 'broadcast', audioVoiceBoost: true });
+      const ensureNativeRes = player.ensureWebAudioPipeline();
+      const cmesAfterNative = window.__cmesCount;
+
+      player._isNativePlayback = false;
+      player._audioCtx = { state: 'suspended' };
+      const ensureSuspendedRes = player.ensureWebAudioPipeline();
+      const cmesAfterSuspended = window.__cmesCount;
+
+      player._isNativePlayback = prevNative;
+      player._webAudioGraphReady = prevGraphReady;
+      player._audioCtx = prevAudioCtx;
+      player._mediaSourceNode = prevMediaSrc;
+
+      // Per-channel trim -6dB -> updates applyEffectiveVolume() & persists in zenplay_channel_loudness_v1
+      player.setAvPrefs({ audioNormMode: 'off', audioVoiceBoost: false });
+      document.getElementById('btn-av-trim--6').click();
+      const volAtMinus6 = player.video.volume;
+      const savedLoudRaw = localStorage.getItem('zenplay_channel_loudness_v1');
+      const savedLoud = savedLoudRaw ? JSON.parse(savedLoudRaw) : {};
+      const chId = window.app.selectedChannel.id;
+      const trimPersistedMinus6 = savedLoud.trim ? savedLoud.trim[chId] : null;
+
+      // +6dB trim persists cleanly
+      document.getElementById('btn-av-trim-6').click();
+      const trimPersistedPlus6 = player.getChannelVolumeTrim(chId);
+
+      // Reset loudness memory clears trim & learned and restores effective volume 1.0
+      document.getElementById('btn-reset-loudness-memory').click();
+      const trimAfterReset = player.getChannelVolumeTrim(chId);
+      const volAfterReset = player.video.volume;
+
+      return {
+        modes,
+        boostOn,
+        boostOff,
+        fadeOff,
+        fadeOn,
+        cmesBeforeGuard,
+        ensureNativeRes,
+        cmesAfterNative,
+        ensureSuspendedRes,
+        cmesAfterSuspended,
+        volAtMinus6,
+        trimPersistedMinus6,
+        trimPersistedPlus6,
+        trimAfterReset,
+        volAfterReset
+      };
+    });
+    assert.deepStrictEqual(audioRes.modes, ['gentle', 'broadcast', 'night', 'off']);
+    assert(audioRes.boostOn === true && audioRes.boostOff === false, 'audioVoiceBoost toggle failed');
+    assert(audioRes.fadeOff === false && audioRes.fadeOn === true, 'audioZapFade toggle failed');
+    assert.strictEqual(audioRes.ensureNativeRes, false, 'Native playback ensureWebAudioPipeline must return false');
+    assert.strictEqual(audioRes.cmesAfterNative, audioRes.cmesBeforeGuard, 'Native playback must NEVER attach createMediaElementSource');
+    assert.strictEqual(audioRes.ensureSuspendedRes, false, 'Suspended AudioContext ensureWebAudioPipeline must return false');
+    assert.strictEqual(audioRes.cmesAfterSuspended, audioRes.cmesBeforeGuard, 'Suspended AudioContext must NEVER attach createMediaElementSource');
+    assert(audioRes.volAtMinus6 >= 0.48 && audioRes.volAtMinus6 <= 0.53, '-6dB trim must attenuate video.volume to ~0.501, got ' + audioRes.volAtMinus6);
+    assert.strictEqual(audioRes.trimPersistedMinus6, -6, '-6dB trim must persist in zenplay_channel_loudness_v1');
+    assert.strictEqual(audioRes.trimPersistedPlus6, 6, '+6dB trim must persist');
+    assert(audioRes.trimAfterReset === 0 && audioRes.volAfterReset === 1, 'resetLoudnessMemory must restore 0dB trim & volume 1.0');
+
+    // 3. Picture presets, manual calibration (custom), aspect ratio, crisp, quality caps, latency, memory & Stream Stats
+    const picQualRes = await page.evaluate(() => {
+      const vid = document.getElementById('tv-video');
+      const cls = document.documentElement.classList;
+
+      document.getElementById('btn-av-pic-vivid').click();
+      const vividFilter = vid.style.filter;
+      const vividCrisp = cls.contains('video-crisp');
+
+      document.getElementById('btn-av-pic-cinema').click();
+      const cinemaFilter = vid.style.filter;
+
+      document.getElementById('btn-av-bright-116').click();
+      document.getElementById('btn-av-contrast-108').click();
+      document.getElementById('btn-av-sat-125').click();
+      const customPreset = window.app.getAvPrefs().picturePreset;
+      const customFilter = vid.style.filter;
+
+      document.getElementById('btn-av-pic-original').click();
+      const origFilter = vid.style.filter;
+      const origWebkit = vid.style.webkitFilter;
+
+      // Aspect ratio & crisp rendering
+      document.getElementById('btn-av-aspect-cover').click();
+      const hasCover = cls.contains('video-aspect-cover');
+      document.getElementById('btn-av-aspect-fill').click();
+      const hasFill = cls.contains('video-aspect-fill');
+      document.getElementById('btn-av-aspect-zoom').click();
+      const hasZoom = cls.contains('video-aspect-zoom');
+      document.getElementById('btn-av-crisp-crisp').click();
+      const hasCrisp = cls.contains('video-crisp');
+
+      // Video quality, latency & memory modes verified against mock HLS levels
+      const player = window.app.player;
+      const origHls = player.hls;
+      const mockHls = {
+        levels: [
+          { width: 854, height: 480, bitrate: 1200000 },
+          { width: 1280, height: 720, bitrate: 2800000 },
+          { width: 1920, height: 1080, bitrate: 5500000 },
+          { width: 3840, height: 2160, bitrate: 15000000 }
+        ],
+        autoLevelCapping: -1,
+        startLevel: 0,
+        nextLevel: -1,
+        currentLevel: 2,
+        config: {}
+      };
+      player.hls = mockHls;
+
+      document.getElementById('btn-av-quality-hd720').click();
+      const cap720 = mockHls.autoLevelCapping;
+      document.getElementById('btn-av-quality-hd1080').click();
+      const cap1080 = mockHls.autoLevelCapping;
+      document.getElementById('btn-av-quality-max').click();
+      const maxCap = mockHls.autoLevelCapping;
+      const maxEst = mockHls.config.abrEwmaDefaultEstimate;
+      const maxNext = mockHls.nextLevel;
+
+      document.getElementById('btn-av-latency-low').click();
+      const lowLatCfg = {
+        sync: mockHls.config.liveSyncDurationCount,
+        maxLat: mockHls.config.liveMaxLatencyDurationCount,
+        ewma: mockHls.config.abrEwmaFastLive
+      };
+
+      document.getElementById('btn-av-memsaver-aggressive').click();
+      const aggMemCfg = {
+        buf: mockHls.config.maxBufferLength,
+        maxBuf: mockHls.config.maxMaxBufferLength,
+        back: mockHls.config.backBufferLength,
+        size: mockHls.config.maxBufferSize
+      };
+
+      player.hls = origHls;
+
+      // Stream Stats overlay in Fullscreen & cleared on exitFullscreen
+      document.getElementById('btn-av-showStreamStats').click();
+      window.app.closeModals();
+      const hiddenInBrowse = document.getElementById('stream-stats-badge').classList.contains('hidden');
+      window.app.enterFullscreen();
+      window.app.updateStreamStatsOverlay();
+      const statsBadge = document.getElementById('stream-stats-badge');
+      const visibleInFs = !statsBadge.classList.contains('hidden');
+      const statsText = statsBadge.textContent;
+      const timerActiveInFs = Boolean(window.app._streamStatsTimer);
+      window.app.exitFullscreen();
+      const hiddenAfterExit = statsBadge.classList.contains('hidden');
+      const timerClearedAfterExit = !window.app._streamStatsTimer;
+
+      // Reset AV prefs via #btn-reset-av-prefs
+      window.app.openSettingsModal();
+      window.app.switchSettingsTab('av');
+      document.getElementById('btn-reset-av-prefs').click();
+      const resetAv = window.app.getAvPrefs();
+      const resetFilter = vid.style.filter;
+      window.app.closeModals();
+
+      return {
+        vividFilter,
+        vividCrisp,
+        cinemaFilter,
+        customPreset,
+        customFilter,
+        origFilter,
+        origWebkit,
+        hasCover,
+        hasFill,
+        hasZoom,
+        hasCrisp,
+        cap720,
+        cap1080,
+        maxCap,
+        maxEst,
+        maxNext,
+        lowLatCfg,
+        aggMemCfg,
+        hiddenInBrowse,
+        visibleInFs,
+        statsText,
+        timerActiveInFs,
+        hiddenAfterExit,
+        timerClearedAfterExit,
+        resetAv,
+        resetFilter
+      };
+    });
+
+    assert(picQualRes.vividFilter.indexOf('saturate(1.25)') !== -1 && picQualRes.vividCrisp, 'Vivid preset filter/crisp mismatch');
+    assert(picQualRes.cinemaFilter.indexOf('brightness(0.92)') !== -1, 'Cinema preset filter mismatch');
+    assert.strictEqual(picQualRes.customPreset, 'custom', 'Manual calibration must set picturePreset=custom');
+    assert(picQualRes.customFilter.indexOf('brightness(1.16)') !== -1, 'Custom calibration filter mismatch');
+    assert(picQualRes.origFilter === '' && picQualRes.origWebkit === '', 'Original preset must clear video.style.filter to empty string');
+    assert(picQualRes.hasCover && picQualRes.hasFill && picQualRes.hasZoom && picQualRes.hasCrisp, 'Aspect/crisp classes failed');
+    assert.strictEqual(picQualRes.cap720, 1, 'hd720 must cap levels at 720p (index 1)');
+    assert.strictEqual(picQualRes.cap1080, 2, 'hd1080 must cap levels at 1080p (index 2)');
+    assert(picQualRes.maxCap === -1 && picQualRes.maxEst === 12000000 && picQualRes.maxNext === 3, 'max quality config mismatch');
+    assert(picQualRes.lowLatCfg.sync === 2 && picQualRes.lowLatCfg.maxLat === 5 && picQualRes.lowLatCfg.ewma === 1.8, 'low latency config mismatch: ' + JSON.stringify(picQualRes.lowLatCfg));
+    assert(picQualRes.aggMemCfg.buf === 20 && picQualRes.aggMemCfg.maxBuf === 35 && picQualRes.aggMemCfg.back === 10 && picQualRes.aggMemCfg.size === 20000000, 'aggressive memory config mismatch');
+    assert(picQualRes.hiddenInBrowse && picQualRes.visibleInFs && picQualRes.statsText.indexOf('BUF') !== -1 && picQualRes.timerActiveInFs && picQualRes.hiddenAfterExit && picQualRes.timerClearedAfterExit, 'Stream stats overlay/timer lifecycle broken: ' + JSON.stringify(picQualRes));
+    assert(picQualRes.resetAv.picturePreset === 'original' && picQualRes.resetAv.videoQualityMode === 'smart' && picQualRes.resetAv.showStreamStats === false && picQualRes.resetFilter === '', 'btn-reset-av-prefs failed');
+
+    // 4. Real 50-Step D-Pad Channel Scroll Performance Benchmark (< 8ms avg step latency, 0 errors)
+    const benchRes = await page.evaluate(() => {
+      window.app.focusedChannelIndex = 0;
+      window.app.focusArea = 'channels';
+      window.app.mode = 'BROWSE';
+      const t0 = performance.now();
+      for (let i = 0; i < 50; i++) {
+        window.app.navigate('down');
+      }
+      window.app._flushFocusVisualsNow();
+      const elapsedMs = performance.now() - t0;
+      return {
+        elapsedMs,
+        avgMs: elapsedMs / 50,
+        finalIdx: window.app.focusedChannelIndex
+      };
+    });
+    assert.strictEqual(benchRes.finalIdx, 50, '50-step D-pad scroll did not reach channel index 50');
+    assert(benchRes.avgMs < 8, '50-step D-pad scroll avg latency exceeded 8ms: ' + benchRes.avgMs.toFixed(3) + 'ms');
+
+    assert.strictEqual(pageErrors.length, 0, 'AV & Perf suite pageerrors: ' + pageErrors.join('; '));
+    assert.strictEqual(consoleErrors.length, 0, 'AV & Perf suite console errors: ' + consoleErrors.join('; '));
+    await page.close();
+    pass(
+      'av-audio-picture-and-dpad-perf-benchmark',
+      'Zero-silent-boot, Audio Norm/VoiceBoost/ZapFade/Trim/Reset, Picture calibration/Aspect/Quality/Latency/Memory/Stats & 50-step D-pad (' +
+        benchRes.avgMs.toFixed(2) +
+        'ms/step) verified'
+    );
   } finally {
     server.close();
   }
@@ -1102,7 +1653,7 @@ async function runTests() {
           assert.strictEqual(scrollRes.tabs.performance.scrollAfterUp, 0, t + ' perf tab failed to scroll back to top');
           assert.strictEqual(scrollRes.tabs.performance.seenBottomRefreshBtn, true, t + ' bottom refresh/clear buttons not reachable');
           assert.strictEqual(scrollRes.tabs.performance.channelUnchangedOnPageDown, true, t + ' PageDown inside modal must not zap TV channel');
-          assert.strictEqual(scrollRes.tabs.appearance.tabsSingleLine, true, t + ' 5 settings tabs must fit cleanly on one header line');
+          assert.strictEqual(scrollRes.tabs.appearance.tabsSingleLine, true, t + ' all 6 settings tabs + close button must fit cleanly on one header line');
           assert.strictEqual(scrollRes.tabs.appearance.resetOnSwitch, 0, t + ' appearance tab scrollTop did not reset to 0');
           assert.strictEqual(scrollRes.tabs.appearance.badItems.length, 0, t + ' appearance tab clipped focused item(s): ' + JSON.stringify(scrollRes.tabs.appearance.badItems));
           if (scrollRes.tabs.appearance.overflows) {
@@ -1112,8 +1663,17 @@ async function runTests() {
           }
           assert.strictEqual(scrollRes.tabs.appearance.scrollAfterUp, 0, t + ' appearance tab failed to scroll back to top');
           assert.strictEqual(scrollRes.tabs.appearance.seenResetUiBtn, true, t + ' #btn-reset-ui-prefs not reachable via D-pad');
+          assert.strictEqual(scrollRes.tabs.av.resetOnSwitch, 0, t + ' av tab scrollTop did not reset to 0');
+          assert.strictEqual(scrollRes.tabs.av.badItems.length, 0, t + ' av tab clipped focused item(s): ' + JSON.stringify(scrollRes.tabs.av.badItems));
+          if (scrollRes.tabs.av.overflows) {
+            assert(scrollRes.tabs.av.maxScrollAfterDown > 0, t + ' av tab failed to scroll down');
+            assert(scrollRes.tabs.av.wheelScrollTop > 0, t + ' av tab failed to scroll via mouse wheel');
+            assert(scrollRes.tabs.av.afterPageDown > 0, t + ' av tab failed to scroll via PageDown');
+          }
+          assert.strictEqual(scrollRes.tabs.av.scrollAfterUp, 0, t + ' av tab failed to scroll back to top');
+          assert.strictEqual(scrollRes.tabs.av.seenResetAvBtn, true, t + ' #btn-reset-av-prefs not reachable via D-pad');
           assert(scrollRes.tabs.sources.allVisibleInViewport, t + ' sources tab focused item outside viewport');
-          pass('settings-scroll-1080p-' + t, 'All 5 Settings tabs (incl. Appearance) scroll cleanly via D-pad, PageDown, and Mouse Wheel');
+          pass('settings-scroll-1080p-' + t, 'All 6 Settings tabs (incl. Appearance & AV) scroll cleanly via D-pad, PageDown, and Mouse Wheel');
         }
 
         // Settings Modal Scroll Suite on 1280x720 (CSS zoom = 1280/1920)
@@ -1126,11 +1686,14 @@ async function runTests() {
         assert.strictEqual(zoomScroll.tabs.performance.badItems.length, 0, '720p zoomed perf tab clipped items: ' + JSON.stringify(zoomScroll.tabs.performance.badItems));
         assert.strictEqual(zoomScroll.tabs.appearance.badItems.length, 0, '720p zoomed appearance tab clipped items: ' + JSON.stringify(zoomScroll.tabs.appearance.badItems));
         assert.strictEqual(zoomScroll.tabs.appearance.seenResetUiBtn, true, '720p zoomed #btn-reset-ui-prefs not reachable');
+        assert.strictEqual(zoomScroll.tabs.av.badItems.length, 0, '720p zoomed av tab clipped items: ' + JSON.stringify(zoomScroll.tabs.av.badItems));
+        assert.strictEqual(zoomScroll.tabs.av.seenResetAvBtn, true, '720p zoomed #btn-reset-av-prefs not reachable');
         assert(zoomScroll.tabs.channels.scrollTopAfterDown > 0, '720p zoomed channel editor must scroll');
-        pass('settings-scroll-720p-zoomed', 'Settings scroll math accurate under CSS zoom (1280x720)');
+        pass('settings-scroll-720p-zoomed', 'Settings scroll math accurate under CSS zoom (1280x720) across all 6 tabs');
 
         await page.close();
         await verifyUiCustomizationSuite(browser, opts.webRoot, sampleM3u25, cached25, pass);
+        await verifyAvAudioPictureAndPerfSuite(browser, opts.webRoot, sampleM3u25, cached25, pass);
       } finally {
         server.close();
       }
@@ -1193,6 +1756,8 @@ async function runTests() {
             assert.strictEqual(atvScroll.tabs.performance.badItems.length, 0, 'Android TV Settings perf tab clipped focused control');
             assert.strictEqual(atvScroll.tabs.appearance.badItems.length, 0, 'Android TV Settings appearance tab clipped focused control');
             assert.strictEqual(atvScroll.tabs.appearance.seenResetUiBtn, true, 'Android TV #btn-reset-ui-prefs not reachable');
+            assert.strictEqual(atvScroll.tabs.av.badItems.length, 0, 'Android TV Settings av tab clipped focused control');
+            assert.strictEqual(atvScroll.tabs.av.seenResetAvBtn, true, 'Android TV #btn-reset-av-prefs not reachable');
 
             // Verify AndroidTVBridge D-pad keys reach & switch Classic <-> Glass
             const atvThemeSwitch = await page.evaluate(() => {
@@ -1277,10 +1842,17 @@ async function runTests() {
           app.switchSettingsTab('appearance');
           const injectedTab = Boolean(document.getElementById('tab-btn-appearance'));
           const injectedPanel = Boolean(document.getElementById('settings-tab-appearance'));
+          const injectedAvTab = Boolean(document.getElementById('tab-btn-av'));
+          const injectedAvPanel = Boolean(document.getElementById('settings-tab-av'));
+          const injectedStatsBadge = Boolean(document.getElementById('stream-stats-badge'));
           const injectedBadge = Boolean(document.getElementById('preview-autoplay-off-badge'));
           document.getElementById('btn-preset-minimal').click();
           const minimalOk = document.documentElement.classList.contains('ui-density-compact');
           document.getElementById('btn-reset-ui-prefs').click();
+          app.switchSettingsTab('av');
+          document.getElementById('btn-av-pic-vivid').click();
+          const vividOk = document.getElementById('tv-video').style.filter.indexOf('saturate(1.25)') !== -1;
+          document.getElementById('btn-reset-av-prefs').click();
           app.closeModals();
 
           return {
@@ -1290,8 +1862,12 @@ async function runTests() {
             hasOsdCache: Boolean(app._osdLastCache),
             injectedTab,
             injectedPanel,
+            injectedAvTab,
+            injectedAvPanel,
+            injectedStatsBadge,
             injectedBadge,
-            minimalOk
+            minimalOk,
+            vividOk
           };
         }, otaManifest.jsPatch);
 
@@ -1299,7 +1875,7 @@ async function runTests() {
         assert.strictEqual(synthRes.hasRowEls, true, '_channelRowEls must be backfilled');
         assert.strictEqual(synthRes.hasPreviewCache, true, '_previewHeaderCache must be backfilled');
         assert.strictEqual(synthRes.hasOsdCache, true, '_osdLastCache must be backfilled');
-        assert(synthRes.injectedTab && synthRes.injectedPanel && synthRes.injectedBadge && synthRes.minimalOk, 'Synthetic OTA must inject Appearance controls & badge');
+        assert(synthRes.injectedTab && synthRes.injectedPanel && synthRes.injectedAvTab && synthRes.injectedAvPanel && synthRes.injectedStatsBadge && synthRes.injectedBadge && synthRes.minimalOk && synthRes.vividOk, 'Synthetic OTA must inject Appearance & AV controls + stats badge');
         assert.strictEqual(pageErrors.length, 0, 'Synthetic OTA pageerrors: ' + pageErrors.join('; '));
         assert.strictEqual(consoleErrors.length, 0, 'Synthetic OTA console errors: ' + consoleErrors.join('; '));
         await page.close();
@@ -1385,10 +1961,13 @@ async function runTests() {
           assert.strictEqual(otaThemeRes.classicTheme, 'classic', tag + ' OTA theme did not change back to classic');
           assert.strictEqual(otaThemeRes.classicRadius, '24px', tag + ' OTA Classic CSS did not apply back');
 
-          // Dynamically injected Appearance tab, preset, toggle, and reset on legacy v5.0.7 / v5.1.4 hosts
+          // Dynamically injected Appearance + AV tabs, stats badge, presets, toggles, and resets on legacy v5.0.7 / v5.1.4 hosts
           const otaUiRes = await page.evaluate(() => {
             const tabBtn = document.getElementById('tab-btn-appearance');
             const tabPanel = document.getElementById('settings-tab-appearance');
+            const avTabBtn = document.getElementById('tab-btn-av');
+            const avTabPanel = document.getElementById('settings-tab-av');
+            const statsBadge = document.getElementById('stream-stats-badge');
             const offBadge = document.getElementById('preview-autoplay-off-badge');
             window.app.openSettingsModal();
             window.app.switchSettingsTab('appearance');
@@ -1400,26 +1979,40 @@ async function runTests() {
             const isEmerald = document.documentElement.classList.contains('ui-accent-emerald');
             document.getElementById('btn-reset-ui-prefs').click();
             const isResetClean = window.app.getUiPrefs().preset === 'clean';
+            window.app.switchSettingsTab('av');
+            document.getElementById('btn-av-pic-vivid').click();
+            const avVividOk = document.getElementById('tv-video').style.filter.indexOf('saturate(1.25)') !== -1;
+            document.getElementById('btn-av-trim--3').click();
+            const avTrimOk = window.app.player.getChannelVolumeTrim(window.app.selectedChannel.id) === -3;
+            document.getElementById('btn-reset-loudness-memory').click();
+            document.getElementById('btn-reset-av-prefs').click();
+            const avResetOk = window.app.getAvPrefs().picturePreset === 'original' && document.getElementById('tv-video').style.filter === '';
             window.app.closeModals();
             return {
               hasTabBtn: Boolean(tabBtn),
               hasTabPanel: Boolean(tabPanel),
+              hasAvTabBtn: Boolean(avTabBtn),
+              hasAvTabPanel: Boolean(avTabPanel),
+              hasStatsBadge: Boolean(statsBadge),
               hasOffBadge: Boolean(offBadge),
               isMinimal,
               isEmerald,
-              isResetClean
+              isResetClean,
+              avVividOk,
+              avTrimOk,
+              avResetOk
             };
           });
-          assert(otaUiRes.hasTabBtn && otaUiRes.hasTabPanel && otaUiRes.hasOffBadge, tag + ' OTA missing injected UI customization DOM: ' + JSON.stringify(otaUiRes));
-          assert(otaUiRes.isMinimal && otaUiRes.isEmerald && otaUiRes.isResetClean, tag + ' OTA Appearance controls failed: ' + JSON.stringify(otaUiRes));
+          assert(otaUiRes.hasTabBtn && otaUiRes.hasTabPanel && otaUiRes.hasAvTabBtn && otaUiRes.hasAvTabPanel && otaUiRes.hasStatsBadge && otaUiRes.hasOffBadge, tag + ' OTA missing injected UI/AV DOM: ' + JSON.stringify(otaUiRes));
+          assert(otaUiRes.isMinimal && otaUiRes.isEmerald && otaUiRes.isResetClean && otaUiRes.avVividOk && otaUiRes.avTrimOk && otaUiRes.avResetOk, tag + ' OTA Appearance/AV controls failed: ' + JSON.stringify(otaUiRes));
 
           assert.strictEqual(pageErrors.length, 0, tag + ' OTA cold boot pageerrors: ' + pageErrors.join('; '));
           assert.strictEqual(consoleErrors.length, 0, tag + ' OTA cold boot console errors: ' + consoleErrors.join('; '));
           await page.close();
-          pass('git-ota-cold-boot-' + tag, tag + ' + cached EPG + v' + otaManifest.version + ' OTA kept channels, injected Appearance UI & switched Glass/Classic');
+          pass('git-ota-cold-boot-' + tag, tag + ' + cached EPG + v' + otaManifest.version + ' OTA kept channels, injected Appearance+AV UI & switched Glass/Classic');
         }
 
-        // 5b: Live performOTAUpdate() from old tag -> v5.3.0
+        // 5b: Live performOTAUpdate() from old tag -> v5.4.0
         {
           const { page, pageErrors, consoleErrors } = await openConfiguredPage(browser, port, {
             width: 1920,
@@ -1438,27 +2031,38 @@ async function runTests() {
           const liveRes = await page.evaluate(() => {
             const hasAppTab = Boolean(document.getElementById('tab-btn-appearance'));
             const hasAppPanel = Boolean(document.getElementById('settings-tab-appearance'));
+            const hasAvTab = Boolean(document.getElementById('tab-btn-av'));
+            const hasAvPanel = Boolean(document.getElementById('settings-tab-av'));
+            const hasStatsBadge = Boolean(document.getElementById('stream-stats-badge'));
             window.app.openSettingsModal();
             window.app.switchSettingsTab('appearance');
             document.getElementById('btn-pref-showColorBar').click();
             const colorBarHidden = document.documentElement.classList.contains('ui-hide-color-bar');
             document.getElementById('btn-reset-ui-prefs').click();
+            window.app.switchSettingsTab('av');
+            document.getElementById('btn-av-norm-gentle').click();
+            const avNormOk = window.app.getAvPrefs().audioNormMode === 'gentle';
+            document.getElementById('btn-reset-av-prefs').click();
             window.app.closeModals();
             return {
               domRows: document.querySelectorAll('#channel-list .channel-item').length,
               runningVer: window.app.otaManager.getRunningVersion(),
               hasAppTab,
               hasAppPanel,
-              colorBarHidden
+              hasAvTab,
+              hasAvPanel,
+              hasStatsBadge,
+              colorBarHidden,
+              avNormOk
             };
           });
           assert.strictEqual(liveRes.domRows, 4, tag + ' live OTA install lost channels');
           assert.strictEqual(liveRes.runningVer, otaManifest.version, tag + ' live OTA did not activate version');
-          assert(liveRes.hasAppTab && liveRes.hasAppPanel && liveRes.colorBarHidden, tag + ' live OTA did not inject functional Appearance tab');
+          assert(liveRes.hasAppTab && liveRes.hasAppPanel && liveRes.hasAvTab && liveRes.hasAvPanel && liveRes.hasStatsBadge && liveRes.colorBarHidden && liveRes.avNormOk, tag + ' live OTA did not inject functional Appearance+AV tabs & stats badge');
           assert.strictEqual(pageErrors.length, 0, tag + ' live OTA pageerrors: ' + pageErrors.join('; '));
           assert.strictEqual(consoleErrors.length, 0, tag + ' live OTA console errors: ' + consoleErrors.join('; '));
           await page.close();
-          pass('git-ota-live-install-' + tag, tag + ' live OTA upgrade preserved 4 channels & injected Appearance tab with 0 errors');
+          pass('git-ota-live-install-' + tag, tag + ' live OTA upgrade preserved 4 channels & injected Appearance+AV tabs + stats badge with 0 errors');
         }
       } finally {
         server.close();
