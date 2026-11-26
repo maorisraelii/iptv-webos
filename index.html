@@ -68,7 +68,23 @@
           animations: 'reduced',
           visualEffects: 'light',
           previewAutoplay: 'delayed',
-          startupMode: 'browse'
+          startupMode: 'browse',
+          layoutSide: 'right',
+          listWidth: 'balanced',
+          cornerRadius: 'rounded',
+          bgTone: 'midnight',
+          focusStyle: 'glow',
+          osdOpacity: 'balanced',
+          showClock: true,
+          showSynopsis: true,
+          showPrevNext: true,
+          showChannelNumbers: true,
+          showToasts: true,
+          wrapNavigation: true,
+          seekStepSec: 30,
+          numericJumpMs: 1200,
+          singleClickFullscreen: false,
+          zapDebounceMs: 120
         };
         var uiPrefs = {};
         var prefKey;
@@ -91,7 +107,19 @@
                 animations: { normal: 1, reduced: 1, off: 1 },
                 visualEffects: { full: 1, light: 1, flat: 1 },
                 previewAutoplay: { instant: 1, delayed: 1, off: 1 },
-                startupMode: { browse: 1, fullscreen: 1 }
+                startupMode: { browse: 1, fullscreen: 1 },
+                layoutSide: { right: 1, left: 1 },
+                listWidth: { narrow: 1, balanced: 1, wide: 1 },
+                cornerRadius: { sharp: 1, rounded: 1, pill: 1 },
+                bgTone: { midnight: 1, oled: 1, slate: 1, deepblue: 1 },
+                focusStyle: { glow: 1, border: 1, solid: 1 },
+                osdOpacity: { solid: 1, balanced: 1, light: 1 }
+              };
+              var uiIntMaps = {
+                osdTimeoutSec: { 3: 1, 5: 1, 8: 1, 12: 1 },
+                seekStepSec: { 10: 1, 15: 1, 30: 1, 60: 1 },
+                numericJumpMs: { 700: 1, 1200: 1, 2000: 1 },
+                zapDebounceMs: { 0: 1, 120: 1, 280: 1 }
               };
               for (prefKey in defaultUiPrefs) {
                 if (!Object.prototype.hasOwnProperty.call(defaultUiPrefs, prefKey)) continue;
@@ -99,10 +127,10 @@
                 var prefVal = parsedUiPrefs[prefKey];
                 if (typeof defaultUiPrefs[prefKey] === 'boolean') {
                   if (typeof prefVal === 'boolean') uiPrefs[prefKey] = prefVal;
-                } else if (prefKey === 'osdTimeoutSec') {
-                  var secVal = parseInt(prefVal, 10);
-                  if (secVal === 3 || secVal === 5 || secVal === 8 || secVal === 12) {
-                    uiPrefs[prefKey] = secVal;
+                } else if (uiIntMaps[prefKey]) {
+                  var intVal = parseInt(prefVal, 10);
+                  if (uiIntMaps[prefKey][intVal]) {
+                    uiPrefs[prefKey] = intVal;
                   }
                 } else if (uiEnumMaps[prefKey] && uiEnumMaps[prefKey][prefVal]) {
                   uiPrefs[prefKey] = prefVal;
@@ -124,7 +152,79 @@
         doc.classList.add('ui-osd-' + uiPrefs.osdStyle);
         doc.classList.add('ui-anim-' + uiPrefs.animations);
         doc.classList.add('ui-fx-' + uiPrefs.visualEffects);
+        if (uiPrefs.layoutSide === 'left') doc.classList.add('ui-layout-left');
+        doc.classList.add('ui-list-' + uiPrefs.listWidth);
+        doc.classList.add('ui-radius-' + uiPrefs.cornerRadius);
+        doc.classList.add('ui-bg-' + uiPrefs.bgTone);
+        doc.classList.add('ui-focus-' + uiPrefs.focusStyle);
+        doc.classList.add('ui-osd-op-' + uiPrefs.osdOpacity);
+        if (!uiPrefs.showClock) doc.classList.add('ui-hide-clock');
+        if (!uiPrefs.showSynopsis) doc.classList.add('ui-hide-synopsis');
+        if (!uiPrefs.showPrevNext) doc.classList.add('ui-hide-prev-next');
+        if (!uiPrefs.showChannelNumbers) doc.classList.add('ui-hide-ch-num');
         window.__IPTV_UI_PREFS = uiPrefs;
+
+        var defaultAvPrefs = {
+          audioNormMode: 'off',
+          audioVoiceBoost: false,
+          audioZapFade: true,
+          videoQualityMode: 'smart',
+          streamLatencyMode: 'standard',
+          memorySaverMode: 'auto',
+          picturePreset: 'original',
+          picBrightness: 100,
+          picContrast: 100,
+          picSaturation: 100,
+          picCrispRendering: 'auto',
+          videoAspectMode: 'contain',
+          showStreamStats: false
+        };
+        var avPrefs = {};
+        for (prefKey in defaultAvPrefs) {
+          if (Object.prototype.hasOwnProperty.call(defaultAvPrefs, prefKey)) {
+            avPrefs[prefKey] = defaultAvPrefs[prefKey];
+          }
+        }
+        try {
+          var rawAvPrefs = localStorage.getItem('zenplay_av_prefs_v1');
+          if (rawAvPrefs) {
+            var parsedAvPrefs = JSON.parse(rawAvPrefs);
+            if (parsedAvPrefs && typeof parsedAvPrefs === 'object') {
+              var avEnumMaps = {
+                audioNormMode: { off: 1, gentle: 1, broadcast: 1, night: 1 },
+                videoQualityMode: { smart: 1, max: 1, hd1080: 1, hd720: 1 },
+                streamLatencyMode: { standard: 1, low: 1 },
+                memorySaverMode: { auto: 1, aggressive: 1, off: 1 },
+                picturePreset: { original: 1, vivid: 1, cinema: 1, crisp: 1, soft: 1, custom: 1 },
+                picCrispRendering: { auto: 1, crisp: 1 },
+                videoAspectMode: { contain: 1, cover: 1, fill: 1, zoom: 1 }
+              };
+              var avIntMaps = {
+                picBrightness: { 85: 1, 92: 1, 100: 1, 108: 1, 116: 1 },
+                picContrast: { 88: 1, 94: 1, 100: 1, 108: 1, 116: 1 },
+                picSaturation: { 80: 1, 90: 1, 100: 1, 112: 1, 125: 1 }
+              };
+              for (prefKey in defaultAvPrefs) {
+                if (!Object.prototype.hasOwnProperty.call(defaultAvPrefs, prefKey)) continue;
+                if (!Object.prototype.hasOwnProperty.call(parsedAvPrefs, prefKey)) continue;
+                var avVal = parsedAvPrefs[prefKey];
+                if (typeof defaultAvPrefs[prefKey] === 'boolean') {
+                  if (typeof avVal === 'boolean') avPrefs[prefKey] = avVal;
+                } else if (avIntMaps[prefKey]) {
+                  var numAv = parseInt(avVal, 10);
+                  if (avIntMaps[prefKey][numAv]) {
+                    avPrefs[prefKey] = numAv;
+                  }
+                } else if (avEnumMaps[prefKey] && avEnumMaps[prefKey][avVal]) {
+                  avPrefs[prefKey] = avVal;
+                }
+              }
+            }
+          }
+        } catch (avPrefErr) {}
+        doc.classList.add('video-aspect-' + avPrefs.videoAspectMode);
+        if (avPrefs.picCrispRendering === 'crisp') doc.classList.add('video-crisp');
+        window.__IPTV_AV_PREFS = avPrefs;
       } catch (e) {}
     })();
   </script>
@@ -404,6 +504,9 @@
     <div id="video-error-badge" class="video-error-badge hidden">
       <span>השידור אינו זמין כעת בערוץ זה</span>
     </div>
+
+    <!-- Live Stream Telemetry Stats Badge (Fullscreen) -->
+    <div id="stream-stats-badge" class="stream-stats-badge hidden" dir="ltr"></div>
   </div>
 
   <!-- Main Application Shell (Browse Mode: 2-Column Split Channel List + Live Preview + Program Timeline) -->
@@ -658,7 +761,7 @@
     </div>
     <div class="color-hint" id="hint-green" data-action="rewind">
       <span class="color-badge badge-green"></span>
-      <span>30 שניות אחורה ▶▶</span>
+      <span id="hint-green-label">30 שניות אחורה ▶▶</span>
     </div>
     <div class="color-hint" id="hint-yellow" data-action="channel-guide">
       <span class="color-badge badge-yellow"></span>
@@ -666,7 +769,7 @@
     </div>
     <div class="color-hint" id="hint-blue" data-action="fast-forward">
       <span class="color-badge badge-blue"></span>
-      <span>30 שניות קדימה ◀◀</span>
+      <span id="hint-blue-label">30 שניות קדימה ◀◀</span>
     </div>
   </footer>
 
@@ -714,21 +817,12 @@
     <div class="modal-card modal-settings-card">
       <div class="modal-header">
         <div class="settings-tabs-bar">
-          <button id="tab-btn-sources" class="settings-tab-btn active focusable" data-settings-tab="sources">
-            מקורות M3U
-          </button>
-          <button id="tab-btn-channels" class="settings-tab-btn focusable" data-settings-tab="channels">
-            ערוצים ומספור
-          </button>
-          <button id="tab-btn-performance" class="settings-tab-btn focusable" data-settings-tab="performance">
-            ערכת נושא ובאפר
-          </button>
-          <button id="tab-btn-appearance" class="settings-tab-btn focusable" data-settings-tab="appearance">
-            עיצוב והתאמה אישית
-          </button>
-          <button id="tab-btn-about" class="settings-tab-btn focusable" data-settings-tab="about">
-            עדכונים ואודות
-          </button>
+          <button id="tab-btn-sources" class="settings-tab-btn active focusable" data-settings-tab="sources">מקורות</button>
+          <button id="tab-btn-channels" class="settings-tab-btn focusable" data-settings-tab="channels">ערוצים</button>
+          <button id="tab-btn-performance" class="settings-tab-btn focusable" data-settings-tab="performance">נושא ובאפר</button>
+          <button id="tab-btn-appearance" class="settings-tab-btn focusable" data-settings-tab="appearance">עיצוב וממשק</button>
+          <button id="tab-btn-av" class="settings-tab-btn focusable" data-settings-tab="av">תמונה וסאונד</button>
+          <button id="tab-btn-about" class="settings-tab-btn focusable" data-settings-tab="about">אודות</button>
         </div>
         <button class="modal-close-btn focusable" data-action="close-modal">✕ סגור</button>
       </div>
@@ -1017,6 +1111,41 @@
               </span>
               <span class="ui-toggle-pill">מוסתר</span>
             </button>
+            <button id="btn-pref-showClock" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="showClock">
+              <span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">
+                <span class="perf-opt-title">שעון בכותרת וב-OSD</span>
+                <span class="perf-opt-sub">מציג את השעה הנוכחית בסרגל העליון ובמסך המלא</span>
+              </span>
+              <span class="ui-toggle-pill">מוצג ✓</span>
+            </button>
+            <button id="btn-pref-showSynopsis" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="showSynopsis">
+              <span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">
+                <span class="perf-opt-title">תקציר תוכנית בכרטיס וב-OSD</span>
+                <span class="perf-opt-sub">בכיבוי הממשק הופך קומפקטי יותר</span>
+              </span>
+              <span class="ui-toggle-pill">מוצג ✓</span>
+            </button>
+            <button id="btn-pref-showPrevNext" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="showPrevNext">
+              <span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">
+                <span class="perf-opt-title">שורה קודמת והבאה</span>
+                <span class="perf-opt-sub">מציג את התוכנית הקודמת והבאה בתור</span>
+              </span>
+              <span class="ui-toggle-pill">מוצג ✓</span>
+            </button>
+            <button id="btn-pref-showChannelNumbers" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="showChannelNumbers">
+              <span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">
+                <span class="perf-opt-title">מספרי ערוצים ברשימה וב-OSD</span>
+                <span class="perf-opt-sub">מציג מספור מספרי בכל ערוץ</span>
+              </span>
+              <span class="ui-toggle-pill">מוצג ✓</span>
+            </button>
+            <button id="btn-pref-showToasts" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="showToasts">
+              <span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">
+                <span class="perf-opt-title">התראות קופצות (Toasts)</span>
+                <span class="perf-opt-sub">הודעות חיווי בתחתית המסך בעת שינויים</span>
+              </span>
+              <span class="ui-toggle-pill">מוצג ✓</span>
+            </button>
           </div>
         </div>
 
@@ -1175,10 +1304,432 @@
           </div>
         </div>
 
+        <div class="perf-section-card ui-pref-card">
+          <h3>פריסה, רקע ופוקוס</h3>
+          <p class="perf-desc">מיקום רשימת הערוצים:</p>
+          <div class="perf-options-grid" id="ui-layout-options">
+            <button id="btn-layout-right" class="perf-option-btn focusable" data-ui-pref="layoutSide" data-ui-value="right">
+              <span class="perf-opt-title">רשימה בימין (ברירת מחדל)</span>
+              <span class="perf-opt-sub">רשימת ערוצים בצד ימין, תצוגה מקדימה בשמאל</span>
+            </button>
+            <button id="btn-layout-left" class="perf-option-btn focusable" data-ui-pref="layoutSide" data-ui-value="left">
+              <span class="perf-opt-title">רשימה בשמאל (Left)</span>
+              <span class="perf-opt-sub">רשימת ערוצים בצד שמאל, תצוגה מקדימה בימין</span>
+            </button>
+          </div>
+          <p class="perf-desc">רוחב רשימת הערוצים וחלון התצוגה:</p>
+          <div class="perf-options-grid ui-grid-3" id="ui-list-width-options">
+            <button id="btn-listwidth-narrow" class="perf-option-btn focusable" data-ui-pref="listWidth" data-ui-value="narrow">
+              <span class="perf-opt-title">רשימה צרה</span>
+              <span class="perf-opt-sub">תצוגה מקדימה רחבה (1020px)</span>
+            </button>
+            <button id="btn-listwidth-balanced" class="perf-option-btn focusable" data-ui-pref="listWidth" data-ui-value="balanced">
+              <span class="perf-opt-title">מאוזנת (ברירת מחדל)</span>
+              <span class="perf-opt-sub">חלוקה שווה 16:9 (960px)</span>
+            </button>
+            <button id="btn-listwidth-wide" class="perf-option-btn focusable" data-ui-pref="listWidth" data-ui-value="wide">
+              <span class="perf-opt-title">רשימה רחבה</span>
+              <span class="perf-opt-sub">מקום מורחב לשמות ותוכניות</span>
+            </button>
+          </div>
+          <p class="perf-desc">עגוליות פינות (Corner Radius):</p>
+          <div class="perf-options-grid ui-grid-3" id="ui-radius-options">
+            <button id="btn-radius-sharp" class="perf-option-btn focusable" data-ui-pref="cornerRadius" data-ui-value="sharp">
+              <span class="perf-opt-title">חד (Sharp)</span>
+              <span class="perf-opt-sub">פינות ישרות ונקיות</span>
+            </button>
+            <button id="btn-radius-rounded" class="perf-option-btn focusable" data-ui-pref="cornerRadius" data-ui-value="rounded">
+              <span class="perf-opt-title">מעוגל (ברירת מחדל)</span>
+              <span class="perf-opt-sub">פינות מעוגלות מודרניות</span>
+            </button>
+            <button id="btn-radius-pill" class="perf-option-btn focusable" data-ui-pref="cornerRadius" data-ui-value="pill">
+              <span class="perf-opt-title">גלולה (Pill)</span>
+              <span class="perf-opt-sub">פינות עגולות ורכות במיוחד</span>
+            </button>
+          </div>
+          <p class="perf-desc">גוון רקע ראשי (Background Tone):</p>
+          <div class="perf-options-grid ui-grid-4" id="ui-bgtone-options">
+            <button id="btn-bgtone-midnight" class="perf-option-btn focusable" data-ui-pref="bgTone" data-ui-value="midnight">
+              <span class="perf-opt-title">חצות (Midnight)</span>
+              <span class="perf-opt-sub">רקע כהה מאוזן</span>
+            </button>
+            <button id="btn-bgtone-oled" class="perf-option-btn focusable" data-ui-pref="bgTone" data-ui-value="oled">
+              <span class="perf-opt-title">שחור OLED טהור</span>
+              <span class="perf-opt-sub">שחור מוחלט #000</span>
+            </button>
+            <button id="btn-bgtone-slate" class="perf-option-btn focusable" data-ui-pref="bgTone" data-ui-value="slate">
+              <span class="perf-opt-title">צפחה (Slate)</span>
+              <span class="perf-opt-sub">אפור פחם מאט</span>
+            </button>
+            <button id="btn-bgtone-deepblue" class="perf-option-btn focusable" data-ui-pref="bgTone" data-ui-value="deepblue">
+              <span class="perf-opt-title">כחול עמוק</span>
+              <span class="perf-opt-sub">כחול Broadcast</span>
+            </button>
+          </div>
+          <p class="perf-desc">סגנון הדגשת פוקוס בשלט:</p>
+          <div class="perf-options-grid ui-grid-3" id="ui-focusstyle-options">
+            <button id="btn-focusstyle-glow" class="perf-option-btn focusable" data-ui-pref="focusStyle" data-ui-value="glow">
+              <span class="perf-opt-title">הילה (Glow)</span>
+              <span class="perf-opt-sub">מסגרת זוהרת עדינה</span>
+            </button>
+            <button id="btn-focusstyle-border" class="perf-option-btn focusable" data-ui-pref="focusStyle" data-ui-value="border">
+              <span class="perf-opt-title">מסגרת חדה (Border)</span>
+              <span class="perf-opt-sub">גבול ניגודי ברור</span>
+            </button>
+            <button id="btn-focusstyle-solid" class="perf-option-btn focusable" data-ui-pref="focusStyle" data-ui-value="solid">
+              <span class="perf-opt-title">מלא (Solid)</span>
+              <span class="perf-opt-sub">הדגשה מלאה בצבע הדגש</span>
+            </button>
+          </div>
+          <p class="perf-desc">שקיפות סרגל המידע (OSD Opacity):</p>
+          <div class="perf-options-grid ui-grid-3" id="ui-osd-opacity-options">
+            <button id="btn-osdop-solid" class="perf-option-btn focusable" data-ui-pref="osdOpacity" data-ui-value="solid">
+              <span class="perf-opt-title">אטום וחד (Solid)</span>
+              <span class="perf-opt-sub">קריאות מקסימלית</span>
+            </button>
+            <button id="btn-osdop-balanced" class="perf-option-btn focusable" data-ui-pref="osdOpacity" data-ui-value="balanced">
+              <span class="perf-opt-title">מאוזן (ברירת מחדל)</span>
+              <span class="perf-opt-sub">שקיפות עדינה</span>
+            </button>
+            <button id="btn-osdop-light" class="perf-option-btn focusable" data-ui-pref="osdOpacity" data-ui-value="light">
+              <span class="perf-opt-title">שקוף וקל (Light)</span>
+              <span class="perf-opt-sub">מראה אוורירי על גבי השידור</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="perf-section-card ui-pref-card">
+          <h3>ניווט ושלט רחוק</h3>
+          <div class="perf-options-grid" id="ui-nav-toggles">
+            <button id="btn-pref-wrapNavigation" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="wrapNavigation">
+              <span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">
+                <span class="perf-opt-title">גלילה מעגלית ברשימה</span>
+                <span class="perf-opt-sub">מעבר מהערוץ האחרון לראשון ולהיפך</span>
+              </span>
+              <span class="ui-toggle-pill">מופעל ✓</span>
+            </button>
+            <button id="btn-pref-singleClickFullscreen" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="singleClickFullscreen">
+              <span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">
+                <span class="perf-opt-title">מסך מלא בלחיצת OK אחת</span>
+                <span class="perf-opt-sub">בחירת ערוץ ברשימה נכנסת מיד למסך מלא</span>
+              </span>
+              <span class="ui-toggle-pill">כבוי</span>
+            </button>
+          </div>
+          <p class="perf-desc">צעד הרצה קדימה/אחורה במסך מלא (שניות):</p>
+          <div class="perf-options-grid ui-grid-4" id="ui-seekstep-options">
+            <button id="btn-seekstep-10" class="perf-option-btn focusable" data-ui-pref="seekStepSec" data-ui-value="10">
+              <span class="perf-opt-title">10 שניות</span>
+              <span class="perf-opt-sub">דילוג מדויק</span>
+            </button>
+            <button id="btn-seekstep-15" class="perf-option-btn focusable" data-ui-pref="seekStepSec" data-ui-value="15">
+              <span class="perf-opt-title">15 שניות</span>
+              <span class="perf-opt-sub">דילוג קצר</span>
+            </button>
+            <button id="btn-seekstep-30" class="perf-option-btn focusable" data-ui-pref="seekStepSec" data-ui-value="30">
+              <span class="perf-opt-title">30 שניות</span>
+              <span class="perf-opt-sub">ברירת מחדל</span>
+            </button>
+            <button id="btn-seekstep-60" class="perf-option-btn focusable" data-ui-pref="seekStepSec" data-ui-value="60">
+              <span class="perf-opt-title">60 שניות</span>
+              <span class="perf-opt-sub">דילוג מהיר</span>
+            </button>
+          </div>
+          <p class="perf-desc">השהיית מעבר לאחר הקלדת מספר ערוץ בשלט:</p>
+          <div class="perf-options-grid ui-grid-3" id="ui-jumpms-options">
+            <button id="btn-jumpms-700" class="perf-option-btn focusable" data-ui-pref="numericJumpMs" data-ui-value="700">
+              <span class="perf-opt-title">מהיר (700ms)</span>
+              <span class="perf-opt-sub">מעבר זריז</span>
+            </button>
+            <button id="btn-jumpms-1200" class="perf-option-btn focusable" data-ui-pref="numericJumpMs" data-ui-value="1200">
+              <span class="perf-opt-title">מאוזן (1200ms)</span>
+              <span class="perf-opt-sub">ברירת מחדל</span>
+            </button>
+            <button id="btn-jumpms-2000" class="perf-option-btn focusable" data-ui-pref="numericJumpMs" data-ui-value="2000">
+              <span class="perf-opt-title">נינוח (2000ms)</span>
+              <span class="perf-opt-sub">נוח לערוצים תלת-ספרתיים</span>
+            </button>
+          </div>
+          <p class="perf-desc">השהיית טעינת תצוגה בזפזופ (Zap Debounce):</p>
+          <div class="perf-options-grid ui-grid-3" id="ui-zapdebounce-options">
+            <button id="btn-zapdebounce-0" class="perf-option-btn focusable" data-ui-pref="zapDebounceMs" data-ui-value="0">
+              <span class="perf-opt-title">מיידי (0ms)</span>
+              <span class="perf-opt-sub">תגובה מיידית</span>
+            </button>
+            <button id="btn-zapdebounce-120" class="perf-option-btn focusable" data-ui-pref="zapDebounceMs" data-ui-value="120">
+              <span class="perf-opt-title">מאוזן (120ms)</span>
+              <span class="perf-opt-sub">ברירת מחדל</span>
+            </button>
+            <button id="btn-zapdebounce-280" class="perf-option-btn focusable" data-ui-pref="zapDebounceMs" data-ui-value="280">
+              <span class="perf-opt-title">חסכוני (280ms)</span>
+              <span class="perf-opt-sub">זפזופ חלק בלי עומס</span>
+            </button>
+          </div>
+        </div>
+
         <div class="perf-actions-bar">
           <div id="ui-prefs-status" class="perf-cache-status">מצב: נקי ומאוזן • צפיפות: מאוזנת • אנימציות: מופחתות</div>
           <div class="perf-action-btns">
             <button id="btn-reset-ui-prefs" class="btn-tv-secondary focusable">איפוס הגדרות עיצוב לברירת מחדל</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 5: Sound & Picture Calibration + Stream Telemetry -->
+      <div id="settings-tab-av" class="modal-body settings-tab-content hidden">
+        <div class="perf-section-card ui-pref-card">
+          <h3>סאונד ונרמול עוצמת שמע (Audio Normalization)</h3>
+          <p class="perf-desc">השוואת עוצמת הקול בין ערוצים למניעת קפיצות ווליום או לחישות שקטות:</p>
+          <div class="perf-options-grid ui-grid-4" id="av-audio-norm-options">
+            <button id="btn-av-norm-off" class="perf-option-btn focusable" data-av-pref="audioNormMode" data-av-value="off">
+              <span class="perf-opt-title">כבוי (Passthrough)</span>
+              <span class="perf-opt-sub">שמע מקורי ללא עיבוד</span>
+            </button>
+            <button id="btn-av-norm-gentle" class="perf-option-btn focusable" data-av-pref="audioNormMode" data-av-value="gentle">
+              <span class="perf-opt-title">עדין (Gentle)</span>
+              <span class="perf-opt-sub">השוואת עוצמה רכה (-18 dBFS)</span>
+            </button>
+            <button id="btn-av-norm-broadcast" class="perf-option-btn focusable" data-av-pref="audioNormMode" data-av-value="broadcast">
+              <span class="perf-opt-title">שידור אחיד (Broadcast)</span>
+              <span class="perf-opt-sub">נרמול אחיד וצלול (-16 dBFS)</span>
+            </button>
+            <button id="btn-av-norm-night" class="perf-option-btn focusable" data-av-pref="audioNormMode" data-av-value="night">
+              <span class="perf-opt-title">לילה (Night Mode)</span>
+              <span class="perf-opt-sub">דחיסה עמוקה לשמירה על שקט</span>
+            </button>
+          </div>
+          <div class="perf-options-grid" id="av-audio-toggles">
+            <button id="btn-av-audioVoiceBoost" class="perf-option-btn ui-toggle-btn focusable" data-av-toggle="audioVoiceBoost">
+              <span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">
+                <span class="perf-opt-title">הדגשת דיבור (Voice Boost)</span>
+                <span class="perf-opt-sub">חידוד תדרי קול אנושי (2.4kHz) לדיאלוג ברור</span>
+              </span>
+              <span class="ui-toggle-pill">כבוי</span>
+            </button>
+            <button id="btn-av-audioZapFade" class="perf-option-btn ui-toggle-btn focusable" data-av-toggle="audioZapFade">
+              <span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">
+                <span class="perf-opt-title">כניסת שמע רכה בזפזופ (Zap Fade)</span>
+                <span class="perf-opt-sub">עמעום הדרגתי וחלק של 280ms במעבר ערוץ</span>
+              </span>
+              <span class="ui-toggle-pill">מופעל ✓</span>
+            </button>
+          </div>
+          <p class="perf-desc" id="av-channel-trim-label">כיוון עוצמה אישי לערוץ הנוכחי (Volume Trim):</p>
+          <div class="perf-options-grid ui-grid-5" id="av-channel-trim-options">
+            <button id="btn-av-trim--6" class="perf-option-btn focusable" data-av-trim="-6">
+              <span class="perf-opt-title">-6 dB</span>
+              <span class="perf-opt-sub">הנמכה חזקה</span>
+            </button>
+            <button id="btn-av-trim--3" class="perf-option-btn focusable" data-av-trim="-3">
+              <span class="perf-opt-title">-3 dB</span>
+              <span class="perf-opt-sub">הנמכה עדינה</span>
+            </button>
+            <button id="btn-av-trim-0" class="perf-option-btn focusable" data-av-trim="0">
+              <span class="perf-opt-title">0 dB</span>
+              <span class="perf-opt-sub">ברירת מחדל</span>
+            </button>
+            <button id="btn-av-trim-3" class="perf-option-btn focusable" data-av-trim="3">
+              <span class="perf-opt-title">+3 dB</span>
+              <span class="perf-opt-sub">הגברה קלה</span>
+            </button>
+            <button id="btn-av-trim-6" class="perf-option-btn focusable" data-av-trim="6">
+              <span class="perf-opt-title">+6 dB</span>
+              <span class="perf-opt-sub">הגברה חזקה</span>
+            </button>
+          </div>
+          <div class="perf-action-btns" style="margin-top:6px;">
+            <button id="btn-reset-loudness-memory" class="btn-tv-secondary focusable">איפוס זיכרון עוצמת שמע לערוצים</button>
+          </div>
+        </div>
+
+        <div class="perf-section-card ui-pref-card">
+          <h3>איכות וידאו, שיהוי נמוך וחיסכון בזיכרון</h3>
+          <p class="perf-desc">בחירת פרופיל איכות וידאו (ABR):</p>
+          <div class="perf-options-grid ui-grid-4" id="av-quality-options">
+            <button id="btn-av-quality-smart" class="perf-option-btn focusable" data-av-pref="videoQualityMode" data-av-value="smart">
+              <span class="perf-opt-title">חכם מדורג (Smart)</span>
+              <span class="perf-opt-sub">פתיחה מהירה ועלייה ל-HD</span>
+            </button>
+            <button id="btn-av-quality-max" class="perf-option-btn focusable" data-av-pref="videoQualityMode" data-av-value="max">
+              <span class="perf-opt-title">איכות שיא (Max)</span>
+              <span class="perf-opt-sub">התחלה מיידית באיכות מרבית</span>
+            </button>
+            <button id="btn-av-quality-hd1080" class="perf-option-btn focusable" data-av-pref="videoQualityMode" data-av-value="hd1080">
+              <span class="perf-opt-title">עד 1080p</span>
+              <span class="perf-opt-sub">מגביל רזולוציה ל-Full HD</span>
+            </button>
+            <button id="btn-av-quality-hd720" class="perf-option-btn focusable" data-av-pref="videoQualityMode" data-av-value="hd720">
+              <span class="perf-opt-title">עד 720p (חיסכון)</span>
+              <span class="perf-opt-sub">מונע עומס בטלוויזיות חלשות</span>
+            </button>
+          </div>
+          <p class="perf-desc">מצב שיהוי שידור (Latency):</p>
+          <div class="perf-options-grid" id="av-latency-options">
+            <button id="btn-av-latency-standard" class="perf-option-btn focusable" data-av-pref="streamLatencyMode" data-av-value="standard">
+              <span class="perf-opt-title">יציב רגיל (Standard)</span>
+              <span class="perf-opt-sub">שמירה על רציפות השידור נגד תקיעות</span>
+            </button>
+            <button id="btn-av-latency-low" class="perf-option-btn focusable" data-av-pref="streamLatencyMode" data-av-value="low">
+              <span class="perf-opt-title">שיהוי נמוך (Low Latency)</span>
+              <span class="perf-opt-sub">קרוב יותר לזמן האמת (לשידורי ספורט)</span>
+            </button>
+          </div>
+          <p class="perf-desc">ניהול זיכרון באפר (Memory Saver):</p>
+          <div class="perf-options-grid ui-grid-3" id="av-memsaver-options">
+            <button id="btn-av-memsaver-auto" class="perf-option-btn focusable" data-av-pref="memorySaverMode" data-av-value="auto">
+              <span class="perf-opt-title">אוטומטי (Auto)</span>
+              <span class="perf-opt-sub">מותאם לחומרת המכשיר</span>
+            </button>
+            <button id="btn-av-memsaver-aggressive" class="perf-option-btn focusable" data-av-pref="memorySaverMode" data-av-value="aggressive">
+              <span class="perf-opt-title">אגרסיבי (Aggressive)</span>
+              <span class="perf-opt-sub">צריכת RAM מינימלית (20MB)</span>
+            </button>
+            <button id="btn-av-memsaver-off" class="perf-option-btn focusable" data-av-pref="memorySaverMode" data-av-value="off">
+              <span class="perf-opt-title">כבוי (Full)</span>
+              <span class="perf-opt-sub">ניצול מלוא פרופיל הבאפר</span>
+            </button>
+          </div>
+          <div class="perf-options-grid" id="av-stats-toggle">
+            <button id="btn-av-showStreamStats" class="perf-option-btn ui-toggle-btn focusable" data-av-toggle="showStreamStats">
+              <span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">
+                <span class="perf-opt-title">מד נתוני שידור חי (Stream Stats)</span>
+                <span class="perf-opt-sub">מציג רזולוציה, קצב ביטים, באפר ו-Audio Gain במסך מלא</span>
+              </span>
+              <span class="ui-toggle-pill">כבוי</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="perf-section-card ui-pref-card">
+          <h3>כיול תמונה ויחס מסך (Picture Calibration &amp; Aspect)</h3>
+          <p class="perf-desc">מצב תמונה מהיר (Picture Preset):</p>
+          <div class="perf-options-grid ui-grid-5" id="av-pic-preset-options">
+            <button id="btn-av-pic-original" class="perf-option-btn focusable" data-av-pic-preset="original">
+              <span class="perf-opt-title">מקורי</span>
+              <span class="perf-opt-sub">ללא פילטר GPU</span>
+            </button>
+            <button id="btn-av-pic-vivid" class="perf-option-btn focusable" data-av-pic-preset="vivid">
+              <span class="perf-opt-title">חי (Vivid)</span>
+              <span class="perf-opt-sub">צבעים עזים</span>
+            </button>
+            <button id="btn-av-pic-cinema" class="perf-option-btn focusable" data-av-pic-preset="cinema">
+              <span class="perf-opt-title">קולנוע</span>
+              <span class="perf-opt-sub">מאוזן לחדר חשוך</span>
+            </button>
+            <button id="btn-av-pic-crisp" class="perf-option-btn focusable" data-av-pic-preset="crisp">
+              <span class="perf-opt-title">חד (Crisp)</span>
+              <span class="perf-opt-sub">חידוד וניגודיות</span>
+            </button>
+            <button id="btn-av-pic-soft" class="perf-option-btn focusable" data-av-pic-preset="soft">
+              <span class="perf-opt-title">רך (Soft)</span>
+              <span class="perf-opt-sub">רגוע לעיניים</span>
+            </button>
+          </div>
+          <p class="perf-desc">בהירות (Brightness):</p>
+          <div class="perf-options-grid ui-grid-5" id="av-brightness-options">
+            <button id="btn-av-bright-85" class="perf-option-btn focusable" data-av-pref="picBrightness" data-av-value="85">
+              <span class="perf-opt-title">85%</span>
+              <span class="perf-opt-sub">כהה</span>
+            </button>
+            <button id="btn-av-bright-92" class="perf-option-btn focusable" data-av-pref="picBrightness" data-av-value="92">
+              <span class="perf-opt-title">92%</span>
+              <span class="perf-opt-sub">רגוע</span>
+            </button>
+            <button id="btn-av-bright-100" class="perf-option-btn focusable" data-av-pref="picBrightness" data-av-value="100">
+              <span class="perf-opt-title">100%</span>
+              <span class="perf-opt-sub">טבעי</span>
+            </button>
+            <button id="btn-av-bright-108" class="perf-option-btn focusable" data-av-pref="picBrightness" data-av-value="108">
+              <span class="perf-opt-title">108%</span>
+              <span class="perf-opt-sub">מואר</span>
+            </button>
+            <button id="btn-av-bright-116" class="perf-option-btn focusable" data-av-pref="picBrightness" data-av-value="116">
+              <span class="perf-opt-title">116%</span>
+              <span class="perf-opt-sub">בהיר</span>
+            </button>
+          </div>
+          <p class="perf-desc">ניגודיות (Contrast):</p>
+          <div class="perf-options-grid ui-grid-5" id="av-contrast-options">
+            <button id="btn-av-contrast-88" class="perf-option-btn focusable" data-av-pref="picContrast" data-av-value="88">
+              <span class="perf-opt-title">88%</span>
+              <span class="perf-opt-sub">עדין</span>
+            </button>
+            <button id="btn-av-contrast-94" class="perf-option-btn focusable" data-av-pref="picContrast" data-av-value="94">
+              <span class="perf-opt-title">94%</span>
+              <span class="perf-opt-sub">רך</span>
+            </button>
+            <button id="btn-av-contrast-100" class="perf-option-btn focusable" data-av-pref="picContrast" data-av-value="100">
+              <span class="perf-opt-title">100%</span>
+              <span class="perf-opt-sub">טבעי</span>
+            </button>
+            <button id="btn-av-contrast-108" class="perf-option-btn focusable" data-av-pref="picContrast" data-av-value="108">
+              <span class="perf-opt-title">108%</span>
+              <span class="perf-opt-sub">חד</span>
+            </button>
+            <button id="btn-av-contrast-116" class="perf-option-btn focusable" data-av-pref="picContrast" data-av-value="116">
+              <span class="perf-opt-title">116%</span>
+              <span class="perf-opt-sub">עמוק</span>
+            </button>
+          </div>
+          <p class="perf-desc">רוויית צבע (Saturation):</p>
+          <div class="perf-options-grid ui-grid-5" id="av-saturation-options">
+            <button id="btn-av-sat-80" class="perf-option-btn focusable" data-av-pref="picSaturation" data-av-value="80">
+              <span class="perf-opt-title">80%</span>
+              <span class="perf-opt-sub">מאופק</span>
+            </button>
+            <button id="btn-av-sat-90" class="perf-option-btn focusable" data-av-pref="picSaturation" data-av-value="90">
+              <span class="perf-opt-title">90%</span>
+              <span class="perf-opt-sub">רך</span>
+            </button>
+            <button id="btn-av-sat-100" class="perf-option-btn focusable" data-av-pref="picSaturation" data-av-value="100">
+              <span class="perf-opt-title">100%</span>
+              <span class="perf-opt-sub">טבעי</span>
+            </button>
+            <button id="btn-av-sat-112" class="perf-option-btn focusable" data-av-pref="picSaturation" data-av-value="112">
+              <span class="perf-opt-title">112%</span>
+              <span class="perf-opt-sub">עשיר</span>
+            </button>
+            <button id="btn-av-sat-125" class="perf-option-btn focusable" data-av-pref="picSaturation" data-av-value="125">
+              <span class="perf-opt-title">125%</span>
+              <span class="perf-opt-sub">עוצמתי</span>
+            </button>
+          </div>
+          <p class="perf-desc">יחס מסך ומתיחת וידאו (Aspect Ratio):</p>
+          <div class="perf-options-grid ui-grid-4" id="av-aspect-options">
+            <button id="btn-av-aspect-contain" class="perf-option-btn focusable" data-av-pref="videoAspectMode" data-av-value="contain">
+              <span class="perf-opt-title">מותאם (Contain)</span>
+              <span class="perf-opt-sub">ללא חיתוך</span>
+            </button>
+            <button id="btn-av-aspect-cover" class="perf-option-btn focusable" data-av-pref="videoAspectMode" data-av-value="cover">
+              <span class="perf-opt-title">מילוי (Cover)</span>
+              <span class="perf-opt-sub">ממלא מסך</span>
+            </button>
+            <button id="btn-av-aspect-fill" class="perf-option-btn focusable" data-av-pref="videoAspectMode" data-av-value="fill">
+              <span class="perf-opt-title">מתיחה (Fill)</span>
+              <span class="perf-opt-sub">100% רוחב וגובה</span>
+            </button>
+            <button id="btn-av-aspect-zoom" class="perf-option-btn focusable" data-av-pref="videoAspectMode" data-av-value="zoom">
+              <span class="perf-opt-title">זום 12%</span>
+              <span class="perf-opt-sub">חיתוך שוליים</span>
+            </button>
+          </div>
+          <p class="perf-desc">חידוד קצוות תמונה (Rendering):</p>
+          <div class="perf-options-grid" id="av-crisp-options">
+            <button id="btn-av-crisp-auto" class="perf-option-btn focusable" data-av-pref="picCrispRendering" data-av-value="auto">
+              <span class="perf-opt-title">החלקה רגילה (Auto)</span>
+              <span class="perf-opt-sub">ברירת מחדל של המערכת</span>
+            </button>
+            <button id="btn-av-crisp-crisp" class="perf-option-btn focusable" data-av-pref="picCrispRendering" data-av-value="crisp">
+              <span class="perf-opt-title">חידוד תמונה (Crisp)</span>
+              <span class="perf-opt-sub">חדות מוגברת לשידורי HD/SD</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="perf-actions-bar">
+          <div id="av-prefs-status" class="perf-cache-status">נרמול: כבוי • איכות: חכם • תמונה: מקורי • יחס: מותאם</div>
+          <div class="perf-action-btns">
+            <button id="btn-reset-av-prefs" class="btn-tv-secondary focusable">איפוס תמונה וסאונד לברירת מחדל</button>
           </div>
         </div>
       </div>

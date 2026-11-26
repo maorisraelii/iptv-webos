@@ -144,8 +144,16 @@ class RemoteController {
       if (this.app.player.video.muted && !this.app.player.userPaused) {
         this.app.player.video.muted = false;
       }
-      if (this.app.player.video.volume < 1.0) {
+      if (typeof this.app.player.applyEffectiveVolume === 'function') {
+        this.app.player.applyEffectiveVolume();
+      } else if (this.app.player.video.volume < 1.0) {
         this.app.player.video.volume = 1.0;
+      }
+      if (typeof this.app.player.resumeAudioPipeline === 'function') {
+        const avPrefs = typeof this.app.getAvPrefs === 'function' ? this.app.getAvPrefs() : null;
+        if (!avPrefs || avPrefs.audioNormMode !== 'off' || avPrefs.audioVoiceBoost) {
+          this.app.player.resumeAudioPipeline();
+        }
       }
     }
   }
@@ -503,6 +511,10 @@ class RemoteController {
     this.numberBuffer += digit;
     this.app.showNumberInputOverlay(this.numberBuffer);
 
+    const jumpMs = (this.app && typeof this.app.getNumericJumpMs === 'function')
+      ? this.app.getNumericJumpMs()
+      : 1200;
+
     clearTimeout(this.numberTimer);
     this.numberTimer = setTimeout(() => {
       const channelNum = parseInt(this.numberBuffer, 10);
@@ -510,7 +522,7 @@ class RemoteController {
       if (!isNaN(channelNum)) {
         this.app.jumpToChannelNumber(channelNum);
       }
-    }, 1350);
+    }, jumpMs);
   }
 }
 

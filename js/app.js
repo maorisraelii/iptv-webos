@@ -14,7 +14,8 @@ const STORAGE_KEYS = {
   FAVORITES: 'zenplay_iptv_favorites',
   LAST_CHANNEL: 'zenplay_iptv_last_channel',
   UI_THEME: 'zenplay_ui_theme',
-  UI_PREFS: 'zenplay_ui_prefs_v1'
+  UI_PREFS: 'zenplay_ui_prefs_v1',
+  AV_PREFS: 'zenplay_av_prefs_v1'
 };
 
 const DEFAULT_UI_PREFS = {
@@ -33,7 +34,47 @@ const DEFAULT_UI_PREFS = {
   animations: 'reduced',
   visualEffects: 'light',
   previewAutoplay: 'delayed',
-  startupMode: 'browse'
+  startupMode: 'browse',
+  layoutSide: 'right',
+  listWidth: 'balanced',
+  cornerRadius: 'rounded',
+  bgTone: 'midnight',
+  focusStyle: 'glow',
+  osdOpacity: 'balanced',
+  showClock: true,
+  showSynopsis: true,
+  showPrevNext: true,
+  showChannelNumbers: true,
+  showToasts: true,
+  wrapNavigation: true,
+  seekStepSec: 30,
+  numericJumpMs: 1200,
+  singleClickFullscreen: false,
+  zapDebounceMs: 120
+};
+
+const DEFAULT_AV_PREFS = {
+  audioNormMode: 'off',
+  audioVoiceBoost: false,
+  audioZapFade: true,
+  videoQualityMode: 'smart',
+  streamLatencyMode: 'standard',
+  memorySaverMode: 'auto',
+  picturePreset: 'original',
+  picBrightness: 100,
+  picContrast: 100,
+  picSaturation: 100,
+  picCrispRendering: 'auto',
+  videoAspectMode: 'contain',
+  showStreamStats: false
+};
+
+const PICTURE_PRESETS = {
+  original: { picBrightness: 100, picContrast: 100, picSaturation: 100, picCrispRendering: 'auto' },
+  vivid: { picBrightness: 108, picContrast: 108, picSaturation: 125, picCrispRendering: 'crisp' },
+  cinema: { picBrightness: 92, picContrast: 108, picSaturation: 90, picCrispRendering: 'auto' },
+  crisp: { picBrightness: 100, picContrast: 108, picSaturation: 100, picCrispRendering: 'crisp' },
+  soft: { picBrightness: 100, picContrast: 94, picSaturation: 90, picCrispRendering: 'auto' }
 };
 
 const UI_PRESETS = {
@@ -141,8 +182,11 @@ class IPTVApp {
     this.focusedHeaderIndex = 0;
     this.focusedModalIndex = 0;
     this.activeSettingsInputId = 'm3u-url-input';
-    this.activeSettingsTab = 'sources'; // 'sources' | 'channels' | 'performance' | 'appearance' | 'about'
+    this.activeSettingsTab = 'sources'; // 'sources' | 'channels' | 'performance' | 'appearance' | 'av' | 'about'
     this._appliedUiPrefs = null;
+    this._appliedAvPrefs = null;
+    this._streamStatsTimer = null;
+    this._lastStreamStatsText = '';
     this._renderingShowRowLogos = null;
     this.editorSourceFilter = 'ALL';
     this.editorNumberBuffer = '';
@@ -214,6 +258,9 @@ class IPTVApp {
     if (typeof this._lastClockMinute !== 'number') this._lastClockMinute = -1;
     if (typeof this.focusedChannelIndex !== 'number') this.focusedChannelIndex = 0;
     if (typeof this._appliedUiPrefs === 'undefined') this._appliedUiPrefs = null;
+    if (typeof this._appliedAvPrefs === 'undefined') this._appliedAvPrefs = null;
+    if (typeof this._streamStatsTimer === 'undefined') this._streamStatsTimer = null;
+    if (typeof this._lastStreamStatsText !== 'string') this._lastStreamStatsText = '';
     if (typeof this._renderingShowRowLogos === 'undefined') this._renderingShowRowLogos = null;
   }
 
@@ -287,7 +334,7 @@ class IPTVApp {
 
     const perfTabBtn = document.getElementById('tab-btn-performance');
     if (perfTabBtn) {
-      perfTabBtn.textContent = 'ערכת נושא ובאפר';
+      perfTabBtn.textContent = 'נושא ובאפר';
     }
 
     const perfPanel = document.getElementById('settings-tab-performance');
@@ -428,7 +475,19 @@ class IPTVApp {
       animations: { normal: 1, reduced: 1, off: 1 },
       visualEffects: { full: 1, light: 1, flat: 1 },
       previewAutoplay: { instant: 1, delayed: 1, off: 1 },
-      startupMode: { browse: 1, fullscreen: 1 }
+      startupMode: { browse: 1, fullscreen: 1 },
+      layoutSide: { right: 1, left: 1 },
+      listWidth: { narrow: 1, balanced: 1, wide: 1 },
+      cornerRadius: { sharp: 1, rounded: 1, pill: 1 },
+      bgTone: { midnight: 1, oled: 1, slate: 1, deepblue: 1 },
+      focusStyle: { glow: 1, border: 1, solid: 1 },
+      osdOpacity: { solid: 1, balanced: 1, light: 1 }
+    };
+    const intMaps = {
+      osdTimeoutSec: { 3: 1, 5: 1, 8: 1, 12: 1 },
+      seekStepSec: { 10: 1, 15: 1, 30: 1, 60: 1 },
+      numericJumpMs: { 700: 1, 1200: 1, 2000: 1 },
+      zapDebounceMs: { 0: 1, 120: 1, 280: 1 }
     };
     for (let k in DEFAULT_UI_PREFS) {
       if (!Object.prototype.hasOwnProperty.call(DEFAULT_UI_PREFS, k)) continue;
@@ -436,10 +495,10 @@ class IPTVApp {
       const val = raw[k];
       if (typeof DEFAULT_UI_PREFS[k] === 'boolean') {
         if (typeof val === 'boolean') out[k] = val;
-      } else if (k === 'osdTimeoutSec') {
-        const sec = parseInt(val, 10);
-        if (sec === 3 || sec === 5 || sec === 8 || sec === 12) {
-          out[k] = sec;
+      } else if (intMaps[k]) {
+        const num = parseInt(val, 10);
+        if (intMaps[k][num]) {
+          out[k] = num;
         }
       } else if (enumMaps[k] && enumMaps[k][val]) {
         out[k] = val;
@@ -496,17 +555,17 @@ class IPTVApp {
         candidate[k] = prefs[k];
       }
     }
-    candidate[key] = typeof DEFAULT_UI_PREFS[key] === 'boolean' ? Boolean(value) : value;
+    const isIntKey =
+      key === 'osdTimeoutSec' ||
+      key === 'seekStepSec' ||
+      key === 'numericJumpMs' ||
+      key === 'zapDebounceMs';
+    candidate[key] = typeof DEFAULT_UI_PREFS[key] === 'boolean'
+      ? Boolean(value)
+      : (isIntKey ? parseInt(value, 10) : value);
     const validated = this._normalizeUiPrefs(candidate);
-    if (validated[key] !== candidate[key] && key !== 'osdTimeoutSec') {
+    if (validated[key] !== candidate[key]) {
       return prefs;
-    }
-    if (key === 'osdTimeoutSec') {
-      const parsedSec = parseInt(value, 10);
-      if (parsedSec !== 3 && parsedSec !== 5 && parsedSec !== 8 && parsedSec !== 12) {
-        return prefs;
-      }
-      validated[key] = parsedSec;
     }
     this.saveUiPrefs(validated);
     return this.applyUiPrefs(Boolean(silent));
@@ -558,6 +617,341 @@ class IPTVApp {
     const prefs = this.getUiPrefs();
     const sec = prefs && typeof prefs.osdTimeoutSec === 'number' ? prefs.osdTimeoutSec : 5;
     return sec * 1000;
+  }
+
+  getSeekStepSec() {
+    const prefs = this.getUiPrefs();
+    return prefs && typeof prefs.seekStepSec === 'number' ? prefs.seekStepSec : 30;
+  }
+
+  getNumericJumpMs() {
+    const prefs = this.getUiPrefs();
+    return prefs && typeof prefs.numericJumpMs === 'number' ? prefs.numericJumpMs : 1200;
+  }
+
+  getZapDebounceMs() {
+    const prefs = this.getUiPrefs();
+    return prefs && typeof prefs.zapDebounceMs === 'number' ? prefs.zapDebounceMs : 120;
+  }
+
+  _normalizeAvPrefs(raw) {
+    const out = {};
+    for (let k in DEFAULT_AV_PREFS) {
+      if (Object.prototype.hasOwnProperty.call(DEFAULT_AV_PREFS, k)) {
+        out[k] = DEFAULT_AV_PREFS[k];
+      }
+    }
+    if (!raw || typeof raw !== 'object') {
+      return out;
+    }
+    const enumMaps = {
+      audioNormMode: { off: 1, gentle: 1, broadcast: 1, night: 1 },
+      videoQualityMode: { smart: 1, max: 1, hd1080: 1, hd720: 1 },
+      streamLatencyMode: { standard: 1, low: 1 },
+      memorySaverMode: { auto: 1, aggressive: 1, off: 1 },
+      picturePreset: { original: 1, vivid: 1, cinema: 1, crisp: 1, soft: 1, custom: 1 },
+      picCrispRendering: { auto: 1, crisp: 1 },
+      videoAspectMode: { contain: 1, cover: 1, fill: 1, zoom: 1 }
+    };
+    const intMaps = {
+      picBrightness: { 85: 1, 92: 1, 100: 1, 108: 1, 116: 1 },
+      picContrast: { 88: 1, 94: 1, 100: 1, 108: 1, 116: 1 },
+      picSaturation: { 80: 1, 90: 1, 100: 1, 112: 1, 125: 1 }
+    };
+    for (let k in DEFAULT_AV_PREFS) {
+      if (!Object.prototype.hasOwnProperty.call(DEFAULT_AV_PREFS, k)) continue;
+      if (!Object.prototype.hasOwnProperty.call(raw, k)) continue;
+      const val = raw[k];
+      if (typeof DEFAULT_AV_PREFS[k] === 'boolean') {
+        if (typeof val === 'boolean') out[k] = val;
+      } else if (intMaps[k]) {
+        const num = parseInt(val, 10);
+        if (intMaps[k][num]) out[k] = num;
+      } else if (enumMaps[k] && enumMaps[k][val]) {
+        out[k] = val;
+      }
+    }
+    return out;
+  }
+
+  _detectMatchingPicturePreset(prefs) {
+    const names = ['original', 'vivid', 'cinema', 'crisp', 'soft'];
+    for (let i = 0; i < names.length; i++) {
+      const name = names[i];
+      const p = PICTURE_PRESETS[name];
+      if (
+        prefs.picBrightness === p.picBrightness &&
+        prefs.picContrast === p.picContrast &&
+        prefs.picSaturation === p.picSaturation &&
+        prefs.picCrispRendering === p.picCrispRendering
+      ) {
+        return name;
+      }
+    }
+    return 'custom';
+  }
+
+  getAvPrefs() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.AV_PREFS);
+      if (raw) {
+        return this._normalizeAvPrefs(JSON.parse(raw));
+      }
+    } catch (e) {}
+    return this._normalizeAvPrefs(null);
+  }
+
+  saveAvPrefs(prefs) {
+    const normalized = this._normalizeAvPrefs(prefs);
+    normalized.picturePreset = this._detectMatchingPicturePreset(normalized);
+    try {
+      localStorage.setItem(STORAGE_KEYS.AV_PREFS, JSON.stringify(normalized));
+    } catch (e) {}
+    return normalized;
+  }
+
+  applyPicturePreset(presetName, silent) {
+    const presetObj = PICTURE_PRESETS[presetName];
+    if (!presetObj) return this.getAvPrefs();
+    const prefs = this.getAvPrefs();
+    for (let k in presetObj) {
+      if (Object.prototype.hasOwnProperty.call(presetObj, k)) {
+        prefs[k] = presetObj[k];
+      }
+    }
+    prefs.picturePreset = presetName;
+    this.saveAvPrefs(prefs);
+    const applied = this.applyAvPrefs(true);
+    if (!silent) {
+      const labelMap = {
+        original: 'מקורי',
+        vivid: 'חי ועשיר',
+        cinema: 'קולנוע',
+        crisp: 'חד',
+        soft: 'רך'
+      };
+      this.showToast('הוחל מצב תמונה: ' + (labelMap[presetName] || presetName) + ' ✓');
+    }
+    return applied;
+  }
+
+  setAvPref(key, value, silent) {
+    if (!Object.prototype.hasOwnProperty.call(DEFAULT_AV_PREFS, key)) {
+      return this.getAvPrefs();
+    }
+    if (key === 'picturePreset' && PICTURE_PRESETS[value]) {
+      return this.applyPicturePreset(value, silent);
+    }
+    const prefs = this.getAvPrefs();
+    const candidate = {};
+    for (let k in prefs) {
+      if (Object.prototype.hasOwnProperty.call(prefs, k)) {
+        candidate[k] = prefs[k];
+      }
+    }
+    const isIntKey = key === 'picBrightness' || key === 'picContrast' || key === 'picSaturation';
+    candidate[key] = typeof DEFAULT_AV_PREFS[key] === 'boolean'
+      ? Boolean(value)
+      : (isIntKey ? parseInt(value, 10) : value);
+    const validated = this._normalizeAvPrefs(candidate);
+    if (validated[key] !== candidate[key]) {
+      return prefs;
+    }
+    this.saveAvPrefs(validated);
+    return this.applyAvPrefs(Boolean(silent));
+  }
+
+  toggleAvPref(key, silent) {
+    if (typeof DEFAULT_AV_PREFS[key] !== 'boolean') {
+      return this.getAvPrefs();
+    }
+    const prefs = this.getAvPrefs();
+    return this.setAvPref(key, !prefs[key], silent);
+  }
+
+  resetAvPrefs(silent) {
+    const fresh = this._normalizeAvPrefs(null);
+    this.saveAvPrefs(fresh);
+    const applied = this.applyAvPrefs(true);
+    if (!silent) {
+      this.showToast('הגדרות תמונה וסאונד אופסו לברירת המחדל ✓');
+    }
+    return applied;
+  }
+
+  setChannelTrimPref(trimDb, silent) {
+    const ch = this.selectedChannel || this.previewedChannel || (this.player && this.player.currentChannel);
+    if (!ch) {
+      if (!silent) this.showToast('יש לבחור ערוץ פעיל לכיוון עוצמת השמע');
+      return;
+    }
+    const val = parseInt(trimDb, 10);
+    if (isNaN(val)) return;
+    if (this.player && typeof this.player.setChannelVolumeTrim === 'function') {
+      this.player.setChannelVolumeTrim(ch.id, val);
+    } else {
+      try {
+        const raw = localStorage.getItem('zenplay_channel_loudness_v1');
+        const parsed = raw ? JSON.parse(raw) : { trim: {}, learned: {} };
+        if (!parsed.trim || typeof parsed.trim !== 'object') parsed.trim = {};
+        if (!parsed.learned || typeof parsed.learned !== 'object') parsed.learned = {};
+        parsed.trim[ch.id] = val;
+        localStorage.setItem('zenplay_channel_loudness_v1', JSON.stringify(parsed));
+      } catch (e) {}
+    }
+    this.renderAvTab();
+    if (this.mode === 'FULLSCREEN') {
+      this._renderStreamStatsOnce();
+    }
+    if (!silent) {
+      this.showToast('כיוון עוצמה לערוץ ' + ch.name + ': ' + (val > 0 ? '+' + val : val) + ' dB ✓');
+    }
+  }
+
+  resetChannelLoudnessMemory(silent) {
+    if (this.player && typeof this.player.resetLoudnessMemory === 'function') {
+      this.player.resetLoudnessMemory();
+    } else {
+      try {
+        localStorage.removeItem('zenplay_channel_loudness_v1');
+      } catch (e) {}
+    }
+    this.renderAvTab();
+    if (this.mode === 'FULLSCREEN') {
+      this._renderStreamStatsOnce();
+    }
+    if (!silent) {
+      this.showToast('זיכרון עוצמת השמע לערוצים אופס בהצלחה ✓');
+    }
+  }
+
+  _renderStreamStatsOnce() {
+    if (typeof document === 'undefined') return;
+    const badge = document.getElementById('stream-stats-badge');
+    if (!badge) return;
+    const avPrefs = this.getAvPrefs();
+    if (this.mode !== 'FULLSCREEN' || !avPrefs.showStreamStats) {
+      if (!badge.classList.contains('hidden')) badge.classList.add('hidden');
+      return;
+    }
+    let stats = null;
+    if (this.player && typeof this.player.getStreamStats === 'function') {
+      stats = this.player.getStreamStats();
+    }
+    const videoEl = document.getElementById('tv-video') || (this.player && this.player.video);
+    const w = stats && stats.width ? stats.width : (videoEl && videoEl.videoWidth ? videoEl.videoWidth : 0);
+    const h = stats && stats.height ? stats.height : (videoEl && videoEl.videoHeight ? videoEl.videoHeight : 0);
+    const parts = [];
+    parts.push(w > 0 && h > 0 ? (w + 'x' + h) : '--x--');
+    if (stats && typeof stats.bitrateKbps === 'number' && stats.bitrateKbps > 0) {
+      parts.push(
+        stats.bitrateKbps >= 1000
+          ? (stats.bitrateKbps / 1000).toFixed(1) + ' Mbps'
+          : Math.round(stats.bitrateKbps) + ' kbps'
+      );
+    }
+    if (stats && typeof stats.bufferSec === 'number') {
+      parts.push('BUF ' + stats.bufferSec.toFixed(1) + 's');
+    } else if (this.player && typeof this.player.getForwardBufferSeconds === 'function') {
+      parts.push('BUF ' + this.player.getForwardBufferSeconds().toFixed(1) + 's');
+    }
+    const normMode = (stats && stats.audioNormMode) || avPrefs.audioNormMode || 'off';
+    const gainDb = stats && typeof stats.appliedGainDb === 'number' ? stats.appliedGainDb : 0;
+    const trimDb = stats && typeof stats.channelTrimDb === 'number' ? stats.channelTrimDb : 0;
+    let audLabel = 'AUD ' + normMode.toUpperCase();
+    if (gainDb !== 0) {
+      audLabel += ' ' + (gainDb > 0 ? '+' : '') + gainDb.toFixed(1) + 'dB';
+    }
+    if (trimDb !== 0) {
+      audLabel += ' (Trim ' + (trimDb > 0 ? '+' : '') + trimDb + 'dB)';
+    }
+    parts.push(audLabel);
+    const text = parts.join(' • ');
+    if (this._lastStreamStatsText !== text) {
+      this._lastStreamStatsText = text;
+      badge.textContent = text;
+    }
+    if (badge.classList.contains('hidden')) {
+      badge.classList.remove('hidden');
+    }
+  }
+
+  updateStreamStatsOverlay() {
+    const avPrefs = this.getAvPrefs();
+    const shouldPoll = this.mode === 'FULLSCREEN' && avPrefs.showStreamStats === true;
+    if (!shouldPoll) {
+      if (this._streamStatsTimer) {
+        clearInterval(this._streamStatsTimer);
+        this._streamStatsTimer = null;
+      }
+      if (typeof document !== 'undefined') {
+        const badge = document.getElementById('stream-stats-badge');
+        if (badge && !badge.classList.contains('hidden')) {
+          badge.classList.add('hidden');
+        }
+      }
+      return;
+    }
+    this._renderStreamStatsOnce();
+    if (!this._streamStatsTimer) {
+      this._streamStatsTimer = setInterval(() => {
+        if (this.mode !== 'FULLSCREEN' || !this.getAvPrefs().showStreamStats) {
+          this.updateStreamStatsOverlay();
+          return;
+        }
+        this._renderStreamStatsOnce();
+      }, 1000);
+    }
+  }
+
+  applyAvPrefs(silent) {
+    const prefs = this.getAvPrefs();
+    this._appliedAvPrefs = prefs;
+
+    if (typeof window !== 'undefined') {
+      window.__IPTV_AV_PREFS = prefs;
+    }
+
+    if (typeof document !== 'undefined' && document.documentElement && document.documentElement.classList) {
+      const cls = document.documentElement.classList;
+      cls.remove('video-aspect-contain', 'video-aspect-cover', 'video-aspect-fill', 'video-aspect-zoom');
+      cls.add('video-aspect-' + prefs.videoAspectMode);
+      if (prefs.picCrispRendering === 'crisp') {
+        cls.add('video-crisp');
+      } else {
+        cls.remove('video-crisp');
+      }
+    }
+
+    if (typeof document !== 'undefined') {
+      const videoEl = document.getElementById('tv-video') || (this.player && this.player.video);
+      if (videoEl && videoEl.style) {
+        const b = prefs.picBrightness;
+        const c = prefs.picContrast;
+        const s = prefs.picSaturation;
+        if (b === 100 && c === 100 && s === 100) {
+          videoEl.style.filter = '';
+          videoEl.style.webkitFilter = '';
+        } else {
+          const filterVal = 'brightness(' + (b / 100) + ') contrast(' + (c / 100) + ') saturate(' + (s / 100) + ')';
+          videoEl.style.filter = filterVal;
+          videoEl.style.webkitFilter = filterVal;
+        }
+      }
+    }
+
+    if (this.player && typeof this.player.setAvPrefs === 'function') {
+      this.player.setAvPrefs(prefs);
+    }
+
+    this.ensureUiCustomizationDOM();
+    this.updateStreamStatsOverlay();
+    this.renderAvTab();
+
+    if (!silent) {
+      this.showToast('הגדרות תמונה וסאונד עודכנו ✓');
+    }
+    return prefs;
   }
 
   _getAppearanceTabHTML() {
@@ -625,6 +1019,41 @@ class IPTVApp {
               '<span class="perf-opt-sub">מציג תגי גרסה ושם מקור בכותרת וב-OSD</span>' +
             '</span>' +
             '<span class="ui-toggle-pill">מוסתר</span>' +
+          '</button>' +
+          '<button id="btn-pref-showClock" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="showClock">' +
+            '<span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">' +
+              '<span class="perf-opt-title">שעון בכותרת וב-OSD</span>' +
+              '<span class="perf-opt-sub">מציג את השעה הנוכחית בסרגל העליון ובמסך המלא</span>' +
+            '</span>' +
+            '<span class="ui-toggle-pill">מוצג ✓</span>' +
+          '</button>' +
+          '<button id="btn-pref-showSynopsis" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="showSynopsis">' +
+            '<span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">' +
+              '<span class="perf-opt-title">תקציר תוכנית בכרטיס וב-OSD</span>' +
+              '<span class="perf-opt-sub">בכיבוי הממשק הופך קומפקטי יותר</span>' +
+            '</span>' +
+            '<span class="ui-toggle-pill">מוצג ✓</span>' +
+          '</button>' +
+          '<button id="btn-pref-showPrevNext" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="showPrevNext">' +
+            '<span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">' +
+              '<span class="perf-opt-title">שורה קודמת והבאה</span>' +
+              '<span class="perf-opt-sub">מציג את התוכנית הקודמת והבאה בתור</span>' +
+            '</span>' +
+            '<span class="ui-toggle-pill">מוצג ✓</span>' +
+          '</button>' +
+          '<button id="btn-pref-showChannelNumbers" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="showChannelNumbers">' +
+            '<span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">' +
+              '<span class="perf-opt-title">מספרי ערוצים ברשימה וב-OSD</span>' +
+              '<span class="perf-opt-sub">מציג מספור מספרי בכל ערוץ</span>' +
+            '</span>' +
+            '<span class="ui-toggle-pill">מוצג ✓</span>' +
+          '</button>' +
+          '<button id="btn-pref-showToasts" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="showToasts">' +
+            '<span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">' +
+              '<span class="perf-opt-title">התראות קופצות (Toasts)</span>' +
+              '<span class="perf-opt-sub">הודעות חיווי בתחתית המסך בעת שינויים</span>' +
+            '</span>' +
+            '<span class="ui-toggle-pill">מוצג ✓</span>' +
           '</button>' +
         '</div>' +
       '</div>' +
@@ -780,10 +1209,428 @@ class IPTVApp {
           '</button>' +
         '</div>' +
       '</div>' +
+      '<div class="perf-section-card ui-pref-card">' +
+        '<h3>פריסה, רקע ופוקוס</h3>' +
+        '<p class="perf-desc">מיקום רשימת הערוצים:</p>' +
+        '<div class="perf-options-grid" id="ui-layout-options">' +
+          '<button id="btn-layout-right" class="perf-option-btn focusable" data-ui-pref="layoutSide" data-ui-value="right">' +
+            '<span class="perf-opt-title">רשימה בימין (ברירת מחדל)</span>' +
+            '<span class="perf-opt-sub">רשימת ערוצים בצד ימין, תצוגה מקדימה בשמאל</span>' +
+          '</button>' +
+          '<button id="btn-layout-left" class="perf-option-btn focusable" data-ui-pref="layoutSide" data-ui-value="left">' +
+            '<span class="perf-opt-title">רשימה בשמאל (Left)</span>' +
+            '<span class="perf-opt-sub">רשימת ערוצים בצד שמאל, תצוגה מקדימה בימין</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">רוחב רשימת הערוצים וחלון התצוגה:</p>' +
+        '<div class="perf-options-grid ui-grid-3" id="ui-list-width-options">' +
+          '<button id="btn-listwidth-narrow" class="perf-option-btn focusable" data-ui-pref="listWidth" data-ui-value="narrow">' +
+            '<span class="perf-opt-title">רשימה צרה</span>' +
+            '<span class="perf-opt-sub">תצוגה מקדימה רחבה (1020px)</span>' +
+          '</button>' +
+          '<button id="btn-listwidth-balanced" class="perf-option-btn focusable" data-ui-pref="listWidth" data-ui-value="balanced">' +
+            '<span class="perf-opt-title">מאוזנת (ברירת מחדל)</span>' +
+            '<span class="perf-opt-sub">חלוקה שווה 16:9 (960px)</span>' +
+          '</button>' +
+          '<button id="btn-listwidth-wide" class="perf-option-btn focusable" data-ui-pref="listWidth" data-ui-value="wide">' +
+            '<span class="perf-opt-title">רשימה רחבה</span>' +
+            '<span class="perf-opt-sub">מקום מורחב לשמות ותוכניות</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">עגוליות פינות (Corner Radius):</p>' +
+        '<div class="perf-options-grid ui-grid-3" id="ui-radius-options">' +
+          '<button id="btn-radius-sharp" class="perf-option-btn focusable" data-ui-pref="cornerRadius" data-ui-value="sharp">' +
+            '<span class="perf-opt-title">חד (Sharp)</span>' +
+            '<span class="perf-opt-sub">פינות ישרות ונקיות</span>' +
+          '</button>' +
+          '<button id="btn-radius-rounded" class="perf-option-btn focusable" data-ui-pref="cornerRadius" data-ui-value="rounded">' +
+            '<span class="perf-opt-title">מעוגל (ברירת מחדל)</span>' +
+            '<span class="perf-opt-sub">פינות מעוגלות מודרניות</span>' +
+          '</button>' +
+          '<button id="btn-radius-pill" class="perf-option-btn focusable" data-ui-pref="cornerRadius" data-ui-value="pill">' +
+            '<span class="perf-opt-title">גלולה (Pill)</span>' +
+            '<span class="perf-opt-sub">פינות עגולות ורכות במיוחד</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">גוון רקע ראשי (Background Tone):</p>' +
+        '<div class="perf-options-grid ui-grid-4" id="ui-bgtone-options">' +
+          '<button id="btn-bgtone-midnight" class="perf-option-btn focusable" data-ui-pref="bgTone" data-ui-value="midnight">' +
+            '<span class="perf-opt-title">חצות (Midnight)</span>' +
+            '<span class="perf-opt-sub">רקע כהה מאוזן</span>' +
+          '</button>' +
+          '<button id="btn-bgtone-oled" class="perf-option-btn focusable" data-ui-pref="bgTone" data-ui-value="oled">' +
+            '<span class="perf-opt-title">שחור OLED טהור</span>' +
+            '<span class="perf-opt-sub">שחור מוחלט #000</span>' +
+          '</button>' +
+          '<button id="btn-bgtone-slate" class="perf-option-btn focusable" data-ui-pref="bgTone" data-ui-value="slate">' +
+            '<span class="perf-opt-title">צפחה (Slate)</span>' +
+            '<span class="perf-opt-sub">אפור פחם מאט</span>' +
+          '</button>' +
+          '<button id="btn-bgtone-deepblue" class="perf-option-btn focusable" data-ui-pref="bgTone" data-ui-value="deepblue">' +
+            '<span class="perf-opt-title">כחול עמוק</span>' +
+            '<span class="perf-opt-sub">כחול Broadcast</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">סגנון הדגשת פוקוס בשלט:</p>' +
+        '<div class="perf-options-grid ui-grid-3" id="ui-focusstyle-options">' +
+          '<button id="btn-focusstyle-glow" class="perf-option-btn focusable" data-ui-pref="focusStyle" data-ui-value="glow">' +
+            '<span class="perf-opt-title">הילה (Glow)</span>' +
+            '<span class="perf-opt-sub">מסגרת זוהרת עדינה</span>' +
+          '</button>' +
+          '<button id="btn-focusstyle-border" class="perf-option-btn focusable" data-ui-pref="focusStyle" data-ui-value="border">' +
+            '<span class="perf-opt-title">מסגרת חדה (Border)</span>' +
+            '<span class="perf-opt-sub">גבול ניגודי ברור</span>' +
+          '</button>' +
+          '<button id="btn-focusstyle-solid" class="perf-option-btn focusable" data-ui-pref="focusStyle" data-ui-value="solid">' +
+            '<span class="perf-opt-title">מלא (Solid)</span>' +
+            '<span class="perf-opt-sub">הדגשה מלאה בצבע הדגש</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">שקיפות סרגל המידע (OSD Opacity):</p>' +
+        '<div class="perf-options-grid ui-grid-3" id="ui-osd-opacity-options">' +
+          '<button id="btn-osdop-solid" class="perf-option-btn focusable" data-ui-pref="osdOpacity" data-ui-value="solid">' +
+            '<span class="perf-opt-title">אטום וחד (Solid)</span>' +
+            '<span class="perf-opt-sub">קריאות מקסימלית</span>' +
+          '</button>' +
+          '<button id="btn-osdop-balanced" class="perf-option-btn focusable" data-ui-pref="osdOpacity" data-ui-value="balanced">' +
+            '<span class="perf-opt-title">מאוזן (ברירת מחדל)</span>' +
+            '<span class="perf-opt-sub">שקיפות עדינה</span>' +
+          '</button>' +
+          '<button id="btn-osdop-light" class="perf-option-btn focusable" data-ui-pref="osdOpacity" data-ui-value="light">' +
+            '<span class="perf-opt-title">שקוף וקל (Light)</span>' +
+            '<span class="perf-opt-sub">מראה אוורירי על גבי השידור</span>' +
+          '</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="perf-section-card ui-pref-card">' +
+        '<h3>ניווט ושלט רחוק</h3>' +
+        '<div class="perf-options-grid" id="ui-nav-toggles">' +
+          '<button id="btn-pref-wrapNavigation" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="wrapNavigation">' +
+            '<span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">' +
+              '<span class="perf-opt-title">גלילה מעגלית ברשימה</span>' +
+              '<span class="perf-opt-sub">מעבר מהערוץ האחרון לראשון ולהיפך</span>' +
+            '</span>' +
+            '<span class="ui-toggle-pill">מופעל ✓</span>' +
+          '</button>' +
+          '<button id="btn-pref-singleClickFullscreen" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="singleClickFullscreen">' +
+            '<span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">' +
+              '<span class="perf-opt-title">מסך מלא בלחיצת OK אחת</span>' +
+              '<span class="perf-opt-sub">בחירת ערוץ ברשימה נכנסת מיד למסך מלא</span>' +
+            '</span>' +
+            '<span class="ui-toggle-pill">כבוי</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">צעד הרצה קדימה/אחורה במסך מלא (שניות):</p>' +
+        '<div class="perf-options-grid ui-grid-4" id="ui-seekstep-options">' +
+          '<button id="btn-seekstep-10" class="perf-option-btn focusable" data-ui-pref="seekStepSec" data-ui-value="10">' +
+            '<span class="perf-opt-title">10 שניות</span>' +
+            '<span class="perf-opt-sub">דילוג מדויק</span>' +
+          '</button>' +
+          '<button id="btn-seekstep-15" class="perf-option-btn focusable" data-ui-pref="seekStepSec" data-ui-value="15">' +
+            '<span class="perf-opt-title">15 שניות</span>' +
+            '<span class="perf-opt-sub">דילוג קצר</span>' +
+          '</button>' +
+          '<button id="btn-seekstep-30" class="perf-option-btn focusable" data-ui-pref="seekStepSec" data-ui-value="30">' +
+            '<span class="perf-opt-title">30 שניות</span>' +
+            '<span class="perf-opt-sub">ברירת מחדל</span>' +
+          '</button>' +
+          '<button id="btn-seekstep-60" class="perf-option-btn focusable" data-ui-pref="seekStepSec" data-ui-value="60">' +
+            '<span class="perf-opt-title">60 שניות</span>' +
+            '<span class="perf-opt-sub">דילוג מהיר</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">השהיית מעבר לאחר הקלדת מספר ערוץ בשלט:</p>' +
+        '<div class="perf-options-grid ui-grid-3" id="ui-jumpms-options">' +
+          '<button id="btn-jumpms-700" class="perf-option-btn focusable" data-ui-pref="numericJumpMs" data-ui-value="700">' +
+            '<span class="perf-opt-title">מהיר (700ms)</span>' +
+            '<span class="perf-opt-sub">מעבר זריז</span>' +
+          '</button>' +
+          '<button id="btn-jumpms-1200" class="perf-option-btn focusable" data-ui-pref="numericJumpMs" data-ui-value="1200">' +
+            '<span class="perf-opt-title">מאוזן (1200ms)</span>' +
+            '<span class="perf-opt-sub">ברירת מחדל</span>' +
+          '</button>' +
+          '<button id="btn-jumpms-2000" class="perf-option-btn focusable" data-ui-pref="numericJumpMs" data-ui-value="2000">' +
+            '<span class="perf-opt-title">נינוח (2000ms)</span>' +
+            '<span class="perf-opt-sub">נוח לערוצים תלת-ספרתיים</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">השהיית טעינת תצוגה בזפזופ (Zap Debounce):</p>' +
+        '<div class="perf-options-grid ui-grid-3" id="ui-zapdebounce-options">' +
+          '<button id="btn-zapdebounce-0" class="perf-option-btn focusable" data-ui-pref="zapDebounceMs" data-ui-value="0">' +
+            '<span class="perf-opt-title">מיידי (0ms)</span>' +
+            '<span class="perf-opt-sub">תגובה מיידית</span>' +
+          '</button>' +
+          '<button id="btn-zapdebounce-120" class="perf-option-btn focusable" data-ui-pref="zapDebounceMs" data-ui-value="120">' +
+            '<span class="perf-opt-title">מאוזן (120ms)</span>' +
+            '<span class="perf-opt-sub">ברירת מחדל</span>' +
+          '</button>' +
+          '<button id="btn-zapdebounce-280" class="perf-option-btn focusable" data-ui-pref="zapDebounceMs" data-ui-value="280">' +
+            '<span class="perf-opt-title">חסכוני (280ms)</span>' +
+            '<span class="perf-opt-sub">זפזופ חלק בלי עומס</span>' +
+          '</button>' +
+        '</div>' +
+      '</div>' +
       '<div class="perf-actions-bar">' +
         '<div id="ui-prefs-status" class="perf-cache-status">מצב: נקי ומאוזן • צפיפות: מאוזנת • אנימציות: מופחתות</div>' +
         '<div class="perf-action-btns">' +
           '<button id="btn-reset-ui-prefs" class="btn-tv-secondary focusable">איפוס הגדרות עיצוב לברירת מחדל</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  _getAvTabHTML() {
+    return (
+      '<div class="perf-section-card ui-pref-card">' +
+        '<h3>סאונד ונרמול עוצמת שמע (Audio Normalization)</h3>' +
+        '<p class="perf-desc">השוואת עוצמת הקול בין ערוצים למניעת קפיצות ווליום או לחישות שקטות:</p>' +
+        '<div class="perf-options-grid ui-grid-4" id="av-audio-norm-options">' +
+          '<button id="btn-av-norm-off" class="perf-option-btn focusable" data-av-pref="audioNormMode" data-av-value="off">' +
+            '<span class="perf-opt-title">כבוי (Passthrough)</span>' +
+            '<span class="perf-opt-sub">שמע מקורי ללא עיבוד</span>' +
+          '</button>' +
+          '<button id="btn-av-norm-gentle" class="perf-option-btn focusable" data-av-pref="audioNormMode" data-av-value="gentle">' +
+            '<span class="perf-opt-title">עדין (Gentle)</span>' +
+            '<span class="perf-opt-sub">השוואת עוצמה רכה (-18 dBFS)</span>' +
+          '</button>' +
+          '<button id="btn-av-norm-broadcast" class="perf-option-btn focusable" data-av-pref="audioNormMode" data-av-value="broadcast">' +
+            '<span class="perf-opt-title">שידור אחיד (Broadcast)</span>' +
+            '<span class="perf-opt-sub">נרמול אחיד וצלול (-16 dBFS)</span>' +
+          '</button>' +
+          '<button id="btn-av-norm-night" class="perf-option-btn focusable" data-av-pref="audioNormMode" data-av-value="night">' +
+            '<span class="perf-opt-title">לילה (Night Mode)</span>' +
+            '<span class="perf-opt-sub">דחיסה עמוקה לשמירה על שקט</span>' +
+          '</button>' +
+        '</div>' +
+        '<div class="perf-options-grid" id="av-audio-toggles">' +
+          '<button id="btn-av-audioVoiceBoost" class="perf-option-btn ui-toggle-btn focusable" data-av-toggle="audioVoiceBoost">' +
+            '<span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">' +
+              '<span class="perf-opt-title">הדגשת דיבור (Voice Boost)</span>' +
+              '<span class="perf-opt-sub">חידוד תדרי קול אנושי (2.4kHz) לדיאלוג ברור</span>' +
+            '</span>' +
+            '<span class="ui-toggle-pill">כבוי</span>' +
+          '</button>' +
+          '<button id="btn-av-audioZapFade" class="perf-option-btn ui-toggle-btn focusable" data-av-toggle="audioZapFade">' +
+            '<span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">' +
+              '<span class="perf-opt-title">כניסת שמע רכה בזפזופ (Zap Fade)</span>' +
+              '<span class="perf-opt-sub">עמעום הדרגתי וחלק של 280ms במעבר ערוץ</span>' +
+            '</span>' +
+            '<span class="ui-toggle-pill">מופעל ✓</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc" id="av-channel-trim-label">כיוון עוצמה אישי לערוץ הנוכחי (Volume Trim):</p>' +
+        '<div class="perf-options-grid ui-grid-5" id="av-channel-trim-options">' +
+          '<button id="btn-av-trim--6" class="perf-option-btn focusable" data-av-trim="-6">' +
+            '<span class="perf-opt-title">-6 dB</span>' +
+            '<span class="perf-opt-sub">הנמכה חזקה</span>' +
+          '</button>' +
+          '<button id="btn-av-trim--3" class="perf-option-btn focusable" data-av-trim="-3">' +
+            '<span class="perf-opt-title">-3 dB</span>' +
+            '<span class="perf-opt-sub">הנמכה עדינה</span>' +
+          '</button>' +
+          '<button id="btn-av-trim-0" class="perf-option-btn focusable" data-av-trim="0">' +
+            '<span class="perf-opt-title">0 dB</span>' +
+            '<span class="perf-opt-sub">ברירת מחדל</span>' +
+          '</button>' +
+          '<button id="btn-av-trim-3" class="perf-option-btn focusable" data-av-trim="3">' +
+            '<span class="perf-opt-title">+3 dB</span>' +
+            '<span class="perf-opt-sub">הגברה קלה</span>' +
+          '</button>' +
+          '<button id="btn-av-trim-6" class="perf-option-btn focusable" data-av-trim="6">' +
+            '<span class="perf-opt-title">+6 dB</span>' +
+            '<span class="perf-opt-sub">הגברה חזקה</span>' +
+          '</button>' +
+        '</div>' +
+        '<div class="perf-action-btns" style="margin-top:6px;">' +
+          '<button id="btn-reset-loudness-memory" class="btn-tv-secondary focusable">איפוס זיכרון עוצמת שמע לערוצים</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="perf-section-card ui-pref-card">' +
+        '<h3>איכות וידאו, שיהוי נמוך וחיסכון בזיכרון</h3>' +
+        '<p class="perf-desc">בחירת פרופיל איכות וידאו (ABR):</p>' +
+        '<div class="perf-options-grid ui-grid-4" id="av-quality-options">' +
+          '<button id="btn-av-quality-smart" class="perf-option-btn focusable" data-av-pref="videoQualityMode" data-av-value="smart">' +
+            '<span class="perf-opt-title">חכם מדורג (Smart)</span>' +
+            '<span class="perf-opt-sub">פתיחה מהירה ועלייה ל-HD</span>' +
+          '</button>' +
+          '<button id="btn-av-quality-max" class="perf-option-btn focusable" data-av-pref="videoQualityMode" data-av-value="max">' +
+            '<span class="perf-opt-title">איכות שיא (Max)</span>' +
+            '<span class="perf-opt-sub">התחלה מיידית באיכות מרבית</span>' +
+          '</button>' +
+          '<button id="btn-av-quality-hd1080" class="perf-option-btn focusable" data-av-pref="videoQualityMode" data-av-value="hd1080">' +
+            '<span class="perf-opt-title">עד 1080p</span>' +
+            '<span class="perf-opt-sub">מגביל רזולוציה ל-Full HD</span>' +
+          '</button>' +
+          '<button id="btn-av-quality-hd720" class="perf-option-btn focusable" data-av-pref="videoQualityMode" data-av-value="hd720">' +
+            '<span class="perf-opt-title">עד 720p (חיסכון)</span>' +
+            '<span class="perf-opt-sub">מונע עומס בטלוויזיות חלשות</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">מצב שיהוי שידור (Latency):</p>' +
+        '<div class="perf-options-grid" id="av-latency-options">' +
+          '<button id="btn-av-latency-standard" class="perf-option-btn focusable" data-av-pref="streamLatencyMode" data-av-value="standard">' +
+            '<span class="perf-opt-title">יציב רגיל (Standard)</span>' +
+            '<span class="perf-opt-sub">שמירה על רציפות השידור נגד תקיעות</span>' +
+          '</button>' +
+          '<button id="btn-av-latency-low" class="perf-option-btn focusable" data-av-pref="streamLatencyMode" data-av-value="low">' +
+            '<span class="perf-opt-title">שיהוי נמוך (Low Latency)</span>' +
+            '<span class="perf-opt-sub">קרוב יותר לזמן האמת (לשידורי ספורט)</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">ניהול זיכרון באפר (Memory Saver):</p>' +
+        '<div class="perf-options-grid ui-grid-3" id="av-memsaver-options">' +
+          '<button id="btn-av-memsaver-auto" class="perf-option-btn focusable" data-av-pref="memorySaverMode" data-av-value="auto">' +
+            '<span class="perf-opt-title">אוטומטי (Auto)</span>' +
+            '<span class="perf-opt-sub">מותאם לחומרת המכשיר</span>' +
+          '</button>' +
+          '<button id="btn-av-memsaver-aggressive" class="perf-option-btn focusable" data-av-pref="memorySaverMode" data-av-value="aggressive">' +
+            '<span class="perf-opt-title">אגרסיבי (Aggressive)</span>' +
+            '<span class="perf-opt-sub">צריכת RAM מינימלית (20MB)</span>' +
+          '</button>' +
+          '<button id="btn-av-memsaver-off" class="perf-option-btn focusable" data-av-pref="memorySaverMode" data-av-value="off">' +
+            '<span class="perf-opt-title">כבוי (Full)</span>' +
+            '<span class="perf-opt-sub">ניצול מלוא פרופיל הבאפר</span>' +
+          '</button>' +
+        '</div>' +
+        '<div class="perf-options-grid" id="av-stats-toggle">' +
+          '<button id="btn-av-showStreamStats" class="perf-option-btn ui-toggle-btn focusable" data-av-toggle="showStreamStats">' +
+            '<span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">' +
+              '<span class="perf-opt-title">מד נתוני שידור חי (Stream Stats)</span>' +
+              '<span class="perf-opt-sub">מציג רזולוציה, קצב ביטים, באפר ו-Audio Gain במסך מלא</span>' +
+            '</span>' +
+            '<span class="ui-toggle-pill">כבוי</span>' +
+          '</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="perf-section-card ui-pref-card">' +
+        '<h3>כיול תמונה ויחס מסך (Picture Calibration &amp; Aspect)</h3>' +
+        '<p class="perf-desc">מצב תמונה מהיר (Picture Preset):</p>' +
+        '<div class="perf-options-grid ui-grid-5" id="av-pic-preset-options">' +
+          '<button id="btn-av-pic-original" class="perf-option-btn focusable" data-av-pic-preset="original">' +
+            '<span class="perf-opt-title">מקורי</span>' +
+            '<span class="perf-opt-sub">ללא פילטר GPU</span>' +
+          '</button>' +
+          '<button id="btn-av-pic-vivid" class="perf-option-btn focusable" data-av-pic-preset="vivid">' +
+            '<span class="perf-opt-title">חי (Vivid)</span>' +
+            '<span class="perf-opt-sub">צבעים עזים</span>' +
+          '</button>' +
+          '<button id="btn-av-pic-cinema" class="perf-option-btn focusable" data-av-pic-preset="cinema">' +
+            '<span class="perf-opt-title">קולנוע</span>' +
+            '<span class="perf-opt-sub">מאוזן לחדר חשוך</span>' +
+          '</button>' +
+          '<button id="btn-av-pic-crisp" class="perf-option-btn focusable" data-av-pic-preset="crisp">' +
+            '<span class="perf-opt-title">חד (Crisp)</span>' +
+            '<span class="perf-opt-sub">חידוד וניגודיות</span>' +
+          '</button>' +
+          '<button id="btn-av-pic-soft" class="perf-option-btn focusable" data-av-pic-preset="soft">' +
+            '<span class="perf-opt-title">רך (Soft)</span>' +
+            '<span class="perf-opt-sub">רגוע לעיניים</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">בהירות (Brightness):</p>' +
+        '<div class="perf-options-grid ui-grid-5" id="av-brightness-options">' +
+          '<button id="btn-av-bright-85" class="perf-option-btn focusable" data-av-pref="picBrightness" data-av-value="85">' +
+            '<span class="perf-opt-title">85%</span>' +
+            '<span class="perf-opt-sub">כהה</span>' +
+          '</button>' +
+          '<button id="btn-av-bright-92" class="perf-option-btn focusable" data-av-pref="picBrightness" data-av-value="92">' +
+            '<span class="perf-opt-title">92%</span>' +
+            '<span class="perf-opt-sub">רגוע</span>' +
+          '</button>' +
+          '<button id="btn-av-bright-100" class="perf-option-btn focusable" data-av-pref="picBrightness" data-av-value="100">' +
+            '<span class="perf-opt-title">100%</span>' +
+            '<span class="perf-opt-sub">טבעי</span>' +
+          '</button>' +
+          '<button id="btn-av-bright-108" class="perf-option-btn focusable" data-av-pref="picBrightness" data-av-value="108">' +
+            '<span class="perf-opt-title">108%</span>' +
+            '<span class="perf-opt-sub">מואר</span>' +
+          '</button>' +
+          '<button id="btn-av-bright-116" class="perf-option-btn focusable" data-av-pref="picBrightness" data-av-value="116">' +
+            '<span class="perf-opt-title">116%</span>' +
+            '<span class="perf-opt-sub">בהיר</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">ניגודיות (Contrast):</p>' +
+        '<div class="perf-options-grid ui-grid-5" id="av-contrast-options">' +
+          '<button id="btn-av-contrast-88" class="perf-option-btn focusable" data-av-pref="picContrast" data-av-value="88">' +
+            '<span class="perf-opt-title">88%</span>' +
+            '<span class="perf-opt-sub">עדין</span>' +
+          '</button>' +
+          '<button id="btn-av-contrast-94" class="perf-option-btn focusable" data-av-pref="picContrast" data-av-value="94">' +
+            '<span class="perf-opt-title">94%</span>' +
+            '<span class="perf-opt-sub">רך</span>' +
+          '</button>' +
+          '<button id="btn-av-contrast-100" class="perf-option-btn focusable" data-av-pref="picContrast" data-av-value="100">' +
+            '<span class="perf-opt-title">100%</span>' +
+            '<span class="perf-opt-sub">טבעי</span>' +
+          '</button>' +
+          '<button id="btn-av-contrast-108" class="perf-option-btn focusable" data-av-pref="picContrast" data-av-value="108">' +
+            '<span class="perf-opt-title">108%</span>' +
+            '<span class="perf-opt-sub">חד</span>' +
+          '</button>' +
+          '<button id="btn-av-contrast-116" class="perf-option-btn focusable" data-av-pref="picContrast" data-av-value="116">' +
+            '<span class="perf-opt-title">116%</span>' +
+            '<span class="perf-opt-sub">עמוק</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">רוויית צבע (Saturation):</p>' +
+        '<div class="perf-options-grid ui-grid-5" id="av-saturation-options">' +
+          '<button id="btn-av-sat-80" class="perf-option-btn focusable" data-av-pref="picSaturation" data-av-value="80">' +
+            '<span class="perf-opt-title">80%</span>' +
+            '<span class="perf-opt-sub">מאופק</span>' +
+          '</button>' +
+          '<button id="btn-av-sat-90" class="perf-option-btn focusable" data-av-pref="picSaturation" data-av-value="90">' +
+            '<span class="perf-opt-title">90%</span>' +
+            '<span class="perf-opt-sub">רך</span>' +
+          '</button>' +
+          '<button id="btn-av-sat-100" class="perf-option-btn focusable" data-av-pref="picSaturation" data-av-value="100">' +
+            '<span class="perf-opt-title">100%</span>' +
+            '<span class="perf-opt-sub">טבעי</span>' +
+          '</button>' +
+          '<button id="btn-av-sat-112" class="perf-option-btn focusable" data-av-pref="picSaturation" data-av-value="112">' +
+            '<span class="perf-opt-title">112%</span>' +
+            '<span class="perf-opt-sub">עשיר</span>' +
+          '</button>' +
+          '<button id="btn-av-sat-125" class="perf-option-btn focusable" data-av-pref="picSaturation" data-av-value="125">' +
+            '<span class="perf-opt-title">125%</span>' +
+            '<span class="perf-opt-sub">עוצמתי</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">יחס מסך ומתיחת וידאו (Aspect Ratio):</p>' +
+        '<div class="perf-options-grid ui-grid-4" id="av-aspect-options">' +
+          '<button id="btn-av-aspect-contain" class="perf-option-btn focusable" data-av-pref="videoAspectMode" data-av-value="contain">' +
+            '<span class="perf-opt-title">מותאם (Contain)</span>' +
+            '<span class="perf-opt-sub">ללא חיתוך</span>' +
+          '</button>' +
+          '<button id="btn-av-aspect-cover" class="perf-option-btn focusable" data-av-pref="videoAspectMode" data-av-value="cover">' +
+            '<span class="perf-opt-title">מילוי (Cover)</span>' +
+            '<span class="perf-opt-sub">ממלא מסך</span>' +
+          '</button>' +
+          '<button id="btn-av-aspect-fill" class="perf-option-btn focusable" data-av-pref="videoAspectMode" data-av-value="fill">' +
+            '<span class="perf-opt-title">מתיחה (Fill)</span>' +
+            '<span class="perf-opt-sub">100% רוחב וגובה</span>' +
+          '</button>' +
+          '<button id="btn-av-aspect-zoom" class="perf-option-btn focusable" data-av-pref="videoAspectMode" data-av-value="zoom">' +
+            '<span class="perf-opt-title">זום 12%</span>' +
+            '<span class="perf-opt-sub">חיתוך שוליים</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">חידוד קצוות תמונה (Rendering):</p>' +
+        '<div class="perf-options-grid" id="av-crisp-options">' +
+          '<button id="btn-av-crisp-auto" class="perf-option-btn focusable" data-av-pref="picCrispRendering" data-av-value="auto">' +
+            '<span class="perf-opt-title">החלקה רגילה (Auto)</span>' +
+            '<span class="perf-opt-sub">ברירת מחדל של המערכת</span>' +
+          '</button>' +
+          '<button id="btn-av-crisp-crisp" class="perf-option-btn focusable" data-av-pref="picCrispRendering" data-av-value="crisp">' +
+            '<span class="perf-opt-title">חידוד תמונה (Crisp)</span>' +
+            '<span class="perf-opt-sub">חידוד מוגברת לשידורי HD/SD</span>' +
+          '</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="perf-actions-bar">' +
+        '<div id="av-prefs-status" class="perf-cache-status">נרמול: כבוי • איכות: חכם • תמונה: מקורי • יחס: מותאם</div>' +
+        '<div class="perf-action-btns">' +
+          '<button id="btn-reset-av-prefs" class="btn-tv-secondary focusable">איפוס תמונה וסאונד לברירת מחדל</button>' +
         '</div>' +
       '</div>'
     );
@@ -800,16 +1647,23 @@ class IPTVApp {
       badge.innerHTML = '<span>תצוגה מקדימה כבויה (מצב קל) — לחץ OK לצפייה במסך מלא</span>';
       videoSurface.appendChild(badge);
     }
+    if (videoSurface && !document.getElementById('stream-stats-badge')) {
+      const statsBadge = document.createElement('div');
+      statsBadge.id = 'stream-stats-badge';
+      statsBadge.className = 'stream-stats-badge hidden';
+      statsBadge.setAttribute('dir', 'ltr');
+      videoSurface.appendChild(statsBadge);
+    }
 
     const tabsBar = document.querySelector('#settings-modal .settings-tabs-bar');
     const tabSources = document.getElementById('tab-btn-sources');
     const tabChannels = document.getElementById('tab-btn-channels');
     const tabPerf = document.getElementById('tab-btn-performance');
     const tabAbout = document.getElementById('tab-btn-about');
-    if (tabSources) tabSources.textContent = 'מקורות M3U';
-    if (tabChannels) tabChannels.textContent = 'ערוצים ומספור';
-    if (tabPerf) tabPerf.textContent = 'ערכת נושא ובאפר';
-    if (tabAbout) tabAbout.textContent = 'עדכונים ואודות';
+    if (tabSources) tabSources.textContent = 'מקורות';
+    if (tabChannels) tabChannels.textContent = 'ערוצים';
+    if (tabPerf) tabPerf.textContent = 'נושא ובאפר';
+    if (tabAbout) tabAbout.textContent = 'אודות';
 
     let appTabBtn = document.getElementById('tab-btn-appearance');
     if (tabsBar && !appTabBtn) {
@@ -817,7 +1671,7 @@ class IPTVApp {
       appTabBtn.id = 'tab-btn-appearance';
       appTabBtn.className = 'settings-tab-btn focusable';
       appTabBtn.setAttribute('data-settings-tab', 'appearance');
-      appTabBtn.textContent = 'עיצוב והתאמה אישית';
+      appTabBtn.textContent = 'עיצוב וממשק';
       if (tabAbout && tabAbout.parentNode === tabsBar) {
         tabsBar.insertBefore(appTabBtn, tabAbout);
       } else if (tabPerf && tabPerf.parentNode === tabsBar) {
@@ -826,9 +1680,35 @@ class IPTVApp {
         tabsBar.appendChild(appTabBtn);
       }
     }
-    if (appTabBtn && appTabBtn.dataset && appTabBtn.dataset.uiBound !== '1') {
-      appTabBtn.dataset.uiBound = '1';
-      appTabBtn.addEventListener('click', () => this.switchSettingsTab('appearance'));
+    if (appTabBtn) {
+      appTabBtn.textContent = 'עיצוב וממשק';
+      if (appTabBtn.dataset && appTabBtn.dataset.uiBound !== '1') {
+        appTabBtn.dataset.uiBound = '1';
+        appTabBtn.addEventListener('click', () => this.switchSettingsTab('appearance'));
+      }
+    }
+
+    let avTabBtn = document.getElementById('tab-btn-av');
+    if (tabsBar && !avTabBtn) {
+      avTabBtn = document.createElement('button');
+      avTabBtn.id = 'tab-btn-av';
+      avTabBtn.className = 'settings-tab-btn focusable';
+      avTabBtn.setAttribute('data-settings-tab', 'av');
+      avTabBtn.textContent = 'תמונה וסאונד';
+      if (tabAbout && tabAbout.parentNode === tabsBar) {
+        tabsBar.insertBefore(avTabBtn, tabAbout);
+      } else if (appTabBtn && appTabBtn.parentNode === tabsBar) {
+        tabsBar.insertBefore(avTabBtn, appTabBtn.nextSibling);
+      } else {
+        tabsBar.appendChild(avTabBtn);
+      }
+    }
+    if (avTabBtn) {
+      avTabBtn.textContent = 'תמונה וסאונד';
+      if (avTabBtn.dataset && avTabBtn.dataset.avBound !== '1') {
+        avTabBtn.dataset.avBound = '1';
+        avTabBtn.addEventListener('click', () => this.switchSettingsTab('av'));
+      }
     }
 
     const settingsCard =
@@ -849,6 +1729,8 @@ class IPTVApp {
       } else {
         settingsCard.appendChild(appPanel);
       }
+    } else if (appPanel && (!document.getElementById('ui-layout-options') || !document.getElementById('btn-pref-showClock'))) {
+      appPanel.innerHTML = this._getAppearanceTabHTML();
     }
 
     if (appPanel) {
@@ -885,7 +1767,12 @@ class IPTVApp {
             const key = btn.dataset.uiPref;
             const val = btn.dataset.uiValue;
             if (key && typeof val !== 'undefined') {
-              this.setUiPref(key, key === 'osdTimeoutSec' ? parseInt(val, 10) : val, false);
+              const isInt =
+                key === 'osdTimeoutSec' ||
+                key === 'seekStepSec' ||
+                key === 'numericJumpMs' ||
+                key === 'zapDebounceMs';
+              this.setUiPref(key, isInt ? parseInt(val, 10) : val, false);
             }
           });
         }
@@ -896,6 +1783,93 @@ class IPTVApp {
         resetBtn.dataset.uiBound = '1';
         resetBtn.addEventListener('click', () => {
           this.resetUiPrefs(false);
+        });
+      }
+    }
+
+    let avPanel = document.getElementById('settings-tab-av');
+    if (settingsCard && !avPanel) {
+      avPanel = document.createElement('div');
+      avPanel.id = 'settings-tab-av';
+      avPanel.className = 'modal-body settings-tab-content hidden';
+      avPanel.innerHTML = this._getAvTabHTML();
+      if (aboutPanel && aboutPanel.parentNode === settingsCard) {
+        settingsCard.insertBefore(avPanel, aboutPanel);
+      } else if (appPanel && appPanel.parentNode === settingsCard) {
+        settingsCard.insertBefore(avPanel, appPanel.nextSibling);
+      } else {
+        settingsCard.appendChild(avPanel);
+      }
+    } else if (avPanel && !document.getElementById('av-audio-norm-options')) {
+      avPanel.innerHTML = this._getAvTabHTML();
+    }
+
+    if (avPanel) {
+      const avPrefBtns = avPanel.querySelectorAll('[data-av-pref]');
+      for (let i = 0; i < avPrefBtns.length; i++) {
+        const btn = avPrefBtns[i];
+        if (btn && btn.dataset && btn.dataset.avBound !== '1') {
+          btn.dataset.avBound = '1';
+          btn.addEventListener('click', () => {
+            const key = btn.dataset.avPref;
+            const val = btn.dataset.avValue;
+            if (key && typeof val !== 'undefined') {
+              const isInt = key === 'picBrightness' || key === 'picContrast' || key === 'picSaturation';
+              this.setAvPref(key, isInt ? parseInt(val, 10) : val, false);
+            }
+          });
+        }
+      }
+
+      const avToggleBtns = avPanel.querySelectorAll('[data-av-toggle]');
+      for (let i = 0; i < avToggleBtns.length; i++) {
+        const btn = avToggleBtns[i];
+        if (btn && btn.dataset && btn.dataset.avBound !== '1') {
+          btn.dataset.avBound = '1';
+          btn.addEventListener('click', () => {
+            const key = btn.dataset.avToggle;
+            if (key) this.toggleAvPref(key, false);
+          });
+        }
+      }
+
+      const avPicBtns = avPanel.querySelectorAll('[data-av-pic-preset]');
+      for (let i = 0; i < avPicBtns.length; i++) {
+        const btn = avPicBtns[i];
+        if (btn && btn.dataset && btn.dataset.avBound !== '1') {
+          btn.dataset.avBound = '1';
+          btn.addEventListener('click', () => {
+            const presetName = btn.dataset.avPicPreset;
+            if (presetName) this.applyPicturePreset(presetName, false);
+          });
+        }
+      }
+
+      const avTrimBtns = avPanel.querySelectorAll('[data-av-trim]');
+      for (let i = 0; i < avTrimBtns.length; i++) {
+        const btn = avTrimBtns[i];
+        if (btn && btn.dataset && btn.dataset.avBound !== '1') {
+          btn.dataset.avBound = '1';
+          btn.addEventListener('click', () => {
+            const trimDb = parseInt(btn.dataset.avTrim, 10);
+            if (!isNaN(trimDb)) this.setChannelTrimPref(trimDb, false);
+          });
+        }
+      }
+
+      const resetLoudnessBtn = document.getElementById('btn-reset-loudness-memory');
+      if (resetLoudnessBtn && resetLoudnessBtn.dataset && resetLoudnessBtn.dataset.avBound !== '1') {
+        resetLoudnessBtn.dataset.avBound = '1';
+        resetLoudnessBtn.addEventListener('click', () => {
+          this.resetChannelLoudnessMemory(false);
+        });
+      }
+
+      const resetAvBtn = document.getElementById('btn-reset-av-prefs');
+      if (resetAvBtn && resetAvBtn.dataset && resetAvBtn.dataset.avBound !== '1') {
+        resetAvBtn.dataset.avBound = '1';
+        resetAvBtn.addEventListener('click', () => {
+          this.resetAvPrefs(false);
         });
       }
     }
@@ -944,7 +1918,8 @@ class IPTVApp {
       }
       const pill = btn.querySelector('.ui-toggle-pill');
       if (pill) {
-        pill.textContent = isOn ? 'מוצג ✓' : 'מוסתר';
+        const isActionToggle = key === 'wrapNavigation' || key === 'singleClickFullscreen';
+        pill.textContent = isActionToggle ? (isOn ? 'מופעל ✓' : 'כבוי') : (isOn ? 'מוצג ✓' : 'מוסתר');
         if (isOn) {
           pill.classList.add('is-on');
           pill.classList.remove('is-off');
@@ -960,7 +1935,12 @@ class IPTVApp {
       const btn = prefBtns[i];
       const key = btn.dataset.uiPref;
       const rawVal = btn.dataset.uiValue;
-      const targetVal = key === 'osdTimeoutSec' ? parseInt(rawVal, 10) : rawVal;
+      const isInt =
+        key === 'osdTimeoutSec' ||
+        key === 'seekStepSec' ||
+        key === 'numericJumpMs' ||
+        key === 'zapDebounceMs';
+      const targetVal = isInt ? parseInt(rawVal, 10) : rawVal;
       if (prefs[key] === targetVal) {
         btn.classList.add('active-option');
       } else {
@@ -972,13 +1952,117 @@ class IPTVApp {
     if (statusEl) {
       const presetMap = { clean: 'נקי ומאוזן', minimal: 'מינימליסטי וקל', full: 'מלא ומפורט', custom: 'מותאם אישית' };
       const densityMap = { comfortable: 'מרווחת', balanced: 'מאוזנת', compact: 'דחוסה' };
-      const animMap = { normal: 'מלאות', reduced: 'מופחתות', off: 'כבויות' };
-      const autoplayMap = { instant: 'מיידי', delayed: 'מושהה', off: 'כבוי' };
+      const bgMap = { midnight: 'חצות', oled: 'OLED', slate: 'צפחה', deepblue: 'כחול עמוק' };
+      const layoutLabel = prefs.layoutSide === 'left' ? 'שמאל' : 'ימין';
       statusEl.textContent =
         'מצב: ' + (presetMap[prefs.preset] || prefs.preset) +
         ' | צפיפות: ' + (densityMap[prefs.density] || prefs.density) +
-        ' | אנימציות: ' + (animMap[prefs.animations] || prefs.animations) +
-        ' | תצוגה מקדימה: ' + (autoplayMap[prefs.previewAutoplay] || prefs.previewAutoplay);
+        ' | פריסה: ' + layoutLabel +
+        ' | רקע: ' + (bgMap[prefs.bgTone] || prefs.bgTone);
+    }
+  }
+
+  renderAvTab() {
+    this.ensureUiCustomizationDOM();
+    if (typeof document === 'undefined') return;
+    const avPanel = document.getElementById('settings-tab-av');
+    if (!avPanel) return;
+
+    const prefs = this.getAvPrefs();
+
+    const avPrefBtns = avPanel.querySelectorAll('[data-av-pref]');
+    for (let i = 0; i < avPrefBtns.length; i++) {
+      const btn = avPrefBtns[i];
+      const key = btn.dataset.avPref;
+      const rawVal = btn.dataset.avValue;
+      const isInt = key === 'picBrightness' || key === 'picContrast' || key === 'picSaturation';
+      const targetVal = isInt ? parseInt(rawVal, 10) : rawVal;
+      if (prefs[key] === targetVal) {
+        btn.classList.add('active-option');
+      } else {
+        btn.classList.remove('active-option');
+      }
+    }
+
+    const avToggleBtns = avPanel.querySelectorAll('[data-av-toggle]');
+    for (let i = 0; i < avToggleBtns.length; i++) {
+      const btn = avToggleBtns[i];
+      const key = btn.dataset.avToggle;
+      const isOn = Boolean(prefs[key]);
+      if (isOn) {
+        btn.classList.add('active-option');
+      } else {
+        btn.classList.remove('active-option');
+      }
+      const pill = btn.querySelector('.ui-toggle-pill');
+      if (pill) {
+        pill.textContent = isOn ? 'מופעל ✓' : 'כבוי';
+        if (isOn) {
+          pill.classList.add('is-on');
+          pill.classList.remove('is-off');
+        } else {
+          pill.classList.remove('is-on');
+          pill.classList.add('is-off');
+        }
+      }
+    }
+
+    const picPresetBtns = avPanel.querySelectorAll('[data-av-pic-preset]');
+    for (let i = 0; i < picPresetBtns.length; i++) {
+      const btn = picPresetBtns[i];
+      if (btn.dataset.avPicPreset === prefs.picturePreset) {
+        btn.classList.add('active-option');
+      } else {
+        btn.classList.remove('active-option');
+      }
+    }
+
+    const activeCh = this.selectedChannel || this.previewedChannel || (this.player && this.player.currentChannel);
+    let currentTrim = 0;
+    if (activeCh && this.player && typeof this.player.getChannelVolumeTrim === 'function') {
+      currentTrim = this.player.getChannelVolumeTrim(activeCh.id);
+    } else if (activeCh) {
+      try {
+        const rawLoud = localStorage.getItem('zenplay_channel_loudness_v1');
+        if (rawLoud) {
+          const parsedLoud = JSON.parse(rawLoud);
+          if (parsedLoud && parsedLoud.trim && typeof parsedLoud.trim[activeCh.id] === 'number') {
+            currentTrim = parsedLoud.trim[activeCh.id];
+          }
+        }
+      } catch (e) {}
+    }
+
+    const trimLabel = document.getElementById('av-channel-trim-label');
+    if (trimLabel) {
+      const trimStr = (currentTrim > 0 ? '+' : '') + currentTrim + ' dB';
+      trimLabel.textContent = activeCh
+        ? 'כיוון עוצמה אישי לערוץ ' + activeCh.name + ' (נוכחי: ' + trimStr + '):'
+        : 'כיוון עוצמה אישי לערוץ הנוכחי (Volume Trim):';
+    }
+
+    const trimBtns = avPanel.querySelectorAll('[data-av-trim]');
+    for (let i = 0; i < trimBtns.length; i++) {
+      const btn = trimBtns[i];
+      const val = parseInt(btn.dataset.avTrim, 10);
+      if (val === currentTrim) {
+        btn.classList.add('active-option');
+      } else {
+        btn.classList.remove('active-option');
+      }
+    }
+
+    const statusEl = document.getElementById('av-prefs-status');
+    if (statusEl) {
+      const normMap = { off: 'כבוי', gentle: 'עדין', broadcast: 'שידור אחיד', night: 'לילה' };
+      const qualMap = { smart: 'חכם', max: 'מקסימלית', hd1080: '1080p', hd720: '720p' };
+      const picMap = { original: 'מקורי', vivid: 'חי', cinema: 'קולנוע', crisp: 'חד', soft: 'רך', custom: 'מותאם' };
+      const aspectMap = { contain: 'מותאם', cover: 'מילוי', fill: 'מתיחה', zoom: 'זום' };
+      statusEl.textContent =
+        'נרמול: ' + (normMap[prefs.audioNormMode] || prefs.audioNormMode) +
+        ' • איכות: ' + (qualMap[prefs.videoQualityMode] || prefs.videoQualityMode) +
+        ' • תמונה: ' + (picMap[prefs.picturePreset] || prefs.picturePreset) +
+        ' • יחס: ' + (aspectMap[prefs.videoAspectMode] || prefs.videoAspectMode);
     }
   }
 
@@ -1011,16 +2095,44 @@ class IPTVApp {
       cls.remove('ui-fx-full', 'ui-fx-light', 'ui-fx-flat');
       cls.add('ui-fx-' + prefs.visualEffects);
 
+      cls.remove('ui-list-narrow', 'ui-list-balanced', 'ui-list-wide');
+      cls.add('ui-list-' + prefs.listWidth);
+
+      cls.remove('ui-radius-sharp', 'ui-radius-rounded', 'ui-radius-pill');
+      cls.add('ui-radius-' + prefs.cornerRadius);
+
+      cls.remove('ui-bg-midnight', 'ui-bg-oled', 'ui-bg-slate', 'ui-bg-deepblue');
+      cls.add('ui-bg-' + prefs.bgTone);
+
+      cls.remove('ui-focus-glow', 'ui-focus-border', 'ui-focus-solid');
+      cls.add('ui-focus-' + prefs.focusStyle);
+
+      cls.remove('ui-osd-op-solid', 'ui-osd-op-balanced', 'ui-osd-op-light');
+      cls.add('ui-osd-op-' + prefs.osdOpacity);
+
       const setFlagClass = (name, flag) => {
         if (flag) cls.add(name);
         else cls.remove(name);
       };
+      setFlagClass('ui-layout-left', prefs.layoutSide === 'left');
       setFlagClass('ui-hide-color-bar', !prefs.showColorBar);
       setFlagClass('ui-hide-list-hints', !prefs.showListHints);
       setFlagClass('ui-hide-row-epg', !prefs.showRowEpgBar);
       setFlagClass('ui-monogram-logos', !prefs.showRowLogos);
       setFlagClass('ui-hide-program-strip', !prefs.showProgramStrip);
       setFlagClass('ui-clean-header', !prefs.showHeaderMeta);
+      setFlagClass('ui-hide-clock', !prefs.showClock);
+      setFlagClass('ui-hide-synopsis', !prefs.showSynopsis);
+      setFlagClass('ui-hide-prev-next', !prefs.showPrevNext);
+      setFlagClass('ui-hide-ch-num', !prefs.showChannelNumbers);
+    }
+
+    if (typeof document !== 'undefined') {
+      const greenLabel = document.getElementById('hint-green-label') || document.querySelector('#hint-green span:last-child');
+      const blueLabel = document.getElementById('hint-blue-label') || document.querySelector('#hint-blue span:last-child');
+      const stepSec = prefs.seekStepSec || 30;
+      if (greenLabel) greenLabel.textContent = stepSec + ' שניות אחורה ▶▶';
+      if (blueLabel) blueLabel.textContent = stepSec + ' שניות קדימה ◀◀';
     }
 
     this.ensureUiCustomizationDOM();
@@ -1048,7 +2160,14 @@ class IPTVApp {
       'showListHints',
       'showRowEpgBar',
       'showProgramStrip',
-      'showHeaderMeta'
+      'showHeaderMeta',
+      'layoutSide',
+      'listWidth',
+      'cornerRadius',
+      'showClock',
+      'showSynopsis',
+      'showPrevNext',
+      'showChannelNumbers'
     ];
     let layoutChanged = !prev;
     if (prev) {
@@ -1408,7 +2527,7 @@ class IPTVApp {
         }
       },
       onError: (msg) => {
-        this.showToast(msg);
+        this.showToast(msg, true);
       },
       getNextProgramme: (channel, currentProg, afterMs) =>
         this.epg && typeof this.epg.getNextProgrammeForChannel === 'function'
@@ -1422,6 +2541,7 @@ class IPTVApp {
         }
       }
     });
+    this.applyAvPrefs(true);
   }
 
   initRemote() {
@@ -1535,7 +2655,7 @@ class IPTVApp {
       surface.style.top = r.top;
       surface.style.width = r.width;
       surface.style.height = r.height;
-      surface.style.borderRadius = '18px';
+      surface.style.removeProperty('border-radius');
     } else {
       surface.style.removeProperty('width');
       surface.style.removeProperty('height');
@@ -2093,7 +3213,13 @@ class IPTVApp {
       clearTimeout(this._miniTimelineTimer);
       this._miniTimelineTimer = null;
     }
-    const delayMs = this.isTvPlatform() ? 120 : 85;
+    const prefDebounce = this.getZapDebounceMs();
+    if (prefDebounce === 0) {
+      this.previewTimer = null;
+      this.previewChannelInfo(channel, false);
+      return;
+    }
+    const delayMs = prefDebounce > 0 ? prefDebounce : (this.isTvPlatform() ? 120 : 85);
     this.previewTimer = setTimeout(() => {
       this.previewTimer = null;
       this.previewChannelInfo(channel, true);
@@ -2226,6 +3352,8 @@ class IPTVApp {
 
     if (this.mode === 'FULLSCREEN') {
       this.updateOSD(channel, false);
+    } else if (this.mode === 'SETTINGS' && this.activeSettingsTab === 'av') {
+      this.renderAvTab();
     }
 
     const prefs = this.getUiPrefs();
@@ -2256,9 +3384,8 @@ class IPTVApp {
       this.updateAutoplayOffBadge(true);
       this.player.play(channel);
     } else if (!this.isSafeMode()) {
-      const debounceMs = autoplayMode === 'instant'
-        ? 0
-        : ((this.isWebOSPlatform() || this.isTvPlatform()) ? 280 : 150);
+      const prefDebounce = typeof prefs.zapDebounceMs === 'number' ? prefs.zapDebounceMs : 120;
+      const debounceMs = autoplayMode === 'instant' ? 0 : prefDebounce;
       if (debounceMs === 0) {
         try {
           localStorage.setItem(STORAGE_KEYS.LAST_CHANNEL, channel.id);
@@ -2316,6 +3443,16 @@ class IPTVApp {
 
   scheduleMiniTimelineRender(channel) {
     if (!channel) return;
+    const prefDebounce = this.getZapDebounceMs();
+    if (prefDebounce === 0) {
+      if (this._miniTimelineTimer) {
+        clearTimeout(this._miniTimelineTimer);
+        this._miniTimelineTimer = null;
+      }
+      this._pendingMiniTimelineChannel = null;
+      this.renderMiniTimelineStrip(channel);
+      return;
+    }
     this._pendingMiniTimelineChannel = channel;
     if (this._miniTimelineTimer) {
       clearTimeout(this._miniTimelineTimer);
@@ -2327,7 +3464,7 @@ class IPTVApp {
       if (target) {
         this.renderMiniTimelineStrip(target);
       }
-    }, 120);
+    }, prefDebounce);
   }
 
   flushPendingMiniTimeline() {
@@ -3015,11 +4152,11 @@ class IPTVApp {
         return;
       } else if (direction === 'left') {
         // In Hebrew RTL, Left arrow moves Forward along the progress bar
-        this.handleSeekKeyHold(1, 15);
+        this.handleSeekKeyHold(1, this.getSeekStepSec());
         return;
       } else if (direction === 'right') {
         // In Hebrew RTL, Right arrow moves Backward along the progress bar
-        this.handleSeekKeyHold(-1, 15);
+        this.handleSeekKeyHold(-1, this.getSeekStepSec());
         return;
       }
       return;
@@ -3038,6 +4175,10 @@ class IPTVApp {
     }
 
     // 4. BROWSE MODE (Channels List, Program Timeline Strip, Top Header Toolbar)
+    const prefs = this.getUiPrefs();
+    const wrap = prefs.wrapNavigation !== false;
+    const isLeftLayout = prefs.layoutSide === 'left';
+
     if (this.focusArea === 'channels') {
       if (direction === 'down') {
         if (this.visibleChannels.length === 0) return;
@@ -3047,8 +4188,13 @@ class IPTVApp {
           clearTimeout(this._miniTimelineTimer);
           this._miniTimelineTimer = null;
         }
-        this.focusedChannelIndex = (this.focusedChannelIndex + 1) % this.visibleChannels.length;
-        this._scheduleFocusVisualFlush();
+        if (this.focusedChannelIndex < this.visibleChannels.length - 1) {
+          this.focusedChannelIndex++;
+          this._scheduleFocusVisualFlush();
+        } else if (wrap) {
+          this.focusedChannelIndex = 0;
+          this._scheduleFocusVisualFlush();
+        }
       } else if (direction === 'up') {
         this.cancelPendingPreviewPlayback();
         clearTimeout(this.previewTimer);
@@ -3063,38 +4209,43 @@ class IPTVApp {
         if (this.focusedChannelIndex > 0) {
           this.focusedChannelIndex--;
           this._scheduleFocusVisualFlush();
+        } else if (wrap) {
+          this.focusedChannelIndex = this.visibleChannels.length - 1;
+          this._scheduleFocusVisualFlush();
         } else {
           this._flushFocusVisualsNow();
           this.focusHeaderBar();
         }
-      } else if (direction === 'left') {
+      } else if ((!isLeftLayout && direction === 'left') || (isLeftLayout && direction === 'right')) {
         this._flushFocusVisualsNow();
         this.flushPendingMiniTimeline();
         // Move focus to the Channel's Program Timeline Strip (Prev/Current/Next shows) or Header
-        if (this.timelineItemNodes.length > 0) {
+        if (this.timelineItemNodes.length > 0 && prefs.showProgramStrip !== false) {
           this.focusArea = 'timeline';
           this.updateTimelineFocusFast();
         } else {
           this.focusHeaderBar();
         }
-      } else if (direction === 'right') {
+      } else if ((!isLeftLayout && direction === 'right') || (isLeftLayout && direction === 'left')) {
         this._flushFocusVisualsNow();
         this.updateChannelFocusFast();
       }
     } else if (this.focusArea === 'timeline') {
       // Navigating the Previous / Current / Next Program Strip under the Preview
       if (direction === 'left') {
-        // In RTL, Left moves forward in the strip
+        // In RTL, Left moves forward in the strip (or back to channel list when list is on left)
         if (this.focusedTimelineIndex < this.timelineItemNodes.length - 1) {
           this.focusedTimelineIndex++;
           this.updateTimelineFocusFast();
+        } else if (isLeftLayout) {
+          this.focusChannelList();
         }
       } else if (direction === 'right') {
-        // In RTL, Right moves back toward earlier shows, or back to the Channel List
+        // In RTL, Right moves back toward earlier shows (or back to the Channel List when list is on right)
         if (this.focusedTimelineIndex > 0) {
           this.focusedTimelineIndex--;
           this.updateTimelineFocusFast();
-        } else {
+        } else if (!isLeftLayout) {
           this.focusChannelList();
         }
       } else if (direction === 'up') {
@@ -3220,7 +4371,7 @@ class IPTVApp {
       if (!this.selectedChannel || this.selectedChannel.id !== targetCh.id) {
         // Channel is not currently playing -> Switch to it ONLY on OK press! (No redundant bottom toast)
         this.highlightChannel(targetCh, true);
-        if (prefs.previewAutoplay === 'off') {
+        if (prefs.previewAutoplay === 'off' || prefs.singleClickFullscreen === true) {
           this.enterFullscreen();
         }
       } else {
@@ -3316,6 +4467,7 @@ class IPTVApp {
       }
     }
     this.updateAutoplayOffBadge(true);
+    this.updateStreamStatsOverlay();
 
     this._cancelFullscreenRaf();
     const runEnterFrame = () => {
@@ -3324,6 +4476,7 @@ class IPTVApp {
       this.updateVideoSurfacePosition(true);
       this.updateOSD(targetChannel, false);
       this.showOSD();
+      this.updateStreamStatsOverlay();
     };
 
     if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
@@ -3343,6 +4496,7 @@ class IPTVApp {
       clearTimeout(this._seekBadgeClearTimer);
       clearTimeout(this.osdTimer);
       clearInterval(this.osdTickTimer);
+      this.updateStreamStatsOverlay();
 
       if (this.selectedChannel) {
         const indexMap = this._channelIndexById || (this._channelIndexById = Object.create(null));
@@ -3433,7 +4587,7 @@ class IPTVApp {
         this.updateChannelFocusFast();
       }
     } else {
-      this.showToast('ערוץ מספר ' + num + ' לא נמצא');
+      this.showToast('ערוץ מספר ' + num + ' לא נמצא', true);
     }
   }
 
@@ -3524,9 +4678,10 @@ class IPTVApp {
     overlay.classList.remove('hidden');
 
     clearTimeout(this.jumpTimer);
+    const hideDelayMs = Math.max(1500, this.getNumericJumpMs() + 300);
     this.jumpTimer = setTimeout(() => {
       overlay.classList.add('hidden');
-    }, 1500);
+    }, hideDelayMs);
   }
 
   /* --------------------------------------------------------------------------
@@ -3650,7 +4805,7 @@ class IPTVApp {
   }
 
   onGreenButton() {
-    this.handleSeekKeyHold(-1, 30);
+    this.handleSeekKeyHold(-1, this.getSeekStepSec());
   }
 
   onYellowButton() {
@@ -3666,7 +4821,7 @@ class IPTVApp {
   }
 
   onBlueButton() {
-    this.handleSeekKeyHold(1, 30);
+    this.handleSeekKeyHold(1, this.getSeekStepSec());
   }
 
   togglePlayPause() {
@@ -3926,6 +5081,7 @@ class IPTVApp {
       this.otaManager.startCloudSyncPolling();
       this.otaManager.updateVersionBadgesUI();
     }
+    this.ensureUiCustomizationDOM();
     const osd = document.getElementById('fullscreen-osd');
     if (osd) osd.classList.add('hidden');
     const pauseBadge = document.getElementById('video-pause-indicator');
@@ -3943,6 +5099,7 @@ class IPTVApp {
       { key: 'channels', btn: 'tab-btn-channels', panel: 'settings-tab-channels' },
       { key: 'performance', btn: 'tab-btn-performance', panel: 'settings-tab-performance' },
       { key: 'appearance', btn: 'tab-btn-appearance', panel: 'settings-tab-appearance' },
+      { key: 'av', btn: 'tab-btn-av', panel: 'settings-tab-av' },
       { key: 'about', btn: 'tab-btn-about', panel: 'settings-tab-about' }
     ];
 
@@ -3966,12 +5123,16 @@ class IPTVApp {
       this.renderPerformanceTab();
     } else if (tabName === 'appearance') {
       this.renderAppearanceTab();
+    } else if (tabName === 'av') {
+      this.renderAvTab();
     } else if (tabName === 'sources') {
       this.renderSourcesManagerList();
     } else if (tabName === 'about') {
       if (this.otaManager && typeof this.otaManager.updateVersionBadgesUI === 'function') {
         this.otaManager.updateVersionBadgesUI();
       }
+      const aboutTabBtn = document.getElementById('tab-btn-about');
+      if (aboutTabBtn) aboutTabBtn.textContent = 'אודות';
     }
 
     const activePanel = document.getElementById('settings-tab-' + tabName);
@@ -4206,10 +5367,12 @@ class IPTVApp {
     if (this.previousModeBeforeModal === 'FULLSCREEN') {
       this.mode = 'FULLSCREEN';
       this.updateVideoSurfacePosition();
+      this.updateStreamStatsOverlay();
     } else {
       this.mode = 'BROWSE';
       this.focusArea = 'channels';
-      this.updateVideoSurfacePosition();
+      this.updateStreamStatsOverlay();
+      this.updateVideoSurfacePosition(true);
       this.updateChannelFocusFast();
     }
   }
@@ -4659,7 +5822,7 @@ class IPTVApp {
           this.enterFullscreen();
         } else {
           this.highlightChannel(ch, true);
-          if (prefs.previewAutoplay === 'off') {
+          if (prefs.previewAutoplay === 'off' || prefs.singleClickFullscreen === true) {
             this.enterFullscreen();
           }
         }
@@ -4737,6 +5900,7 @@ class IPTVApp {
     const tabBtnChannels = document.getElementById('tab-btn-channels');
     const tabBtnPerf = document.getElementById('tab-btn-performance');
     const tabBtnAppearance = document.getElementById('tab-btn-appearance');
+    const tabBtnAv = document.getElementById('tab-btn-av');
     const tabBtnAbout = document.getElementById('tab-btn-about');
     if (tabBtnSources) tabBtnSources.addEventListener('click', () => this.switchSettingsTab('sources'));
     if (tabBtnChannels) tabBtnChannels.addEventListener('click', () => this.switchSettingsTab('channels'));
@@ -4745,11 +5909,36 @@ class IPTVApp {
       tabBtnAppearance.dataset.uiBound = '1';
       tabBtnAppearance.addEventListener('click', () => this.switchSettingsTab('appearance'));
     }
+    if (tabBtnAv && tabBtnAv.dataset && tabBtnAv.dataset.avBound !== '1') {
+      tabBtnAv.dataset.avBound = '1';
+      tabBtnAv.addEventListener('click', () => this.switchSettingsTab('av'));
+    }
     if (tabBtnAbout) tabBtnAbout.addEventListener('click', () => this.switchSettingsTab('about'));
 
     this.ensureThemeControlsDOM();
     this.ensureUiCustomizationDOM();
     this.renderAppearanceTab();
+    this.renderAvTab();
+
+    if (typeof document !== 'undefined' && !this._audioClickUnlockBound) {
+      this._audioClickUnlockBound = true;
+      document.addEventListener('click', () => {
+        if (this.player && this.player.video) {
+          if (this.player.video.muted && !this.player.userPaused) {
+            this.player.video.muted = false;
+          }
+          if (typeof this.player.applyEffectiveVolume === 'function') {
+            this.player.applyEffectiveVolume();
+          }
+          if (typeof this.player.resumeAudioPipeline === 'function') {
+            const avPrefs = this.getAvPrefs();
+            if (avPrefs.audioNormMode !== 'off' || avPrefs.audioVoiceBoost) {
+              this.player.resumeAudioPipeline();
+            }
+          }
+        }
+      }, true);
+    }
 
     // Buffer Mode option buttons
     const bufBtns = document.querySelectorAll('#buffer-mode-options .perf-option-btn');
@@ -5034,7 +6223,10 @@ class IPTVApp {
     }
   }
 
-  showToast(message) {
+  showToast(message, isCritical) {
+    if (!isCritical && this.getUiPrefs().showToasts === false) {
+      return;
+    }
     const toast = document.getElementById('toast');
     const msgEl = document.getElementById('toast-message');
     if (!toast || !msgEl) return;
