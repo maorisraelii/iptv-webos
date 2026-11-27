@@ -49,6 +49,11 @@ const cssGlassContent = fs.existsSync(glassCssPath)
       .trim()
   : '';
 
+const diagCode = fs.existsSync(path.join(process.cwd(), 'js/diagnostics.js'))
+  ? fs
+      .readFileSync(path.join(process.cwd(), 'js/diagnostics.js'), 'utf8')
+      .replace(/\r?\n\s*if\s*\(\s*typeof\s+module\s*!==\s*'undefined'[\s\S]*$/m, '\n})(typeof window !== "undefined" ? window : globalThis);')
+  : '';
 const m3uCode = extractClassBody('js/m3u-parser.js', 'M3UParser', 'OtaM3UParser');
 const storeCode = extractClassBody('js/lineup-store.js', 'LineupStore', 'OtaLineupStore');
 const epgCode = extractClassBody('js/epg.js', 'EPGService', 'OtaEPGService');
@@ -60,6 +65,7 @@ const appCode = extractClassBody('js/app.js', 'IPTVApp', 'OtaIPTVApp');
 const jsPatch = `
 (function() {
   try {
+    ${diagCode}
     ${m3uCode}
     ${storeCode}
     ${epgCode}

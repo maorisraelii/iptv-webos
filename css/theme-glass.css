@@ -5608,3 +5608,133 @@ html.ui-fx-flat .epg-progress-fill.ending-soon {
   background: #FF375F !important;
   color: #ffffff !important;
 }
+
+/* ==========================================================================
+   In-App Issue & Automatic Diagnostic Log Reporter Modal (Liquid Glass)
+   ========================================================================== */
+
+.about-header-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.modal-issue-card {
+  width: 1220px;
+  max-height: 900px;
+}
+
+.issue-modal-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.issue-presets-row {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.issue-preset-btn {
+  margin-left: 10px;
+  margin-bottom: 6px;
+  font-size: 18px !important;
+  padding: 8px 14px !important;
+}
+
+.issue-layout {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.issue-form-col {
+  flex: 1;
+  min-width: 0;
+  margin-left: 20px;
+}
+
+.issue-textarea {
+  height: 82px;
+  resize: none;
+  padding-top: 10px !important;
+  font-family: inherit;
+}
+
+.issue-logs-summary {
+  margin-top: 10px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary-bright);
+}
+
+.issue-logs-preview {
+  margin-top: 6px;
+  background-color: rgba(5, 7, 14, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  padding: 10px 12px;
+  height: 150px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 13px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.85);
+  white-space: pre-wrap;
+  word-break: break-word;
+  text-align: left;
+}
+
+.issue-qr-col {
+  width: 220px;
+  flex-shrink: 0;
+  background: rgba(14, 19, 32, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-top-color: rgba(255, 255, 255, 0.28);
+  border-radius: 18px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.issue-qr-box {
+  width: 158px;
+  height: 158px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.issue-qr-caption {
+  font-size: 15px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.80);
+  line-height: 1.35;
+}
+
+.issue-actions-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.issue-actions-row .btn-tv-primary,
+.issue-actions-row .btn-tv-secondary {
+  margin-left: 12px;
+}
+
+.issue-status-box {
+  margin-top: 4px;
+}
+
+.tv-platform .issue-qr-col,
+.tv-platform .issue-preset-btn {
+  box-shadow: none !important;
+  transition: none !important;
+}

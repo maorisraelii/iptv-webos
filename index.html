@@ -521,7 +521,7 @@
         </div>
         <span id="active-category-title" class="header-view-label">כל הערוצים</span>
         <span id="channel-list-count" class="header-count-pill">0 ערוצים</span>
-        <span id="header-version-badge" class="header-version-pill">v5.4.0</span>
+        <span id="header-version-badge" class="header-version-pill">v5.4.1</span>
       </div>
 
       <div class="header-left">
@@ -673,7 +673,7 @@
             <h2 id="osd-channel-name" class="osd-channel-title">שם הערוץ</h2>
             <span id="osd-live-badge" class="osd-live-tag">שידור חי</span>
             <span id="osd-channel-category" class="osd-quality-tag">HD</span>
-            <span id="osd-version-badge" class="osd-version-tag">v5.4.0</span>
+            <span id="osd-version-badge" class="osd-version-tag">v5.4.1</span>
           </div>
 
           <!-- OSD EPG Current Programme with Start & End Time -->
@@ -711,7 +711,7 @@
           <!-- OSD Remote Legend Line & Active Version Info -->
           <div class="osd-sub-line">
             <span class="osd-hint">▲▼ זפזופ • <strong>◀ קדימה / ▶ אחורה</strong> (החזק להאצה) • <strong>OK</strong> פאוז/נגן (ארוך: סטארט אובר) • <strong>אדום</strong> סטארט אובר / יציאה • <strong>צהוב</strong> מדריך 7 ימים</span>
-            <span id="osd-footer-version" class="osd-footer-ver">גרסה v5.4.0</span>
+            <span id="osd-footer-version" class="osd-footer-ver">גרסה v5.4.1</span>
           </div>
         </div>
 
@@ -1741,9 +1741,12 @@
             <div class="about-app-icon">TV</div>
             <div class="about-title-col" style="flex:1;">
               <div class="about-app-name">Live TV — LG webOS Broadcast Player</div>
-              <div id="about-version-text" class="about-app-version">גרסה v5.4.0 • גרסה מאוחדת (קלאסי + Apple Liquid Glass) • עדכוני OTA פעילים</div>
+              <div id="about-version-text" class="about-app-version">גרסה v5.4.1 • גרסה מאוחדת (קלאסי + Apple Liquid Glass) • עדכוני OTA פעילים</div>
             </div>
-            <button id="btn-check-ota-now" class="btn-tv-primary focusable">בדוק עדכוני OTA כעת</button>
+            <div class="about-header-actions">
+              <button id="btn-open-issue-report" class="btn-tv-secondary focusable" style="margin-left:10px;">דווח על תקלה (שלח לוג)</button>
+              <button id="btn-check-ota-now" class="btn-tv-primary focusable">בדוק עדכוני OTA כעת</button>
+            </div>
           </div>
 
           <div class="about-developer-box">
@@ -1839,6 +1842,52 @@
     </div>
   </div>
 
+  <!-- In-App Issue & Automatic Redacted Log Reporter Modal -->
+  <div id="issue-modal" class="modal-backdrop hidden">
+    <div class="modal-card modal-issue-card">
+      <div class="modal-header">
+        <h2>דיווח על תקלה וצירוף לוג אוטומטי</h2>
+        <button class="modal-close-btn focusable" data-action="close-modal">✕ סגור</button>
+      </div>
+      <div class="modal-body issue-modal-body">
+        <div class="issue-presets-row" id="issue-presets-row">
+          <button class="btn-tv-secondary issue-preset-btn focusable" data-issue-preset="ערוץ לא נטען או נתקע">ערוץ נתקע / לא נטען</button>
+          <button class="btn-tv-secondary issue-preset-btn focusable" data-issue-preset="בעיית סאונד או עוצמה">בעיית סאונד / עוצמה</button>
+          <button class="btn-tv-secondary issue-preset-btn focusable" data-issue-preset="לוח שידורים (EPG) חסר">בעיה בלוח שידורים</button>
+          <button class="btn-tv-secondary issue-preset-btn focusable" data-issue-preset="באג בממשק או בשלט">באג בממשק / בשלט</button>
+        </div>
+
+        <div class="issue-layout">
+          <div class="issue-form-col">
+            <label for="issue-title-input" class="input-label">כותרת קצרה לתקלה:</label>
+            <input type="text" id="issue-title-input" class="tv-input focusable" placeholder="לדוגמה: ערוץ נתקע בזפזופ מהיר" dir="rtl">
+
+            <label for="issue-desc-input" class="input-label" style="margin-top:10px;display:block;">תיאור נוסף (אופציונלי):</label>
+            <textarea id="issue-desc-input" class="tv-input issue-textarea focusable" rows="3" placeholder="מה קרה לפני התקלה? (לא חובה — פרטי המערכת והלוגים מצורפים אוטומטית)" dir="rtl"></textarea>
+
+            <div id="issue-logs-summary" class="issue-logs-summary">מצורפים אוטומטית לוגים מסוננים (ללא קישורי M3U פרטיים)</div>
+            <pre id="issue-logs-preview" class="issue-logs-preview" dir="ltr"></pre>
+          </div>
+
+          <div class="issue-qr-col">
+            <div id="issue-qr-box" class="issue-qr-box"></div>
+            <div class="issue-qr-caption">סרוק בטלפון לפתיחת Issue מוכן ב-GitHub עם הלוגים</div>
+          </div>
+        </div>
+
+        <div class="issue-actions-row">
+          <button id="btn-submit-issue" class="btn-tv-primary focusable">שלח דיווח + לוג אוטומטי</button>
+          <button id="btn-open-issue-github" class="btn-tv-secondary focusable">פתח ב-GitHub (בדפדפן)</button>
+          <button id="btn-copy-issue-report" class="btn-tv-secondary focusable">העתק דוח + לוגים</button>
+        </div>
+
+        <div id="issue-submit-status" class="settings-status-box issue-status-box">
+          <span id="issue-submit-status-text">מוכן לשליחה — קישורי M3U וטוקנים פרטיים מסוננים אוטומטית לפני השליחה.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification -->
   <div id="toast" class="toast hidden">
     <span id="toast-message"></span>
@@ -1846,6 +1895,7 @@
 
   <!-- Scripts (deferred so #boot-splash renders at 0ms) -->
   <script defer src="js/loader.js"></script>
+  <script defer src="js/diagnostics.js"></script>
   <script defer src="js/hls.min.js"></script>
   <script defer src="js/m3u-parser.js"></script>
   <script defer src="js/lineup-store.js"></script>

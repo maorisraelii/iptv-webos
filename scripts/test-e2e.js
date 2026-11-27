@@ -195,6 +195,7 @@ async function runStaticChecks(webRoot, repoRoot) {
   // Syntax-check all JS files & check Chromium 53 compatibility
   const jsFiles = [
     'js/loader.js',
+    'js/diagnostics.js',
     'js/m3u-parser.js',
     'js/lineup-store.js',
     'js/epg.js',
@@ -248,7 +249,7 @@ function attachNetworkInterception(page, serverPort) {
   return page.setRequestInterception(true).then(() => {
     page.on('request', (req) => {
       const url = req.url();
-      if (url.indexOf('http://127.0.0.1:' + serverPort) === 0) {
+      if (url.indexOf('http://127.0.0.1:' + serverPort) === 0 || url.indexOf('/mock-issue-worker') !== -1) {
         return req.continue();
       }
       if (req.method() === 'OPTIONS') {
@@ -2097,6 +2098,105 @@ async function runTests() {
         await page.close();
         pass('network-failure-resilience', 'HTTP 500 source error preserves existing 6 channels');
       } finally {
+        server.close();
+      }
+    }
+
+    // 7. In-App Issue Reporter & Automatic Redacted Diagnostic Log Collector
+    {
+      const { server, port } = await createStaticServer({ webRoot: opts.webRoot, sampleM3u: sampleM3u25 });
+      let receivedIssuePayload = null;
+      const mockWorkerServer = http.createServer((req, res) => {
+        if (req.method === 'OPTIONS') {
+          res.writeHead(204, {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type'
+          });
+          return res.end();
+        }
+        if (req.url === '/mock-issue-worker' && req.method === 'POST') {
+          let body = '';
+          req.on('data', (c) => { body += c; });
+          req.on('end', () => {
+            try {
+              receivedIssuePayload = JSON.parse(body);
+            } catch (e) {}
+            res.writeHead(201, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            res.end(JSON.stringify({ ok: true, issueNumber: 123, issueUrl: 'https://github.com/maorisraelii/iptv-webos/issues/123' }));
+          });
+          return;
+        }
+        res.writeHead(404);
+        res.end();
+      });
+      await new Promise((resolve) => mockWorkerServer.listen(0, '127.0.0.1', resolve));
+      const workerPort = mockWorkerServer.address().port;
+
+      try {
+        const { page, pageErrors } = await openConfiguredPage(browser, port, {
+          width: 1920,
+          height: 1080,
+          waitMs: 800,
+          allowResourceErrors: true,
+          setupFn: (sampleUrl, cached) => {
+            window.webOSSystem = {};
+            localStorage.setItem('zenplay_iptv_sources_v2', JSON.stringify([{ id: 'src_1', name: 'Test', url: sampleUrl, enabled: true }]));
+            localStorage.setItem('zenplay_iptv_cached_lineup_v2', JSON.stringify({ v: 2, updatedAt: Date.now(), discoveredEpgUrls: [], rawChannels: cached }));
+          },
+          setupArgs: ['http://127.0.0.1:' + port + '/sample.m3u', cached25.slice(0, 5)]
+        });
+
+        const issueCheck = await page.evaluate(async (mockEndpoint) => {
+          console.warn('Stream timeout http://secretuser:secretpass@192.168.1.50:8080/live/stream.m3u8?token=mySecretToken99');
+          window.app.openSettingsModal();
+          window.app.switchSettingsTab('about');
+          document.getElementById('btn-open-issue-report').click();
+
+          const modalOpen = window.app.mode === 'ISSUE' && !document.getElementById('issue-modal').classList.contains('hidden');
+          const presetBtn = document.querySelector('#issue-presets-row .issue-preset-btn');
+          if (presetBtn) presetBtn.click();
+          document.getElementById('issue-desc-input').value = 'בדקתי עכשיו ונתקע';
+
+          const qrSvg = document.querySelector('#issue-qr-box svg') ? document.querySelector('#issue-qr-box svg').outerHTML : '';
+          const previewText = document.getElementById('issue-logs-preview').textContent;
+
+          // Fallback (no endpoint configured)
+          window.DiagnosticLogger.setEndpointUrl('');
+          const fallbackRes = await window.app.submitIssueReport();
+
+          // Direct API submission via mocked Cloudflare Worker
+          window.DiagnosticLogger.setEndpointUrl(mockEndpoint);
+          const apiRes = await window.app.submitIssueReport();
+
+          window.app.closeModals();
+          return {
+            modalOpen,
+            hasQrSvg: qrSvg.indexOf('<svg') !== -1,
+            previewText,
+            fallbackMode: fallbackRes.mode,
+            fallbackUrlValid: fallbackRes.githubUrl.indexOf('https://github.com/maorisraelii/iptv-webos/issues/new?') === 0,
+            apiOk: apiRes.ok,
+            apiIssueNum: apiRes.issueNumber
+          };
+        }, 'http://127.0.0.1:' + workerPort + '/mock-issue-worker');
+
+        assert.strictEqual(issueCheck.modalOpen, true, 'Issue modal must open in ISSUE mode');
+        assert.strictEqual(issueCheck.hasQrSvg, true, 'Issue modal must render SVG QR code');
+        assert(issueCheck.previewText.indexOf('mySecretToken99') === -1, 'Private token leaked in diagnostic logs!');
+        assert(issueCheck.previewText.indexOf('secretpass') === -1, 'Private password leaked in diagnostic logs!');
+        assert(issueCheck.previewText.indexOf('192.168.1.50') === -1, 'Private IP leaked in diagnostic logs!');
+        assert(issueCheck.previewText.indexOf('[REDACTED') !== -1, 'Diagnostic redaction marker expected');
+        assert.strictEqual(issueCheck.fallbackMode, 'qr_fallback', 'Fallback mode expected when no endpoint configured');
+        assert.strictEqual(issueCheck.fallbackUrlValid, true, 'GitHub pre-filled issue URL invalid');
+        assert.strictEqual(issueCheck.apiOk, true, 'Mocked Cloudflare Worker API submission failed');
+        assert.strictEqual(issueCheck.apiIssueNum, 123, 'Mocked issueNumber mismatch');
+        assert(receivedIssuePayload && Array.isArray(receivedIssuePayload.logs) && receivedIssuePayload.logs.length > 0, 'Worker did not receive logs array');
+        assert.strictEqual(pageErrors.length, 0, 'Issue reporter pageerrors: ' + pageErrors.join('; '));
+        await page.close();
+        pass('in-app-issue-reporter-and-redacted-logs', 'Issue modal, QR fallback, redacted logs & Worker API submission verified');
+      } finally {
+        mockWorkerServer.close();
         server.close();
       }
     }

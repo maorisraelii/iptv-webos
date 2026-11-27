@@ -1873,6 +1873,245 @@ class IPTVApp {
         });
       }
     }
+
+    this.ensureIssueReporterDOM();
+  }
+
+  ensureIssueReporterDOM() {
+    if (typeof document === 'undefined') return;
+
+    const aboutHeader = document.querySelector('#settings-tab-about .about-header-row');
+    const btnCheckOta = document.getElementById('btn-check-ota-now');
+    if (aboutHeader && !document.getElementById('btn-open-issue-report')) {
+      const btnIssue = document.createElement('button');
+      btnIssue.id = 'btn-open-issue-report';
+      btnIssue.className = 'btn-tv-secondary focusable';
+      btnIssue.style.marginLeft = '10px';
+      btnIssue.textContent = 'דווח על תקלה (שלח לוג)';
+      if (btnCheckOta && btnCheckOta.parentNode) {
+        btnCheckOta.parentNode.insertBefore(btnIssue, btnCheckOta);
+      } else {
+        aboutHeader.appendChild(btnIssue);
+      }
+    }
+
+    if (!document.getElementById('issue-modal') && document.body) {
+      const modal = document.createElement('div');
+      modal.id = 'issue-modal';
+      modal.className = 'modal-backdrop hidden';
+      modal.innerHTML =
+        '<div class="modal-card modal-issue-card">' +
+          '<div class="modal-header">' +
+            '<h2>דיווח על תקלה וצירוף לוג אוטומטי</h2>' +
+            '<button class="modal-close-btn focusable" data-action="close-modal">✕ סגור</button>' +
+          '</div>' +
+          '<div class="modal-body issue-modal-body">' +
+            '<div class="issue-presets-row" id="issue-presets-row">' +
+              '<button class="btn-tv-secondary issue-preset-btn focusable" data-issue-preset="ערוץ לא נטען או נתקע">ערוץ נתקע / לא נטען</button>' +
+              '<button class="btn-tv-secondary issue-preset-btn focusable" data-issue-preset="בעיית סאונד או עוצמה">בעיית סאונד / עוצמה</button>' +
+              '<button class="btn-tv-secondary issue-preset-btn focusable" data-issue-preset="לוח שידורים (EPG) חסר">בעיה בלוח שידורים</button>' +
+              '<button class="btn-tv-secondary issue-preset-btn focusable" data-issue-preset="באג בממשק או בשלט">באג בממשק / בשלט</button>' +
+            '</div>' +
+            '<div class="issue-layout">' +
+              '<div class="issue-form-col">' +
+                '<label for="issue-title-input" class="input-label">כותרת קצרה לתקלה:</label>' +
+                '<input type="text" id="issue-title-input" class="tv-input focusable" placeholder="לדוגמה: ערוץ נתקע בזפזופ מהיר" dir="rtl">' +
+                '<label for="issue-desc-input" class="input-label" style="margin-top:10px;display:block;">תיאור נוסף (אופציונלי):</label>' +
+                '<textarea id="issue-desc-input" class="tv-input issue-textarea focusable" rows="3" placeholder="מה קרה לפני התקלה? (פרטי המערכת והלוגים מצורפים אוטומטית)" dir="rtl"></textarea>' +
+                '<div id="issue-logs-summary" class="issue-logs-summary">מצורפים אוטומטית לוגים מסוננים (ללא קישורי M3U פרטיים)</div>' +
+                '<pre id="issue-logs-preview" class="issue-logs-preview" dir="ltr"></pre>' +
+              '</div>' +
+              '<div class="issue-qr-col">' +
+                '<div id="issue-qr-box" class="issue-qr-box"></div>' +
+                '<div class="issue-qr-caption">סרוק בטלפון לפתיחת Issue מוכן ב-GitHub עם הלוגים</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="issue-actions-row">' +
+              '<button id="btn-submit-issue" class="btn-tv-primary focusable">שלח דיווח + לוג אוטומטי</button>' +
+              '<button id="btn-open-issue-github" class="btn-tv-secondary focusable">פתח ב-GitHub (בדפדפן)</button>' +
+              '<button id="btn-copy-issue-report" class="btn-tv-secondary focusable">העתק דוח + לוגים</button>' +
+            '</div>' +
+            '<div id="issue-submit-status" class="settings-status-box issue-status-box">' +
+              '<span id="issue-submit-status-text">מוכן לשליחה — קישורי M3U וטוקנים פרטיים מסוננים אוטומטית לפני השליחה.</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(modal);
+    }
+
+    const openBtn = document.getElementById('btn-open-issue-report');
+    if (openBtn && openBtn.dataset && openBtn.dataset.issueBound !== '1') {
+      openBtn.dataset.issueBound = '1';
+      openBtn.addEventListener('click', () => this.openIssueModal());
+    }
+
+    const issueModal = document.getElementById('issue-modal');
+    if (issueModal) {
+      const closeBtn = issueModal.querySelector('[data-action="close-modal"]');
+      if (closeBtn && closeBtn.dataset && closeBtn.dataset.issueBound !== '1') {
+        closeBtn.dataset.issueBound = '1';
+        closeBtn.addEventListener('click', () => this.closeModals());
+      }
+
+      const presetBtns = issueModal.querySelectorAll('[data-issue-preset]');
+      for (let i = 0; i < presetBtns.length; i++) {
+        const pBtn = presetBtns[i];
+        if (pBtn && pBtn.dataset && pBtn.dataset.issueBound !== '1') {
+          pBtn.dataset.issueBound = '1';
+          pBtn.addEventListener('click', () => {
+            const titleIn = document.getElementById('issue-title-input');
+            if (titleIn) titleIn.value = pBtn.dataset.issuePreset || '';
+            this.refreshIssueModalPreview();
+          });
+        }
+      }
+
+      const titleIn = document.getElementById('issue-title-input');
+      if (titleIn && titleIn.dataset && titleIn.dataset.issueBound !== '1') {
+        titleIn.dataset.issueBound = '1';
+        titleIn.addEventListener('input', () => this.refreshIssueModalPreview());
+      }
+
+      const descIn = document.getElementById('issue-desc-input');
+      if (descIn && descIn.dataset && descIn.dataset.issueBound !== '1') {
+        descIn.dataset.issueBound = '1';
+        descIn.addEventListener('input', () => this.refreshIssueModalPreview());
+      }
+
+      const submitBtn = document.getElementById('btn-submit-issue');
+      if (submitBtn && submitBtn.dataset && submitBtn.dataset.issueBound !== '1') {
+        submitBtn.dataset.issueBound = '1';
+        submitBtn.addEventListener('click', () => this.submitIssueReport());
+      }
+
+      const openGhBtn = document.getElementById('btn-open-issue-github');
+      if (openGhBtn && openGhBtn.dataset && openGhBtn.dataset.issueBound !== '1') {
+        openGhBtn.dataset.issueBound = '1';
+        openGhBtn.addEventListener('click', () => {
+          const titleVal = (document.getElementById('issue-title-input') || {}).value || '';
+          const descVal = (document.getElementById('issue-desc-input') || {}).value || '';
+          if (typeof DiagnosticLogger !== 'undefined') {
+            const rep = DiagnosticLogger.buildReport(titleVal, descVal, this);
+            const ghUrl = DiagnosticLogger.buildGitHubNewIssueUrl(rep, 1800);
+            try {
+              window.open(ghUrl, '_blank', 'noopener');
+            } catch (e) {}
+            const statusText = document.getElementById('issue-submit-status-text');
+            if (statusText) statusText.textContent = 'נפתח דף יצירת Issue ב-GitHub עם הלוגים המסוננים.';
+          }
+        });
+      }
+
+      const copyBtn = document.getElementById('btn-copy-issue-report');
+      if (copyBtn && copyBtn.dataset && copyBtn.dataset.issueBound !== '1') {
+        copyBtn.dataset.issueBound = '1';
+        copyBtn.addEventListener('click', () => this.copyIssueReport());
+      }
+    }
+  }
+
+  openIssueModal() {
+    this.ensureIssueReporterDOM();
+    const modal = document.getElementById('issue-modal');
+    if (!modal) return;
+
+    const settingsModal = document.getElementById('settings-modal');
+    if (settingsModal && !settingsModal.classList.contains('hidden')) {
+      settingsModal.classList.add('hidden');
+      if (this.otaManager) this.otaManager.stopCloudSyncPolling();
+    }
+
+    this.previousModeBeforeModal = 'BROWSE';
+    this.mode = 'ISSUE';
+    const statusText = document.getElementById('issue-submit-status-text');
+    if (statusText) {
+      statusText.textContent = 'מוכן לשליחה — קישורי M3U וטוקנים פרטיים מסוננים אוטומטית לפני השליחה.';
+    }
+    this.refreshIssueModalPreview();
+    modal.classList.remove('hidden');
+    this.updateVideoSurfacePosition();
+    this.setupModalFocus('#issue-modal');
+  }
+
+  refreshIssueModalPreview() {
+    if (typeof DiagnosticLogger === 'undefined') return;
+    const titleIn = document.getElementById('issue-title-input');
+    const descIn = document.getElementById('issue-desc-input');
+    const summaryEl = document.getElementById('issue-logs-summary');
+    const previewEl = document.getElementById('issue-logs-preview');
+    const qrBox = document.getElementById('issue-qr-box');
+
+    const titleVal = titleIn ? titleIn.value : '';
+    const descVal = descIn ? descIn.value : '';
+    const report = DiagnosticLogger.buildReport(titleVal, descVal, this);
+
+    if (summaryEl) {
+      summaryEl.textContent =
+        'יצורפו אוטומטית ' +
+        report.logs.length +
+        ' שורות לוג מסוננות • v' +
+        report.meta.version +
+        ' • ' +
+        report.meta.platform;
+    }
+    if (previewEl) {
+      previewEl.textContent =
+        report.logs.length > 0
+          ? report.logs.slice(-16).join('\n')
+          : '(אין שגיאות רשומות — יצורפו פרטי מערכת ומצב נגן אוטומטית)';
+    }
+    if (qrBox && typeof QRCodeGenerator !== 'undefined' && typeof QRCodeGenerator.renderSVG === 'function') {
+      const qrUrl = DiagnosticLogger.buildGitHubNewIssueUrl(report, 750);
+      qrBox.innerHTML = QRCodeGenerator.renderSVG(qrUrl, 148);
+    }
+  }
+
+  submitIssueReport() {
+    if (typeof DiagnosticLogger === 'undefined') return Promise.resolve(null);
+    const titleIn = document.getElementById('issue-title-input');
+    const descIn = document.getElementById('issue-desc-input');
+    const statusText = document.getElementById('issue-submit-status-text');
+    const titleVal = titleIn ? titleIn.value : '';
+    const descVal = descIn ? descIn.value : '';
+
+    if (statusText) statusText.textContent = 'שולח דיווח ולוגים מסוננים...';
+
+    return DiagnosticLogger.submitIssue(titleVal, descVal, this).then((res) => {
+      if (res && res.ok) {
+        const msg = res.issueNumber
+          ? 'התקלה דווחה בהצלחה ב-GitHub (Issue #' + res.issueNumber + ')!'
+          : 'התקלה דווחה בהצלחה ב-GitHub!';
+        if (statusText) statusText.textContent = msg;
+        this.showToast(msg, true);
+      } else {
+        const fallbackMsg =
+          'אין שרת דיווח אוטומטי מוגדר — סרוק את קוד ה-QR מהטלפון לפתיחת Issue מוכן עם הלוגים (או לחץ "פתח ב-GitHub").';
+        if (statusText) statusText.textContent = fallbackMsg;
+        this.showToast('סרוק את ה-QR בטלפון לפתיחת Issue עם הלוגים', true);
+      }
+      return res;
+    });
+  }
+
+  copyIssueReport() {
+    if (typeof DiagnosticLogger === 'undefined') return;
+    const titleIn = document.getElementById('issue-title-input');
+    const descIn = document.getElementById('issue-desc-input');
+    const statusText = document.getElementById('issue-submit-status-text');
+    const report = DiagnosticLogger.buildReport(titleIn ? titleIn.value : '', descIn ? descIn.value : '', this);
+    if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard
+        .writeText(report.markdown)
+        .then(() => {
+          if (statusText) statusText.textContent = 'הדוח והלוגים הועתקו ללוח בהצלחה.';
+          this.showToast('הדוח והלוגים הועתקו ללוח ✓', true);
+        })
+        .catch(() => {
+          if (statusText) statusText.textContent = 'לא ניתן להעתיק אוטומטית במכשיר זה — השתמש בסריקת QR.';
+        });
+    } else if (statusText) {
+      statusText.textContent = 'העתקה אוטומטית אינה נתמכת בדפדפן הטלוויזיה — סרוק את ה-QR.';
+    }
   }
 
   updateAutoplayOffBadge(forceHide) {
@@ -5060,7 +5299,13 @@ class IPTVApp {
      -------------------------------------------------------------------------- */
 
   isModalOpen() {
-    return this.mode === 'SETTINGS' || this.mode === 'SEARCH' || this.mode === 'GUIDE' || this.mode === 'OTA';
+    return (
+      this.mode === 'SETTINGS' ||
+      this.mode === 'SEARCH' ||
+      this.mode === 'GUIDE' ||
+      this.mode === 'OTA' ||
+      this.mode === 'ISSUE'
+    );
   }
 
   openSettingsModal() {
