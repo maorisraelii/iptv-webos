@@ -418,7 +418,7 @@ class RemoteController {
     if (code === 461 || code === 27 || key === 'Back' || key === 'GoBack' || key === 'Escape' || key === 'XF86Back') {
       if (typeof e.preventDefault === 'function') e.preventDefault();
       if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
-      if (now - this.lastBackTime < 350) {
+      if (now - this.lastBackTime < 180) {
         return;
       }
       this.lastBackTime = now;
@@ -434,7 +434,7 @@ class RemoteController {
       }
       if (typeof e.preventDefault === 'function') e.preventDefault();
       if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
-      if (now - this.lastBackTime < 350) {
+      if (now - this.lastBackTime < 180) {
         return;
       }
       this.lastBackTime = now;

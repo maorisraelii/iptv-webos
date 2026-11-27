@@ -241,7 +241,7 @@ const jsPatch = `
           if (Array.isArray(app.visibleChannels) && app.visibleChannels.length > 0) {
             if (typeof app.renderChannelList === 'function') {
               app.renderChannelList();
-              if (app.focusArea === 'channels' && typeof app.updateChannelFocusFast === 'function') {
+              if (app.focusArea === 'channels' && (!app.isModalOpen || !app.isModalOpen()) && typeof app.updateChannelFocusFast === 'function') {
                 app.updateChannelFocusFast();
               }
             }

@@ -469,19 +469,11 @@ class VideoPlayer {
       this._zapFadeFactor = PLAYER_ZAP_FADE_START + (1.0 - PLAYER_ZAP_FADE_START) * progress;
       this.applyEffectiveVolume();
       if (progress < 1) {
-        if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-          this._zapFadeRaf = window.requestAnimationFrame(stepFade);
-        } else {
-          this._zapFadeTimer = setTimeout(stepFade, 20);
-        }
+        this._zapFadeTimer = setTimeout(stepFade, 18);
       }
     };
 
-    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-      this._zapFadeRaf = window.requestAnimationFrame(stepFade);
-    } else {
-      this._zapFadeTimer = setTimeout(stepFade, 20);
-    }
+    this._zapFadeTimer = setTimeout(stepFade, 18);
   }
 
   _setAudioParam(param, value, timeConstant) {

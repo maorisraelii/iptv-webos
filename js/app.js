@@ -3375,7 +3375,9 @@ class IPTVApp {
             const idx = this.visibleChannels.findIndex((c) => c.id === curId);
             if (idx !== -1) {
               this.focusedChannelIndex = idx;
-              this.updateChannelFocusFast();
+              if (this.focusArea === 'channels' && !this.isModalOpen()) {
+                this.updateChannelFocusFast();
+              }
             }
           }
         }

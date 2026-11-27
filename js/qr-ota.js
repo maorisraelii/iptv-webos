@@ -3,7 +3,7 @@
  * Designed for LG webOS 4.0 - 24+ (Chromium 53+)
  */
 
-const APP_BUNDLE_VERSION = '5.4.1';
+const APP_BUNDLE_VERSION = '5.5.0';
 const APP_BUNDLE_CHANNEL = 'stable';
 const OTA_GIST_RAW_BASE = 'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw';
 const OTA_GITHUB_RAW_STABLE = 'https://raw.githubusercontent.com/maorisraelii/iptv-webos/main/ota-manifest.json';
@@ -307,6 +307,7 @@ class OTACloudManager {
     this.otaAutoTimer = null;
     this._isInstallingOta = false;
     this._pendingChangelogInfo = null;
+    this._pendingUpdateAvailable = null;
     this._appliedBundleSignature = null;
     this._fetchingGlassCss = false;
 
@@ -903,6 +904,11 @@ class OTACloudManager {
   }
 
   showOTAUpdateAvailablePopup(manifest, currentVer) {
+    if (this.app && this.app.mode === 'DISCLAIMER') {
+      this._pendingUpdateAvailable = { manifest: manifest, currentVer: currentVer };
+      return;
+    }
+
     const modal = document.getElementById('ota-modal');
     if (!modal) return;
 
@@ -1068,12 +1074,20 @@ class OTACloudManager {
   }
 
   flushPendingChangelog() {
-    if (!this._pendingChangelogInfo) return false;
     if (this.app && this.app.mode === 'DISCLAIMER') return false;
-    const info = this._pendingChangelogInfo;
-    this._pendingChangelogInfo = null;
-    this.showOTASuccessPopup(info);
-    return true;
+    if (this._pendingChangelogInfo) {
+      const info = this._pendingChangelogInfo;
+      this._pendingChangelogInfo = null;
+      this.showOTASuccessPopup(info);
+      return true;
+    }
+    if (this._pendingUpdateAvailable) {
+      const pending = this._pendingUpdateAvailable;
+      this._pendingUpdateAvailable = null;
+      this.showOTAUpdateAvailablePopup(pending.manifest, pending.currentVer);
+      return true;
+    }
+    return false;
   }
 
   showOTASuccessPopup(info) {

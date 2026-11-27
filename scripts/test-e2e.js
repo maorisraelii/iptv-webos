@@ -87,20 +87,29 @@ function createStaticServer(options) {
   const gitTag = options.gitTag || '';
   const sampleM3u = options.sampleM3u || buildSampleM3u(25);
   const sampleMode = options.sampleMode || 'ok'; // 'ok' | 'error'
+  const extraRoutes = options.extraRoutes || null;
 
   return new Promise((resolve) => {
     const server = http.createServer((req, res) => {
       const urlPath = (req.url || '/').split('?')[0];
+      if (extraRoutes && Object.prototype.hasOwnProperty.call(extraRoutes, urlPath)) {
+        const route = extraRoutes[urlPath];
+        res.writeHead(route.status || 200, {
+          'Content-Type': route.contentType || 'text/plain; charset=utf-8',
+          'Access-Control-Allow-Origin': '*'
+        });
+        return res.end(route.body);
+      }
       if (urlPath === '/favicon.ico') {
         res.writeHead(204);
         return res.end();
       }
       if (urlPath === '/sample.m3u') {
         if (sampleMode === 'error') {
-          res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
           return res.end('Upstream error');
         }
-        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
         return res.end(sampleM3u);
       }
 
@@ -132,7 +141,10 @@ function createStaticServer(options) {
         '.png': 'image/png',
         '.svg': 'image/svg+xml'
       };
-      res.writeHead(200, { 'Content-Type': mimeMap[ext] || 'application/octet-stream' });
+      res.writeHead(200, {
+        'Content-Type': mimeMap[ext] || 'application/octet-stream',
+        'Access-Control-Allow-Origin': '*'
+      });
       res.end(body);
     });
     server.listen(0, '127.0.0.1', () => resolve({ server, port: server.address().port }));
@@ -244,13 +256,16 @@ async function runStaticChecks(webRoot, repoRoot) {
   return otaManifest;
 }
 
-function attachNetworkInterception(page, serverPort) {
+function attachNetworkInterception(page, serverPort, options) {
   const corsHeaders = { 'Access-Control-Allow-Origin': '*' };
   return page.setRequestInterception(true).then(() => {
     page.on('request', (req) => {
       const url = req.url();
       if (url.indexOf('http://127.0.0.1:' + serverPort) === 0 || url.indexOf('/mock-issue-worker') !== -1) {
         return req.continue();
+      }
+      if (options && typeof options.interceptFn === 'function') {
+        if (options.interceptFn(req, corsHeaders)) return;
       }
       if (req.method() === 'OPTIONS') {
         return req.respond({ status: 204, headers: corsHeaders, body: '' });
@@ -289,10 +304,11 @@ function attachNetworkInterception(page, serverPort) {
 
 async function openConfiguredPage(browser, serverPort, options) {
   const page = await browser.newPage();
+  try { await page.bringToFront(); } catch (e) {}
   const width = (options && options.width) || 1920;
   const height = (options && options.height) || 1080;
   await page.setViewport({ width, height });
-  await attachNetworkInterception(page, serverPort);
+  await attachNetworkInterception(page, serverPort, options);
 
   const pageErrors = [];
   const consoleErrors = [];
@@ -306,6 +322,14 @@ async function openConfiguredPage(browser, serverPort, options) {
       consoleErrors.push(text);
     }
   });
+
+  if (!(options && options.skipDisclaimerAccept)) {
+    await page.evaluateOnNewDocument(() => {
+      try {
+        localStorage.setItem('zenplay_disclaimer_accepted_v1', '1');
+      } catch (e) {}
+    });
+  }
 
   if (options && options.setupFn) {
     await page.evaluateOnNewDocument(options.setupFn, ...(options.setupArgs || []));
@@ -460,7 +484,7 @@ async function verifySettingsScrollingForTheme(page, theme) {
 
     const appVis = [];
     let seenResetUiBtn = false;
-    for (let i = 0; i < 65; i++) {
+    for (let i = 0; i < 85; i++) {
       window.app.navigate('down');
       const cur = window.app.currentFocusedEl;
       if (cur && appEl.contains(cur)) {
@@ -479,7 +503,7 @@ async function verifySettingsScrollingForTheme(page, theme) {
     }
     const appMaxScrollAfterDown = appEl.scrollTop;
 
-    for (let i = 0; i < 65; i++) {
+    for (let i = 0; i < 85; i++) {
       window.app.navigate('up');
       const cur = window.app.currentFocusedEl;
       if (cur && (cur.classList.contains('settings-tab-btn') || cur.classList.contains('modal-close-btn'))) {
@@ -897,7 +921,16 @@ async function verifyUiCustomizationSuite(browser, webRoot, sampleM3u25, cached2
     assert.strictEqual(autoplayOffFs.badgeHidden, true, 'Autoplay-off badge must hide in FULLSCREEN');
 
     await page.keyboard.press('Escape');
-    await new Promise((r) => setTimeout(r, 150));
+    await new Promise((r) => setTimeout(r, 240));
+    const autoplayOffStep1 = await page.evaluate(() => ({
+      mode: window.app.mode,
+      osdHidden: document.getElementById('fullscreen-osd').classList.contains('hidden')
+    }));
+    assert.strictEqual(autoplayOffStep1.mode, 'FULLSCREEN', 'First Escape in Fullscreen must keep FULLSCREEN while hiding OSD');
+    assert.strictEqual(autoplayOffStep1.osdHidden, true, 'First Escape in Fullscreen must hide OSD');
+
+    await page.keyboard.press('Escape');
+    await new Promise((r) => setTimeout(r, 240));
     const autoplayOffBack = await page.evaluate(() => ({
       mode: window.app.mode,
       hasHls: Boolean(window.app.player && window.app.player.hls),
@@ -1149,6 +1182,22 @@ async function verifyAvAudioPictureAndPerfSuite(browser, webRoot, sampleM3u25, c
     });
 
     // 1. Zero silent-audio regression on boot & Original picture preset zero GPU filter
+    try {
+      await page.waitForFunction(() => {
+        const vid = document.getElementById('tv-video');
+        return Boolean(vid && vid.volume === 1);
+      }, { timeout: 3500, polling: 50 });
+    } catch (e) {
+      const dbg = await page.evaluate(() => ({
+        vol: document.getElementById('tv-video').volume,
+        factor: window.app && window.app.player ? window.app.player._zapFadeFactor : null,
+        raf: window.app && window.app.player ? window.app.player._zapFadeRaf : null,
+        timer: window.app && window.app.player ? window.app.player._zapFadeTimer : null,
+        elapsed: window.app && window.app.player ? Date.now() - window.app.player._zapFadeStartMs : null,
+        hidden: document.hidden
+      }));
+      throw new Error('Boot volume did not settle to 1 within 3.5s: ' + JSON.stringify(dbg));
+    }
     const bootRes = await page.evaluate(() => {
       const vid = document.getElementById('tv-video');
       const av = window.app.getAvPrefs();
@@ -1178,7 +1227,22 @@ async function verifyAvAudioPictureAndPerfSuite(browser, webRoot, sampleM3u25, c
     assert.strictEqual(bootRes.volume, 1, 'Boot video.volume must be 1 (zero silent boot)');
     assert.strictEqual(bootRes.mutedAfterTvPlay, false, 'TV autoplay boot video.muted must be false');
     assert(bootRes.volAfterTvPlay >= 0.15 && bootRes.volAfterTvPlay <= 1, 'TV zap fade / effective volume active on boot');
-    await new Promise((r) => setTimeout(r, 340));
+    try {
+      await page.waitForFunction(() => {
+        const vid = document.getElementById('tv-video');
+        return Boolean(vid && vid.volume === 1);
+      }, { timeout: 2000, polling: 40 });
+    } catch (e) {
+      const dbg = await page.evaluate(() => ({
+        vol: document.getElementById('tv-video').volume,
+        factor: window.app && window.app.player ? window.app.player._zapFadeFactor : null,
+        raf: window.app && window.app.player ? window.app.player._zapFadeRaf : null,
+        timer: window.app && window.app.player ? window.app.player._zapFadeTimer : null,
+        elapsed: window.app && window.app.player ? Date.now() - window.app.player._zapFadeStartMs : null,
+        cleaning: window.app && window.app.player ? window.app.player._isCleaningUp : null
+      }));
+      throw new Error('Post zap-fade timeout: ' + JSON.stringify(dbg));
+    }
     const postFadeVol = await page.evaluate(() => document.getElementById('tv-video').volume);
     assert.strictEqual(postFadeVol, 1, 'Post zap-fade video.volume must reach 1.0');
     assert.strictEqual(bootRes.picturePreset, 'original');
@@ -1540,12 +1604,20 @@ async function runTests() {
         const modeInFs = await page.evaluate(() => window.app.mode);
         assert.strictEqual(modeInFs, 'FULLSCREEN', 'Second Enter on selected channel must enter FULLSCREEN');
         await page.keyboard.press('Escape');
-        await new Promise((r) => setTimeout(r, 180));
+        await new Promise((r) => setTimeout(r, 240));
+        const fsStep1 = await page.evaluate(() => ({
+          mode: window.app.mode,
+          osdHidden: document.getElementById('fullscreen-osd').classList.contains('hidden')
+        }));
+        assert.strictEqual(fsStep1.mode, 'FULLSCREEN', '1st Escape from Fullscreen must keep FULLSCREEN while hiding OSD');
+        assert.strictEqual(fsStep1.osdHidden, true, '1st Escape from Fullscreen must hide OSD');
+        await page.keyboard.press('Escape');
+        await new Promise((r) => setTimeout(r, 240));
         const navState = await page.evaluate(() => ({
           mode: window.app.mode,
           focusedIdx: window.app.focusedChannelIndex
         }));
-        assert.strictEqual(navState.mode, 'BROWSE', 'Back/Escape from Fullscreen must return to BROWSE mode');
+        assert.strictEqual(navState.mode, 'BROWSE', '2nd Back/Escape from Fullscreen must return to BROWSE mode');
         assert.strictEqual(navState.focusedIdx, 2, 'Focused index must advance via ArrowDown');
 
         assert.strictEqual(pageErrors.length, 0, 'Unexpected pageerrors: ' + pageErrors.join('; '));
@@ -1695,6 +1767,11 @@ async function runTests() {
         await page.close();
         await verifyUiCustomizationSuite(browser, opts.webRoot, sampleM3u25, cached25, pass);
         await verifyAvAudioPictureAndPerfSuite(browser, opts.webRoot, sampleM3u25, cached25, pass);
+        await verifyLegalDisclaimerSuite(browser, opts.webRoot, sampleM3u25, cached25, pass);
+        await verifyTwoStepBackSuite(browser, opts.webRoot, sampleM3u25, cached25, pass);
+        await verifyAutoFullscreenSuite(browser, opts.webRoot, sampleM3u25, cached25, pass);
+        await verifySilentAutoOtaSuite(browser, opts.webRoot, sampleM3u25, cached25, otaManifest, pass);
+        await verifyLiveEpgSuite(browser, opts.webRoot, opts.repoRoot, sampleM3u25, cached25, pass);
       } finally {
         server.close();
       }
@@ -1750,8 +1827,16 @@ async function runTests() {
             await new Promise((r) => setTimeout(r, 120));
             await page.evaluate(() => window.AndroidTVBridge.dispatchKey('back'));
             await new Promise((r) => setTimeout(r, 150));
+            const atvStep1 = await page.evaluate(() => ({
+              mode: window.app.mode,
+              osdHidden: document.getElementById('fullscreen-osd').classList.contains('hidden')
+            }));
+            assert.strictEqual(atvStep1.mode, 'FULLSCREEN', '1st AndroidTVBridge back must hide OSD and stay in FULLSCREEN');
+            assert.strictEqual(atvStep1.osdHidden, true, '1st AndroidTVBridge back must hide OSD');
+            await page.evaluate(() => window.AndroidTVBridge.dispatchKey('back'));
+            await new Promise((r) => setTimeout(r, 150));
             const atvMode = await page.evaluate(() => window.app.mode);
-            assert.strictEqual(atvMode, 'BROWSE', 'AndroidTVBridge back must return from Fullscreen to BROWSE');
+            assert.strictEqual(atvMode, 'BROWSE', '2nd AndroidTVBridge back must return from Fullscreen to BROWSE');
 
             const atvScroll = await verifySettingsScrollingForTheme(page, 'glass');
             assert.strictEqual(atvScroll.tabs.performance.badItems.length, 0, 'Android TV Settings perf tab clipped focused control');
@@ -1847,6 +1932,9 @@ async function runTests() {
           const injectedAvPanel = Boolean(document.getElementById('settings-tab-av'));
           const injectedStatsBadge = Boolean(document.getElementById('stream-stats-badge'));
           const injectedBadge = Boolean(document.getElementById('preview-autoplay-off-badge'));
+          const injectedDisclaimerModal = Boolean(document.getElementById('disclaimer-modal'));
+          const injectedOpenLegal = Boolean(document.getElementById('btn-open-disclaimer'));
+          const injectedAutoOta = Boolean(document.getElementById('btn-toggle-auto-ota'));
           document.getElementById('btn-preset-minimal').click();
           const minimalOk = document.documentElement.classList.contains('ui-density-compact');
           document.getElementById('btn-reset-ui-prefs').click();
@@ -1867,6 +1955,9 @@ async function runTests() {
             injectedAvPanel,
             injectedStatsBadge,
             injectedBadge,
+            injectedDisclaimerModal,
+            injectedOpenLegal,
+            injectedAutoOta,
             minimalOk,
             vividOk
           };
@@ -1876,7 +1967,7 @@ async function runTests() {
         assert.strictEqual(synthRes.hasRowEls, true, '_channelRowEls must be backfilled');
         assert.strictEqual(synthRes.hasPreviewCache, true, '_previewHeaderCache must be backfilled');
         assert.strictEqual(synthRes.hasOsdCache, true, '_osdLastCache must be backfilled');
-        assert(synthRes.injectedTab && synthRes.injectedPanel && synthRes.injectedAvTab && synthRes.injectedAvPanel && synthRes.injectedStatsBadge && synthRes.injectedBadge && synthRes.minimalOk && synthRes.vividOk, 'Synthetic OTA must inject Appearance & AV controls + stats badge');
+        assert(synthRes.injectedTab && synthRes.injectedPanel && synthRes.injectedAvTab && synthRes.injectedAvPanel && synthRes.injectedStatsBadge && synthRes.injectedBadge && synthRes.injectedDisclaimerModal && synthRes.injectedOpenLegal && synthRes.injectedAutoOta && synthRes.minimalOk && synthRes.vividOk, 'Synthetic OTA must inject Appearance, AV, Disclaimer & Auto-OTA controls');
         assert.strictEqual(pageErrors.length, 0, 'Synthetic OTA pageerrors: ' + pageErrors.join('; '));
         assert.strictEqual(consoleErrors.length, 0, 'Synthetic OTA console errors: ' + consoleErrors.join('; '));
         await page.close();
@@ -2204,6 +2295,639 @@ async function runTests() {
     console.log('\nALL ' + steps.length + ' TEST SUITES PASSED! (platform=' + opts.platform + ', version=' + otaManifest.version + ')');
   } finally {
     await browser.close();
+  }
+}
+
+async function verifyLegalDisclaimerSuite(browser, webRoot, sampleM3u25, cached25, pass) {
+  const { server, port } = await createStaticServer({ webRoot, sampleM3u: sampleM3u25 });
+  try {
+    const { page, pageErrors, consoleErrors } = await openConfiguredPage(browser, port, {
+      width: 1920,
+      height: 1080,
+      skipDisclaimerAccept: true,
+      setupFn: (sampleUrl, cached) => {
+        window.webOSSystem = { close: function () {} };
+        localStorage.setItem('zenplay_iptv_sources_v2', JSON.stringify([{ id: 'src_1', name: 'Test', url: sampleUrl, enabled: true }]));
+        localStorage.setItem('zenplay_iptv_cached_lineup_v2', JSON.stringify({ v: 2, updatedAt: Date.now(), discoveredEpgUrls: [], rawChannels: cached }));
+        localStorage.setItem('zenplay_ui_prefs_v1', JSON.stringify({ startupMode: 'fullscreen', autoFullscreenSec: 8 }));
+      },
+      setupArgs: ['http://127.0.0.1:' + port + '/sample.m3u', cached25]
+    });
+
+    const initCheck = await page.evaluate(() => ({
+      mode: window.app.mode,
+      modalVisible: !document.getElementById('disclaimer-modal').classList.contains('hidden'),
+      acceptFocused: Boolean(window.app.currentFocusedEl && window.app.currentFocusedEl.id === 'btn-disclaimer-accept'),
+      hasAutoFsTimer: Boolean(window.app._autoFullscreenTimer)
+    }));
+    assert.strictEqual(initCheck.mode, 'DISCLAIMER', 'First launch without accepted key must enter DISCLAIMER mode');
+    assert.strictEqual(initCheck.modalVisible, true, '#disclaimer-modal must be visible on first launch');
+    assert.strictEqual(initCheck.acceptFocused, true, '#btn-disclaimer-accept must be focused on open');
+    assert.strictEqual(initCheck.hasAutoFsTimer, false, 'Auto-Fullscreen must not run while disclaimer is open');
+
+    // Back (Escape, AndroidTVBridge) & hotkeys must be blocked on mandatory first-launch disclaimer
+    await page.keyboard.press('Escape');
+    await new Promise((r) => setTimeout(r, 80));
+    await page.evaluate(() => {
+      if (window.AndroidTVBridge) window.AndroidTVBridge.dispatchKey('back');
+    });
+    await page.keyboard.press('ArrowDown');
+    await new Promise((r) => setTimeout(r, 80));
+    const blockedCheck = await page.evaluate(() => ({
+      mode: window.app.mode,
+      modalVisible: !document.getElementById('disclaimer-modal').classList.contains('hidden'),
+      acceptFocused: Boolean(window.app.currentFocusedEl && window.app.currentFocusedEl.id === 'btn-disclaimer-accept'),
+      acceptedStorage: localStorage.getItem('zenplay_disclaimer_accepted_v1')
+    }));
+    assert.strictEqual(blockedCheck.mode, 'DISCLAIMER', 'BACK must not close mandatory first-launch disclaimer');
+    assert.strictEqual(blockedCheck.modalVisible, true, '#disclaimer-modal must stay open after BACK');
+    assert.strictEqual(blockedCheck.acceptFocused, true, '#btn-disclaimer-accept must retain focus after ArrowDown');
+    assert.strictEqual(blockedCheck.acceptedStorage, null, 'Disclaimer must not be persisted before OK');
+
+    // Accept via OK (Enter) -> persists & enters BROWSE
+    await page.keyboard.press('Enter');
+    await new Promise((r) => setTimeout(r, 120));
+    const acceptedRes = await page.evaluate(() => ({
+      mode: window.app.mode,
+      modalHidden: document.getElementById('disclaimer-modal').classList.contains('hidden'),
+      acceptedStorage: localStorage.getItem('zenplay_disclaimer_accepted_v1'),
+      hasAutoFsTimer: Boolean(window.app._autoFullscreenTimer),
+      domRows: document.querySelectorAll('#channel-list .channel-item').length
+    }));
+    assert.strictEqual(acceptedRes.mode, 'BROWSE');
+    assert.strictEqual(acceptedRes.modalHidden, true);
+    assert.strictEqual(acceptedRes.acceptedStorage, '1');
+    assert.strictEqual(acceptedRes.hasAutoFsTimer, true, 'Accepting disclaimer must schedule Auto-Fullscreen');
+    assert.strictEqual(acceptedRes.domRows, 25);
+
+    // Reload -> must NOT show disclaimer again
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await new Promise((r) => setTimeout(r, 700));
+    const reloadCheck = await page.evaluate(() => ({
+      mode: window.app.mode,
+      modalHidden: document.getElementById('disclaimer-modal').classList.contains('hidden')
+    }));
+    assert.notStrictEqual(reloadCheck.mode, 'DISCLAIMER', 'Reload after acceptance must not re-open mandatory disclaimer');
+    assert.strictEqual(reloadCheck.modalHidden, true);
+
+    // Settings -> About tab -> reopen & close via Back + OK cleanly
+    await page.evaluate(() => {
+      window.app.openSettingsModal();
+      window.app.switchSettingsTab('about');
+      window.app.setupModalFocus('#settings-modal');
+    });
+    await new Promise((r) => setTimeout(r, 80));
+    const aboutReach = await page.evaluate(() => {
+      const aboutEl = document.getElementById('settings-tab-about');
+      let seenAutoOta = false;
+      let seenOpenDisclaimer = false;
+      let clipped = false;
+      for (let i = 0; i < 15; i++) {
+        window.app.navigate('down');
+        const cur = window.app.currentFocusedEl;
+        if (cur && aboutEl.contains(cur)) {
+          const cr = aboutEl.getBoundingClientRect();
+          const tr = cur.getBoundingClientRect();
+          if (tr.top < cr.top - 6 || tr.bottom > cr.bottom + 6) clipped = true;
+          if (cur.id === 'btn-toggle-auto-ota') seenAutoOta = true;
+          if (cur.id === 'btn-open-disclaimer') {
+            seenOpenDisclaimer = true;
+            break;
+          }
+        }
+      }
+      return { seenAutoOta, seenOpenDisclaimer, clipped };
+    });
+    assert(aboutReach.seenAutoOta && aboutReach.seenOpenDisclaimer && !aboutReach.clipped, 'Settings About controls reach/scroll issue: ' + JSON.stringify(aboutReach));
+
+    await page.evaluate(() => document.getElementById('btn-open-disclaimer').click());
+    await new Promise((r) => setTimeout(r, 80));
+    const reopenState = await page.evaluate(() => ({
+      mode: window.app.mode,
+      fromSettings: window.app._disclaimerFromSettings,
+      disclaimerVisible: !document.getElementById('disclaimer-modal').classList.contains('hidden'),
+      settingsHidden: document.getElementById('settings-modal').classList.contains('hidden')
+    }));
+    assert.strictEqual(reopenState.mode, 'DISCLAIMER');
+    assert.strictEqual(reopenState.fromSettings, true);
+    assert(reopenState.disclaimerVisible && reopenState.settingsHidden);
+
+    await page.keyboard.press('Escape');
+    await new Promise((r) => setTimeout(r, 80));
+    const backToAbout = await page.evaluate(() => ({
+      mode: window.app.mode,
+      disclaimerHidden: document.getElementById('disclaimer-modal').classList.contains('hidden'),
+      settingsVisible: !document.getElementById('settings-modal').classList.contains('hidden'),
+      activeTab: window.app.activeSettingsTab,
+      focusedId: window.app.currentFocusedEl ? window.app.currentFocusedEl.id : ''
+    }));
+    assert(backToAbout.mode === 'SETTINGS' && backToAbout.disclaimerHidden && backToAbout.settingsVisible && backToAbout.activeTab === 'about' && backToAbout.focusedId === 'btn-open-disclaimer', 'Back from About disclaimer must return to About tab: ' + JSON.stringify(backToAbout));
+
+    await page.evaluate(() => document.getElementById('btn-open-disclaimer').click());
+    await page.keyboard.press('Enter');
+    await new Promise((r) => setTimeout(r, 80));
+    const okBackToAbout = await page.evaluate(() => ({
+      mode: window.app.mode,
+      activeTab: window.app.activeSettingsTab,
+      settingsVisible: !document.getElementById('settings-modal').classList.contains('hidden')
+    }));
+    assert(okBackToAbout.mode === 'SETTINGS' && okBackToAbout.activeTab === 'about' && okBackToAbout.settingsVisible);
+    await page.evaluate(() => window.app.closeModals());
+
+    assert.strictEqual(pageErrors.length, 0, 'Disclaimer suite pageerrors: ' + pageErrors.join('; '));
+    assert.strictEqual(consoleErrors.length, 0, 'Disclaimer suite console errors: ' + consoleErrors.join('; '));
+    await page.close();
+
+    // Safe Mode skips first-launch disclaimer cleanly
+    const { server: safeSrv, port: safePort } = await createStaticServer({ webRoot, sampleM3u: sampleM3u25 });
+    try {
+      const safePageRes = await openConfiguredPage(browser, safePort, {
+        width: 1920,
+        height: 1080,
+        query: '?safeMode=1',
+        skipDisclaimerAccept: true,
+        setupFn: (sampleUrl, cached) => {
+          window.__IPTV_ANDROID_TV = true;
+          localStorage.setItem('zenplay_iptv_sources_v2', JSON.stringify([{ id: 'src_1', name: 'Test', url: sampleUrl, enabled: true }]));
+          localStorage.setItem('zenplay_iptv_cached_lineup_v2', JSON.stringify({ v: 2, updatedAt: Date.now(), discoveredEpgUrls: [], rawChannels: cached }));
+        },
+        setupArgs: ['http://127.0.0.1:' + safePort + '/sample.m3u', cached25]
+      });
+      const safeModeState = await safePageRes.page.evaluate(() => ({
+        mode: window.app.mode,
+        disclaimerHidden: document.getElementById('disclaimer-modal').classList.contains('hidden'),
+        hasAutoFsTimer: Boolean(window.app._autoFullscreenTimer)
+      }));
+      assert.strictEqual(safeModeState.mode, 'BROWSE');
+      assert.strictEqual(safeModeState.disclaimerHidden, true);
+      assert.strictEqual(safeModeState.hasAutoFsTimer, false);
+      assert.strictEqual(safePageRes.pageErrors.length, 0);
+      await safePageRes.page.close();
+    } finally {
+      safeSrv.close();
+    }
+
+    pass('legal-disclaimer-first-launch-and-about', 'First-launch Back block, OK persist, reload skip, SafeMode skip & About reopen/close verified');
+  } finally {
+    server.close();
+  }
+}
+
+async function verifyTwoStepBackSuite(browser, webRoot, sampleM3u25, cached25, pass) {
+  const { server, port } = await createStaticServer({ webRoot, sampleM3u: sampleM3u25 });
+  try {
+    const { page, pageErrors, consoleErrors } = await openConfiguredPage(browser, port, {
+      width: 1920,
+      height: 1080,
+      setupFn: (sampleUrl, cached) => {
+        window.webOSSystem = { close: function () {} };
+        localStorage.setItem('zenplay_iptv_sources_v2', JSON.stringify([{ id: 'src_1', name: 'Test', url: sampleUrl, enabled: true }]));
+        localStorage.setItem('zenplay_iptv_cached_lineup_v2', JSON.stringify({ v: 2, updatedAt: Date.now(), discoveredEpgUrls: [], rawChannels: cached }));
+      },
+      setupArgs: ['http://127.0.0.1:' + port + '/sample.m3u', cached25]
+    });
+
+    // 1. Default backHidesOsdFirst: true -> 1st Escape hides OSD, 2nd Escape exits to BROWSE
+    await page.evaluate(() => window.app.enterFullscreen());
+    await new Promise((r) => setTimeout(r, 120));
+    const fsVisible = await page.evaluate(() => ({
+      mode: window.app.mode,
+      osdVisible: !document.getElementById('fullscreen-osd').classList.contains('hidden'),
+      hasOsdTimer: Boolean(window.app.osdTimer),
+      hasOsdTickTimer: Boolean(window.app.osdTickTimer)
+    }));
+    assert(fsVisible.mode === 'FULLSCREEN' && fsVisible.osdVisible && fsVisible.hasOsdTimer && fsVisible.hasOsdTickTimer, 'Fullscreen must show OSD with active timers: ' + JSON.stringify(fsVisible));
+
+    await page.keyboard.press('Escape');
+    await new Promise((r) => setTimeout(r, 240));
+    const afterFirstBack = await page.evaluate(() => ({
+      mode: window.app.mode,
+      osdHidden: document.getElementById('fullscreen-osd').classList.contains('hidden'),
+      osdTimerCleared: window.app.osdTimer === null,
+      osdTickCleared: window.app.osdTickTimer === null,
+      isSurfing: window.app.isSurfing
+    }));
+    assert(afterFirstBack.mode === 'FULLSCREEN' && afterFirstBack.osdHidden && afterFirstBack.osdTimerCleared && afterFirstBack.osdTickCleared && !afterFirstBack.isSurfing, '1st Back must hide OSD cleanly and stay FULLSCREEN: ' + JSON.stringify(afterFirstBack));
+
+    await page.keyboard.press('Escape');
+    await new Promise((r) => setTimeout(r, 240));
+    assert.strictEqual(await page.evaluate(() => window.app.mode), 'BROWSE', '2nd Back must exit to BROWSE');
+
+    // 2. When OSD is already hidden via hideOSD(), single Back exits immediately; exit button exits in 1 click
+    await page.evaluate(() => {
+      window.app.enterFullscreen();
+    });
+    await new Promise((r) => setTimeout(r, 120));
+    await page.evaluate(() => document.getElementById('btn-osd-exit-fullscreen').click());
+    await new Promise((r) => setTimeout(r, 100));
+    assert.strictEqual(await page.evaluate(() => window.app.mode), 'BROWSE', '#btn-osd-exit-fullscreen must exit Fullscreen in 1 click');
+
+    // 3. AndroidTVBridge 2-step Back + toggle backHidesOsdFirst: false -> immediate 1-step exit
+    await page.evaluate(() => window.app.enterFullscreen());
+    await new Promise((r) => setTimeout(r, 120));
+    await page.evaluate(() => window.AndroidTVBridge.dispatchKey('back'));
+    assert.strictEqual(await page.evaluate(() => window.app.mode), 'FULLSCREEN', 'AndroidTVBridge 1st back must stay FULLSCREEN');
+    assert.strictEqual(await page.evaluate(() => document.getElementById('fullscreen-osd').classList.contains('hidden')), true);
+    await page.evaluate(() => window.AndroidTVBridge.dispatchKey('back'));
+    assert.strictEqual(await page.evaluate(() => window.app.mode), 'BROWSE', 'AndroidTVBridge 2nd back must exit to BROWSE');
+
+    // Toggle backHidesOsdFirst OFF via UI button -> 1-step Back on both webOS Escape & AndroidTVBridge
+    await page.evaluate(() => {
+      window.app.openSettingsModal();
+      window.app.switchSettingsTab('appearance');
+      document.getElementById('btn-pref-backHidesOsdFirst').click();
+      window.app.closeModals();
+    });
+    assert.strictEqual(await page.evaluate(() => window.app.getUiPrefs().backHidesOsdFirst), false);
+
+    await page.evaluate(() => window.app.enterFullscreen());
+    await new Promise((r) => setTimeout(r, 120));
+    await page.keyboard.press('Escape');
+    await new Promise((r) => setTimeout(r, 100));
+    assert.strictEqual(await page.evaluate(() => window.app.mode), 'BROWSE', 'With backHidesOsdFirst=false, 1st Escape must exit directly to BROWSE');
+
+    await page.evaluate(() => window.app.enterFullscreen());
+    await new Promise((r) => setTimeout(r, 120));
+    await page.evaluate(() => window.AndroidTVBridge.dispatchKey('back'));
+    assert.strictEqual(await page.evaluate(() => window.app.mode), 'BROWSE', 'With backHidesOsdFirst=false, AndroidTVBridge 1st back must exit directly to BROWSE');
+
+    assert.strictEqual(pageErrors.length, 0, '2-Step Back suite pageerrors: ' + pageErrors.join('; '));
+    assert.strictEqual(consoleErrors.length, 0, '2-Step Back suite console errors: ' + consoleErrors.join('; '));
+    await page.close();
+    pass('two-step-fullscreen-back', '2-step Back (OSD hide -> Browse exit), hideOSD() cleanup, exit btn & backHidesOsdFirst=false verified');
+  } finally {
+    server.close();
+  }
+}
+
+async function verifyAutoFullscreenSuite(browser, webRoot, sampleM3u25, cached25, pass) {
+  const { server, port } = await createStaticServer({ webRoot, sampleM3u: sampleM3u25 });
+  try {
+    const { page, pageErrors, consoleErrors } = await openConfiguredPage(browser, port, {
+      width: 1920,
+      height: 1080,
+      setupFn: (sampleUrl, cached) => {
+        window.webOSSystem = { close: function () {} };
+        localStorage.setItem('zenplay_iptv_sources_v2', JSON.stringify([{ id: 'src_1', name: 'Test', url: sampleUrl, enabled: true }]));
+        localStorage.setItem('zenplay_iptv_cached_lineup_v2', JSON.stringify({ v: 2, updatedAt: Date.now(), discoveredEpgUrls: [], rawChannels: cached }));
+        localStorage.setItem('zenplay_ui_prefs_v1', JSON.stringify({ autoFullscreenSec: 5 }));
+      },
+      setupArgs: ['http://127.0.0.1:' + port + '/sample.m3u', cached25]
+    });
+
+    // 1. Focus away (header / timeline) and opening modal must cancel timer; returning reschedules
+    const lifecycle = await page.evaluate(() => {
+      const initialTimer = Boolean(window.app._autoFullscreenTimer);
+      window.app.focusHeaderBar();
+      const afterHeader = Boolean(window.app._autoFullscreenTimer);
+      window.app.focusChannelList();
+      const afterReturn = Boolean(window.app._autoFullscreenTimer);
+      window.app.navigate('left');
+      const afterTimeline = window.app.focusArea === 'timeline' ? Boolean(window.app._autoFullscreenTimer) : false;
+      window.app.focusChannelList();
+      window.app.openSettingsModal();
+      const inModal = Boolean(window.app._autoFullscreenTimer);
+      window.app.closeModals();
+      const afterModalClose = Boolean(window.app._autoFullscreenTimer);
+      return { initialTimer, afterHeader, afterReturn, afterTimeline, inModal, afterModalClose };
+    });
+    assert(lifecycle.initialTimer && !lifecycle.afterHeader && lifecycle.afterReturn && !lifecycle.afterTimeline && !lifecycle.inModal && lifecycle.afterModalClose, 'Auto-Fullscreen cancel/reschedule lifecycle failed: ' + JSON.stringify(lifecycle));
+
+    // 2. Navigate down once and wait for 5s idle Auto-Fullscreen transition
+    const idleStartMs = Date.now();
+    await page.keyboard.press('ArrowDown');
+    await page.waitForFunction(() => window.app && window.app.mode === 'FULLSCREEN', { timeout: 8500, polling: 50 });
+    const idleElapsedMs = Date.now() - idleStartMs;
+    const autoEntered = await page.evaluate(() => ({
+      mode: window.app.mode,
+      selectedName: window.app.selectedChannel ? window.app.selectedChannel.name : '',
+      focusedIdx: window.app.focusedChannelIndex
+    }));
+    assert.strictEqual(autoEntered.mode, 'FULLSCREEN', 'Idle 5s in BROWSE must auto-enter FULLSCREEN: ' + JSON.stringify(autoEntered));
+    assert(idleElapsedMs >= 4500, 'Auto-Fullscreen fired too early (' + idleElapsedMs + 'ms)');
+    assert.strictEqual(autoEntered.focusedIdx, 1);
+
+    // 3. Exit Fullscreen, set autoFullscreenSec = 0 via #btn-autofs-0 -> cancels timer & stays BROWSE
+    await page.evaluate(() => {
+      window.app.exitFullscreen();
+      window.app.openSettingsModal();
+      window.app.switchSettingsTab('appearance');
+      document.getElementById('btn-autofs-0').click();
+      window.app.closeModals();
+    });
+    const zeroCheck = await page.evaluate(() => ({
+      sec: window.app.getUiPrefs().autoFullscreenSec,
+      timer: Boolean(window.app._autoFullscreenTimer),
+      mode: window.app.mode
+    }));
+    assert.strictEqual(zeroCheck.sec, 0);
+    assert.strictEqual(zeroCheck.timer, false, 'autoFullscreenSec=0 must cancel timer');
+
+    // 4. destroy() clears _autoFullscreenTimer
+    const destroyOk = await page.evaluate(() => {
+      window.app.setUiPref('autoFullscreenSec', 5, true);
+      window.app.scheduleAutoFullscreen();
+      const had = Boolean(window.app._autoFullscreenTimer);
+      window.app.destroy();
+      return had && !window.app._autoFullscreenTimer;
+    });
+    assert.strictEqual(destroyOk, true, 'destroy() must clear _autoFullscreenTimer');
+
+    assert.strictEqual(pageErrors.length, 0, 'Auto-Fullscreen suite pageerrors: ' + pageErrors.join('; '));
+    assert.strictEqual(consoleErrors.length, 0, 'Auto-Fullscreen suite console errors: ' + consoleErrors.join('; '));
+    await page.close();
+    pass('auto-fullscreen-timer', 'Auto-Fullscreen 5s idle transition, focus/modal/0/destroy cancellations verified');
+  } finally {
+    server.close();
+  }
+}
+
+async function verifySilentAutoOtaSuite(browser, webRoot, sampleM3u25, cached25, otaManifest, pass) {
+  let mockRemoteManifest = {
+    version: '9.9.0',
+    channel: 'stable',
+    title: 'עדכון בדיקה 9.9.0',
+    releaseNotes: ['שיפור ראשון', 'שיפור שני'],
+    cssPatch: otaManifest.cssPatch,
+    cssGlassPatch: otaManifest.cssGlassPatch,
+    jsPatch: otaManifest.jsPatch
+  };
+  const interceptFn = (req, corsHeaders) => {
+    if (req.url().indexOf('ota-manifest') !== -1) {
+      req.respond({
+        status: 200,
+        headers: corsHeaders,
+        contentType: 'application/json',
+        body: JSON.stringify(mockRemoteManifest)
+      });
+      return true;
+    }
+    return false;
+  };
+
+  // Case 1: Auto-OTA ON in BROWSE -> silent install + Changelog-only modal; Case 3: Toggle Auto-OTA OFF -> manual popup
+  {
+    const { server, port } = await createStaticServer({ webRoot, sampleM3u: sampleM3u25 });
+    try {
+      const { page, pageErrors, consoleErrors } = await openConfiguredPage(browser, port, {
+        width: 1920,
+        height: 1080,
+        waitMs: 1100,
+        interceptFn,
+        setupFn: (sampleUrl, cached) => {
+          window.webOSSystem = { close: function () {} };
+          localStorage.setItem('zenplay_iptv_sources_v2', JSON.stringify([{ id: 'src_1', name: 'Test', url: sampleUrl, enabled: true }]));
+          localStorage.setItem('zenplay_iptv_cached_lineup_v2', JSON.stringify({ v: 2, updatedAt: Date.now(), discoveredEpgUrls: [], rawChannels: cached }));
+        },
+        setupArgs: ['http://127.0.0.1:' + port + '/sample.m3u', cached25]
+      });
+      await page.waitForFunction(() => window.app && window.app.mode === 'OTA', { timeout: 5000, polling: 50 });
+
+      const silentCheck = await page.evaluate(() => ({
+        autoEnabled: window.app.otaManager.isAutoOtaEnabled(),
+        runningVer: window.app.otaManager.getRunningVersion(),
+        mode: window.app.mode,
+        modalVisible: !document.getElementById('ota-modal').classList.contains('hidden'),
+        badgeText: document.getElementById('ota-modal-badge').textContent,
+        titleText: document.getElementById('ota-modal-title').textContent,
+        verCompare: document.getElementById('ota-version-compare').textContent,
+        progressHidden: document.getElementById('ota-progress-wrap').classList.contains('hidden'),
+        laterHidden: document.getElementById('btn-ota-later').classList.contains('hidden'),
+        confirmText: document.getElementById('btn-ota-confirm').textContent
+      }));
+      assert.strictEqual(silentCheck.autoEnabled, true);
+      assert.strictEqual(silentCheck.runningVer, '9.9.0', 'Silent auto-OTA must auto-install 9.9.0 without confirmation');
+      assert.strictEqual(silentCheck.mode, 'OTA');
+      assert.strictEqual(silentCheck.modalVisible, true);
+      assert(silentCheck.badgeText.indexOf('מה חדש בגרסה') !== -1, 'Changelog badge expected, got ' + silentCheck.badgeText);
+      assert(silentCheck.titleText.indexOf('המערכת התעדכנה אוטומטית') !== -1, 'Auto-update title expected, got ' + silentCheck.titleText);
+      assert(silentCheck.verCompare.indexOf('שינויים וחידושים בגרסה') !== -1);
+      assert.strictEqual(silentCheck.progressHidden, true);
+      assert.strictEqual(silentCheck.laterHidden, true, '#btn-ota-later must be hidden on Changelog-only modal');
+      assert.strictEqual(silentCheck.confirmText, 'המשך לצפייה (OK)');
+
+      await page.keyboard.press('Enter');
+      await new Promise((r) => setTimeout(r, 100));
+      const afterDismiss = await page.evaluate(() => ({
+        mode: window.app.mode,
+        otaHidden: document.getElementById('ota-modal').classList.contains('hidden'),
+        hasAutoFsTimer: Boolean(window.app._autoFullscreenTimer)
+      }));
+      assert(afterDismiss.mode === 'BROWSE' && afterDismiss.otaHidden && afterDismiss.hasAutoFsTimer, 'Dismissing Changelog must return to BROWSE and schedule Auto-Fullscreen: ' + JSON.stringify(afterDismiss));
+
+      // Toggle Auto-OTA OFF in Settings -> About & check newer version 9.9.1 shows manual confirm popup
+      mockRemoteManifest = Object.assign({}, mockRemoteManifest, { version: '9.9.1' });
+      const manualRes = await page.evaluate(async () => {
+        window.app.openSettingsModal();
+        window.app.switchSettingsTab('about');
+        document.getElementById('btn-toggle-auto-ota').click();
+        const isOff = window.app.otaManager.isAutoOtaEnabled() === false;
+        const pillText = document.querySelector('#btn-toggle-auto-ota .ui-toggle-pill').textContent;
+        window.app.closeModals();
+        await window.app.otaManager.checkForOTAUpdate(false);
+        return {
+          isOff,
+          pillText,
+          runningVer: window.app.otaManager.getRunningVersion(),
+          mode: window.app.mode,
+          laterHidden: document.getElementById('btn-ota-later').classList.contains('hidden'),
+          confirmText: document.getElementById('btn-ota-confirm').textContent
+        };
+      });
+      assert.strictEqual(manualRes.isOff, true);
+      assert.strictEqual(manualRes.pillText, 'כבוי');
+      assert.strictEqual(manualRes.runningVer, '9.9.0', 'With Auto-OTA off, 9.9.1 must wait for confirmation');
+      assert.strictEqual(manualRes.mode, 'OTA');
+      assert.strictEqual(manualRes.laterHidden, false, 'Manual OTA prompt must show #btn-ota-later');
+      assert(manualRes.confirmText.indexOf('עדכן עכשיו') !== -1);
+
+      assert.strictEqual(pageErrors.length, 0, 'Silent Auto-OTA suite pageerrors: ' + pageErrors.join('; '));
+      assert.strictEqual(consoleErrors.length, 0, 'Silent Auto-OTA suite console errors: ' + consoleErrors.join('; '));
+      await page.close();
+    } finally {
+      server.close();
+    }
+  }
+
+  // Case 2: Deferral behind mandatory first-launch DISCLAIMER (no modal overlap!)
+  {
+    mockRemoteManifest = Object.assign({}, mockRemoteManifest, { version: '9.9.0' });
+    const { server, port } = await createStaticServer({ webRoot, sampleM3u: sampleM3u25 });
+    try {
+      const { page, pageErrors } = await openConfiguredPage(browser, port, {
+        width: 1920,
+        height: 1080,
+        waitMs: 1100,
+        skipDisclaimerAccept: true,
+        interceptFn,
+        setupFn: (sampleUrl, cached) => {
+          window.webOSSystem = { close: function () {} };
+          localStorage.setItem('zenplay_iptv_sources_v2', JSON.stringify([{ id: 'src_1', name: 'Test', url: sampleUrl, enabled: true }]));
+          localStorage.setItem('zenplay_iptv_cached_lineup_v2', JSON.stringify({ v: 2, updatedAt: Date.now(), discoveredEpgUrls: [], rawChannels: cached }));
+        },
+        setupArgs: ['http://127.0.0.1:' + port + '/sample.m3u', cached25]
+      });
+      await page.waitForFunction(() => Boolean(window.app && window.app.otaManager && window.app.otaManager._pendingChangelogInfo), { timeout: 5000, polling: 50 });
+
+      const duringDisclaimer = await page.evaluate(() => ({
+        mode: window.app.mode,
+        disclaimerVisible: !document.getElementById('disclaimer-modal').classList.contains('hidden'),
+        otaHidden: document.getElementById('ota-modal').classList.contains('hidden'),
+        hasPending: Boolean(window.app.otaManager._pendingChangelogInfo),
+        runningVer: window.app.otaManager.getRunningVersion(),
+        acceptFocused: Boolean(window.app.currentFocusedEl && window.app.currentFocusedEl.id === 'btn-disclaimer-accept')
+      }));
+      assert(duringDisclaimer.mode === 'DISCLAIMER' && duringDisclaimer.disclaimerVisible && duringDisclaimer.otaHidden && duringDisclaimer.hasPending && duringDisclaimer.runningVer === '9.9.0' && duringDisclaimer.acceptFocused, 'Silent OTA during DISCLAIMER must defer changelog without overlapping or stealing focus: ' + JSON.stringify(duringDisclaimer));
+
+      // Accepting disclaimer must immediately flush the Changelog-only modal
+      await page.keyboard.press('Enter');
+      await new Promise((r) => setTimeout(r, 120));
+      const afterAccept = await page.evaluate(() => ({
+        mode: window.app.mode,
+        disclaimerHidden: document.getElementById('disclaimer-modal').classList.contains('hidden'),
+        otaVisible: !document.getElementById('ota-modal').classList.contains('hidden'),
+        laterHidden: document.getElementById('btn-ota-later').classList.contains('hidden')
+      }));
+      assert(afterAccept.mode === 'OTA' && afterAccept.disclaimerHidden && afterAccept.otaVisible && afterAccept.laterHidden, 'Accepting disclaimer must flush queued OTA Changelog modal: ' + JSON.stringify(afterAccept));
+
+      assert.strictEqual(pageErrors.length, 0);
+      await page.close();
+    } finally {
+      server.close();
+    }
+  }
+
+  pass('silent-auto-ota-and-changelog-deferral', 'Silent auto-OTA install, Changelog-only UX, Auto-OTA toggle & DISCLAIMER deferral verified');
+}
+
+async function verifyLiveEpgSuite(browser, webRoot, repoRoot, sampleM3u25, cached25, pass) {
+  const realEpgXml = fs.readFileSync(path.join(repoRoot, 'epg-il.xml'));
+  const staleXml = '<?xml version="1.0" encoding="UTF-8"?><tv><channel id="ch428"><display-name>כאן 11</display-name></channel><programme start="20261124100000 +0200" stop="20261124110000 +0200" channel="ch428"><title>תוכנית ישנה שפגה</title></programme></tv>';
+
+  const { server, port } = await createStaticServer({
+    webRoot,
+    sampleM3u: sampleM3u25,
+    extraRoutes: {
+      '/mock-stale-epg.xml': { contentType: 'application/xml; charset=utf-8', body: staleXml },
+      '/mock-live-epg.xml': { contentType: 'application/xml; charset=utf-8', body: realEpgXml }
+    }
+  });
+  try {
+    const { page, pageErrors, consoleErrors } = await openConfiguredPage(browser, port, {
+      width: 1920,
+      height: 1080,
+      interceptFn: (req) => {
+        const u = req.url();
+        if (u.indexOf('raw.githubusercontent.com/maorisraelii/iptv-webos/main/epg-il.xml') !== -1) {
+          req.continue({ url: 'http://127.0.0.1:' + port + '/mock-stale-epg.xml' });
+          return true;
+        }
+        if (u.indexOf('maorisraelii.github.io/iptv-webos/epg-il.xml') !== -1) {
+          req.continue({ url: 'http://127.0.0.1:' + port + '/mock-live-epg.xml' });
+          return true;
+        }
+        return false;
+      },
+      setupFn: (sampleUrl, cached) => {
+        window.webOSSystem = { close: function () {} };
+        const now = Date.now();
+        localStorage.setItem('zenplay_iptv_sources_v2', JSON.stringify([{ id: 'src_1', name: 'Test', url: sampleUrl, enabled: true }]));
+        localStorage.setItem('zenplay_iptv_cached_lineup_v2', JSON.stringify({ v: 2, updatedAt: now, discoveredEpgUrls: [], rawChannels: cached }));
+        localStorage.setItem('zenplay_iptv_epg_cache_v491', JSON.stringify({
+          url: [
+            'https://raw.githubusercontent.com/maorisraelii/iptv-webos/main/epg-il.xml',
+            'https://maorisraelii.github.io/iptv-webos/epg-il.xml',
+            'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/epg-il.xml',
+            'epg-il.xml'
+          ].join('|'),
+          updatedAt: now,
+          entries: [['ch428', [{ s: now - 600000, e: now + 1800000, t: 'אתחול', d: '' }]]],
+          aliases: [['כאן 11', 'ch428']]
+        }));
+      },
+      setupArgs: ['http://127.0.0.1:' + port + '/sample.m3u', cached25]
+    });
+
+    const epgRes = await page.evaluate(async () => {
+      const epg = window.app.epg;
+      epg.clearCache();
+      epg.setTargetChannels(null);
+      await new Promise((resolve) => {
+        epg.loadEPG(epg.DEFAULT_LIVE_EPG_URLS, () => resolve(), true);
+      });
+      const nowMs = Date.now();
+      const loadedEpgUrl = epg.epgUrl;
+      const loadedHasLive = epg.hasLiveCoverage(nowMs);
+      const targets = [
+        { label: 'Kan 11 ch428', id: 'ch428', epgId: 'ch428', name: 'כאן 11' },
+        { label: 'Kan 11 il', id: 'כאן.11.il', epgId: 'כאן.11.il', name: 'כאן 11' },
+        { label: 'Keshet 12 ch429', id: 'ch429', epgId: 'ch429', name: 'קשת 12' },
+        { label: 'Keshet 12 il', id: 'קשת.il', epgId: 'קשת.il', name: 'קשת 12' },
+        { label: 'Reshet 13 ch430', id: 'ch430', epgId: 'ch430', name: 'רשת 13' },
+        { label: 'Reshet 13 il', id: 'רשת.il', epgId: 'רשת.il', name: 'רשת 13' },
+        { label: 'Now 14 ch1119', id: 'ch1119', epgId: 'ch1119', name: 'ערוץ 14' },
+        { label: 'Now 14 il', id: 'ערוץ.14.HD.il', epgId: 'ערוץ.14.HD.il', name: 'ערוץ 14' },
+        { label: 'Sport 5 il', id: 'ספורט.5.שידור.חי.il', epgId: 'ספורט.5.שידור.חי.il', name: 'ספורט 5' },
+        { label: 'Kan Chinuchit ch1171', id: 'ch1171', epgId: 'ch1171', name: 'כאן חינוכית' }
+      ];
+      const matched = targets.map((ch) => {
+        const list = epg.findXmlProgrammesForChannel(ch) || [];
+        const nn = epg.getNowNext(ch);
+        return {
+          label: ch.label,
+          count: list.length,
+          curTitle: nn && nn.current ? nn.current.title : null
+        };
+      });
+
+      // Multi-alias sibling freshness preference & expired local cache refresh trigger
+      const pad = (n) => (n < 10 ? '0' + n : '' + n);
+      const fmtXmltv = (ms) => {
+        const d = new Date(ms);
+        return d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + pad(d.getUTCSeconds()) + ' +0000';
+      };
+      const sibXml = '<?xml version="1.0"?><tv>' +
+        '<channel id="ch428"><display-name>כאן 11</display-name></channel>' +
+        '<channel id="כאן.11.il"><display-name>כאן 11</display-name></channel>' +
+        '<programme start="' + fmtXmltv(nowMs - 1800000) + '" stop="' + fmtXmltv(nowMs + 1800000) + '" channel="ch428"><title>Live Sibling Kan11</title></programme>' +
+        '<programme start="20261124100000 +0200" stop="20261124110000 +0200" channel="כאן.11.il"><title>Stale Sibling Kan11</title></programme>' +
+        '</tv>';
+      epg.parseXMLTV(sibXml);
+      const sibMatch = epg.getNowNext({ id: 'כאן.11.il', epgId: 'כאן.11.il', name: 'כאן 11' });
+
+      localStorage.setItem(epg.EPG_CACHE_KEY, JSON.stringify({
+        url: epg.DEFAULT_LIVE_EPG_URLS.join('|'),
+        updatedAt: nowMs - 60000,
+        entries: [['ch428', [{ s: nowMs - 7200000, e: nowMs - 3600000, t: 'Ended Show', d: '' }]]],
+        aliases: [['כאן 11', 'ch428']]
+      }));
+      const cacheLoaded = epg.loadFromLocalCache(epg.DEFAULT_LIVE_EPG_URLS.join('|'));
+
+      return {
+        epgUrl: loadedEpgUrl,
+        expectedFallback: epg.DEFAULT_LIVE_EPG_URLS[1],
+        hasLive: loadedHasLive,
+        matched,
+        sibTitle: sibMatch && sibMatch.current ? sibMatch.current.title : null,
+        cacheLoaded,
+        lastUpdatedAfterStaleCache: epg.lastUpdatedMs
+      };
+    });
+
+    assert.strictEqual(epgRes.epgUrl, epgRes.expectedFallback, 'Stale feed [0] must trigger fallback to [1]: ' + epgRes.epgUrl);
+    assert.strictEqual(epgRes.hasLive, true, 'Fallback real epg-il.xml must have live coverage');
+    for (const m of epgRes.matched) {
+      assert(m.count >= 10 && m.curTitle, 'Channel failed live EPG resolution: ' + JSON.stringify(m));
+    }
+    assert.strictEqual(epgRes.sibTitle, 'Live Sibling Kan11', 'Must prefer live sibling over stale sibling ID');
+    assert.strictEqual(epgRes.cacheLoaded, true);
+    assert.strictEqual(epgRes.lastUpdatedAfterStaleCache, 0, 'Expired cached EPG must zero lastUpdatedMs for immediate refresh');
+    assert.strictEqual(pageErrors.length, 0, 'Live EPG suite pageerrors: ' + pageErrors.join('; '));
+    assert.strictEqual(consoleErrors.length, 0, 'Live EPG suite console errors: ' + consoleErrors.join('; '));
+    await page.close();
+    pass('live-epg-fallback-and-multi-alias', 'Stale feed fallback, real epg-il.xml 10/10 Israeli channels, sibling freshness & cache expiry verified');
+  } finally {
+    server.close();
   }
 }
 

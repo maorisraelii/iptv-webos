@@ -77,7 +77,11 @@ for sec in $(seq 1 25); do
   fi
 
   if [ "$sec" -eq 15 ]; then
-    echo "=== Sending TV remote D-pad / OK / Back events ==="
+    echo "=== Verifying first-launch Disclaimer + TV remote D-pad / OK / 2-Step Back events ==="
+    adb shell input keyevent KEYCODE_BACK || true
+    sleep 0.4
+    adb shell input keyevent KEYCODE_DPAD_CENTER || true
+    sleep 0.8
     adb shell input keyevent KEYCODE_DPAD_DOWN || true
     sleep 0.5
     adb shell input keyevent KEYCODE_DPAD_DOWN || true
@@ -85,7 +89,9 @@ for sec in $(seq 1 25); do
     adb shell input keyevent KEYCODE_DPAD_CENTER || true
     sleep 1
     adb shell input keyevent KEYCODE_DPAD_CENTER || true
-    sleep 2
+    sleep 1.5
+    adb shell input keyevent KEYCODE_BACK || true
+    sleep 0.7
     adb shell input keyevent KEYCODE_BACK || true
     sleep 1
     adb exec-out screencap -p > "$OUT_DIR/after_keys.png" || true
