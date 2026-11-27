@@ -355,7 +355,9 @@ body {
 .channel-editor-list::-webkit-scrollbar,
 .m3u-sources-list::-webkit-scrollbar,
 .search-results-list::-webkit-scrollbar,
-.modal-body::-webkit-scrollbar {
+.modal-body::-webkit-scrollbar,
+.disclaimer-body::-webkit-scrollbar,
+.ota-popup-body::-webkit-scrollbar {
   width: 7px;
 }
 
@@ -364,7 +366,9 @@ body {
 .channel-editor-list::-webkit-scrollbar-track,
 .m3u-sources-list::-webkit-scrollbar-track,
 .search-results-list::-webkit-scrollbar-track,
-.modal-body::-webkit-scrollbar-track {
+.modal-body::-webkit-scrollbar-track,
+.disclaimer-body::-webkit-scrollbar-track,
+.ota-popup-body::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.025);
   border-radius: 999px;
 }
@@ -374,7 +378,9 @@ body {
 .channel-editor-list::-webkit-scrollbar-thumb,
 .m3u-sources-list::-webkit-scrollbar-thumb,
 .search-results-list::-webkit-scrollbar-thumb,
-.modal-body::-webkit-scrollbar-thumb {
+.modal-body::-webkit-scrollbar-thumb,
+.disclaimer-body::-webkit-scrollbar-thumb,
+.ota-popup-body::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.20);
   border-radius: 999px;
 }
@@ -725,7 +731,7 @@ body {
 .details-badges-line {
   display: flex;
   align-items: center;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .details-ch-num {
@@ -851,6 +857,16 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   margin-left: 12px;
+}
+
+#preview-epg-title {
+  cursor: pointer;
+  transition: color 0.12s ease;
+}
+
+#preview-epg-title:hover {
+  color: #ffffff;
+  text-decoration: underline;
 }
 
 .epg-time-range {
@@ -1514,7 +1530,7 @@ body {
 
 .osd-quality-tag {
   background-color: rgba(255, 255, 255, 0.10);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   color: #ffffff;
   font-size: 16px;
   font-weight: 600;
@@ -2629,6 +2645,16 @@ body {
   position: relative;
 }
 
+.ui-grid-5 .perf-opt-title {
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.ui-grid-5 .perf-opt-sub {
+  font-size: 14px;
+  line-height: 1.3;
+}
+
 .perf-option-btn.perf-option-wide {
   width: 100%;
   background: var(--accent-soft);
@@ -2650,6 +2676,7 @@ body {
 }
 
 .perf-opt-title {
+  display: block;
   font-size: 19px;
   font-weight: 700;
   color: #ffffff;
@@ -2657,9 +2684,14 @@ body {
 }
 
 .perf-opt-sub {
+  display: block;
   font-size: 15px;
   font-weight: 500;
   color: var(--text-muted);
+}
+
+.perf-option-btn.active-option .perf-opt-sub {
+  color: var(--text-secondary);
 }
 
 .perf-option-btn.focused .perf-opt-title,
@@ -2672,7 +2704,7 @@ body {
   color: #334155;
 }
 
-/* Visibility Toggle Buttons & Pill Badges (#settings-tab-appearance & #settings-tab-av) */
+/* Visibility Toggle Buttons & Pill Badges (#settings-tab-appearance, #settings-tab-av & #settings-tab-about) */
 .perf-option-btn.ui-toggle-btn,
 #settings-tab-av .perf-option-btn.ui-toggle-btn {
   position: relative;
@@ -2704,9 +2736,15 @@ body {
 
 .perf-option-btn.ui-toggle-btn.active-option .ui-toggle-pill,
 .perf-option-btn.ui-toggle-btn .ui-toggle-pill.is-on {
-  background-color: rgba(48, 209, 88, 0.20);
-  border-color: rgba(48, 209, 88, 0.65);
+  background-color: rgba(48, 209, 88, 0.22);
+  border-color: rgba(48, 209, 88, 0.68);
   color: #86efac;
+}
+
+.perf-option-btn.ui-toggle-btn .ui-toggle-pill.is-off {
+  background-color: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: var(--text-muted);
 }
 
 .perf-option-btn.ui-toggle-btn.focused .ui-toggle-pill,
@@ -2714,6 +2752,13 @@ body {
   background-color: #0f172a;
   border-color: rgba(15, 23, 42, 0.35);
   color: #ffffff;
+}
+
+.perf-option-btn.ui-toggle-btn.active-option.focused .ui-toggle-pill,
+.perf-option-btn.ui-toggle-btn.active-option:hover .ui-toggle-pill {
+  background-color: #065f46;
+  border-color: rgba(16, 185, 129, 0.72);
+  color: #ecfdf5;
 }
 
 /* Apple HIG Accent Swatch Dots */
@@ -2765,6 +2810,11 @@ body {
 .perf-action-btns {
   display: flex;
   align-items: center;
+}
+
+.perf-section-card .perf-action-btns .btn-tv-secondary:first-child,
+.perf-section-card .perf-action-btns .btn-tv-primary:first-child {
+  margin-right: 0;
 }
 
 /* ==========================================================================
@@ -2826,7 +2876,8 @@ body {
 }
 
 .about-developer-box h3,
-.about-features-box h3 {
+.about-features-box h3,
+.about-legal-box h3 {
   font-size: 22px;
   font-weight: 700;
   color: var(--focus-gold);
@@ -2868,6 +2919,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 16px;
   padding: 18px 24px;
+  margin-bottom: 18px;
 }
 
 .about-features-box ul {
@@ -2879,6 +2931,61 @@ body {
   color: var(--text-secondary);
   margin-bottom: 9px;
   line-height: 1.45;
+}
+
+.about-features-box li:last-child {
+  margin-bottom: 0;
+}
+
+.about-ota-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.about-ota-row .perf-option-btn.ui-toggle-btn,
+#btn-toggle-auto-ota {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  margin-bottom: 0;
+  padding: 12px 18px 12px 128px;
+}
+
+.about-header-row #btn-toggle-auto-ota {
+  flex: 0 0 auto;
+  min-width: 340px;
+}
+
+.about-legal-box {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-top-color: rgba(255, 255, 255, 0.22);
+  border-radius: 16px;
+  padding: 18px 24px;
+}
+
+.about-legal-box p,
+.about-legal-text {
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+}
+
+.about-legal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.about-legal-actions .btn-tv-secondary,
+.about-legal-actions .btn-tv-primary,
+#btn-open-disclaimer {
+  margin-right: 0;
+  margin-left: 12px;
 }
 
 /* Virtual Keyboard */
@@ -3198,9 +3305,13 @@ body {
   margin-left: 8px;
 }
 
-/* OTA Update Available / Updated Successfully Popup Modal */
+/* OTA Update Available / Changelog Popup Modal */
 .modal-ota-card {
   width: 960px;
+  max-width: 92vw;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%),
     rgba(16, 21, 34, 0.72);
@@ -3212,6 +3323,7 @@ body {
 }
 
 .ota-popup-header {
+  flex-shrink: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.10);
   padding-bottom: 16px;
   margin-bottom: 18px;
@@ -3221,9 +3333,10 @@ body {
   display: inline-block;
   font-size: 16px;
   font-weight: 800;
-  padding: 4px 16px;
+  padding: 5px 16px;
   border-radius: 999px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  letter-spacing: 0.01em;
 }
 
 .pill-available {
@@ -3233,7 +3346,7 @@ body {
 
 .pill-success {
   background-color: var(--success-color);
-  color: #052e16;
+  color: #022c22;
 }
 
 .ota-popup-title {
@@ -3241,11 +3354,12 @@ body {
   font-weight: 700;
   letter-spacing: -0.02em;
   color: #ffffff;
-  margin-bottom: 8px;
+  line-height: 1.24;
+  margin-bottom: 10px;
 }
 
 .ota-version-compare {
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 600;
   color: var(--primary-bright);
   background-color: rgba(5, 7, 14, 0.44);
@@ -3256,10 +3370,14 @@ body {
 }
 
 .ota-popup-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: rgba(255, 255, 255, 0.045);
   border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 16px;
-  padding: 18px 24px;
+  padding: 18px 22px;
   margin-bottom: 22px;
 }
 
@@ -3267,7 +3385,7 @@ body {
   font-size: 20px;
   font-weight: 700;
   color: var(--accent-pill-text);
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .ota-notes-list {
@@ -3277,9 +3395,18 @@ body {
 .ota-notes-list li {
   font-size: 19px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.90);
-  margin-bottom: 7px;
-  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.94);
+  background: rgba(48, 209, 88, 0.08);
+  border: 1px solid rgba(48, 209, 88, 0.24);
+  border-right: 3px solid var(--success-color);
+  border-radius: 12px;
+  padding: 9px 14px;
+  margin-bottom: 8px;
+  line-height: 1.48;
+}
+
+.ota-notes-list li:last-child {
+  margin-bottom: 0;
 }
 
 .ota-progress-wrap {
@@ -3299,17 +3426,162 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  flex-shrink: 0;
+}
+
+.ota-popup-actions .btn-tv-primary,
+.ota-popup-actions .btn-tv-secondary {
+  margin-right: 0;
 }
 
 .ota-btn-main {
   font-size: 21px !important;
-  padding: 12px 30px !important;
+  padding: 12px 32px !important;
+  margin-right: 0 !important;
   margin-left: 14px !important;
 }
 
 .ota-btn-sub {
   font-size: 19px !important;
   padding: 12px 24px !important;
+}
+
+/* Legal Disclaimer Modal (#disclaimer-modal) — Apple Liquid Glass */
+#disclaimer-modal {
+  z-index: 260;
+}
+
+.modal-disclaimer-card {
+  width: 1080px;
+  max-width: 92vw;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  padding: 34px 40px;
+  border-radius: 28px;
+}
+
+.disclaimer-header {
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+}
+
+.disclaimer-badge {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 16px;
+  font-weight: 800;
+  padding: 5px 16px;
+  border-radius: 999px;
+  margin-bottom: 10px;
+  background-color: rgba(255, 159, 10, 0.18);
+  border: 1px solid rgba(255, 159, 10, 0.56);
+  color: #ffe0a3;
+}
+
+.disclaimer-title {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  line-height: 1.24;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+.disclaimer-header .disclaimer-title {
+  margin-bottom: 0;
+}
+
+.disclaimer-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-left: 6px;
+  margin-bottom: 20px;
+}
+
+.disclaimer-points {
+  list-style: none;
+  margin: 0 0 14px 0;
+  padding: 0;
+}
+
+.disclaimer-points li {
+  position: relative;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-top-color: rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  padding: 11px 36px 11px 16px;
+  margin-bottom: 9px;
+}
+
+.disclaimer-points li::before {
+  content: "";
+  position: absolute;
+  right: 15px;
+  top: 22px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--primary-bright);
+}
+
+.disclaimer-points li:last-child {
+  margin-bottom: 0;
+}
+
+.disclaimer-points code {
+  font-family: "SF Mono", "Menlo", "Consolas", monospace;
+  direction: ltr;
+  unicode-bidi: isolate;
+  display: inline-block;
+  padding: 0 7px;
+  border-radius: 6px;
+  background-color: var(--accent-pill-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--primary-bright);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.disclaimer-sub-en {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--text-muted);
+  direction: ltr;
+  text-align: left;
+  background-color: rgba(5, 7, 14, 0.44);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 13px;
+  padding: 11px 16px;
+}
+
+.disclaimer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+  flex-shrink: 0;
+}
+
+#btn-disclaimer-accept {
+  margin-right: 0 !important;
+  margin-left: 0 !important;
+  font-size: 21px !important;
+  font-weight: 800;
+  padding: 13px 34px !important;
+  min-width: 340px;
 }
 
 /* OSD Fullscreen Exit Button (Desktop / Mouse / Touch) */
@@ -3846,6 +4118,19 @@ html.ui-list-narrow .preview-frame-wrapper {
   height: 574px;
 }
 
+html.ui-list-narrow .channel-details-card {
+  padding: 11px 18px;
+}
+
+html.ui-list-narrow .details-top-row {
+  margin-bottom: 6px;
+}
+
+html.ui-list-narrow .preview-epg-box {
+  padding: 8px 13px;
+  margin-bottom: 6px;
+}
+
 html.ui-list-narrow .epg-synopsis {
   -webkit-line-clamp: 3;
   line-clamp: 3;
@@ -3952,6 +4237,7 @@ html.ui-fx-light .video-surface.preview-mode,
 html.ui-fx-light .osd-card,
 html.ui-fx-light .modal-card,
 html.ui-fx-light .modal-ota-card,
+html.ui-fx-light .modal-disclaimer-card,
 html.ui-fx-light .channel-number-jump,
 html.ui-fx-light .toast,
 html.ui-fx-light .video-pause-indicator,
@@ -3989,6 +4275,12 @@ html.tv-platform .modal-guide-card,
 html.tv-platform .modal-settings-card,
 html.tv-platform .modal-search-card,
 html.tv-platform .modal-ota-card,
+html.tv-platform .modal-disclaimer-card,
+html.tv-platform #disclaimer-modal,
+html.tv-platform .disclaimer-body,
+html.tv-platform .disclaimer-points li,
+html.tv-platform .disclaimer-sub-en,
+html.tv-platform .about-legal-box,
 html.tv-platform .channel-number-jump,
 html.tv-platform #channel-number-jump,
 html.tv-platform .toast,
@@ -4073,6 +4365,17 @@ html.tv-platform.ui-fx-light .boot-glass-card {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
 }
 
+.tv-platform .modal-disclaimer-card,
+html.tv-platform.ui-fx-light .modal-disclaimer-card {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: #0e1424 !important;
+  background-image: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-top-color: rgba(255, 255, 255, 0.30) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+}
+
 .tv-platform .top-header {
   border-left: none !important;
   border-right: none !important;
@@ -4114,10 +4417,12 @@ html.tv-platform.ui-fx-light .boot-glass-card {
 .tv-platform .perf-actions-bar,
 .tv-platform .about-developer-box,
 .tv-platform .about-features-box,
+.tv-platform .about-legal-box,
 .tv-platform .virtual-keyboard,
 .tv-platform .qr-cloud-sync-box,
 .tv-platform .channel-editor-list,
 .tv-platform .ota-popup-body,
+.tv-platform .disclaimer-sub-en,
 .tv-platform .empty-state-card {
   background: #0e1424 !important;
   border: 1px solid rgba(255, 255, 255, 0.11) !important;
@@ -4127,9 +4432,17 @@ html.tv-platform.ui-fx-light .boot-glass-card {
 
 .tv-platform .about-info-item,
 .tv-platform .source-item-row,
-.tv-platform .editor-channel-row {
+.tv-platform .editor-channel-row,
+.tv-platform .disclaimer-points li {
   background: #131a2d !important;
   border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  box-shadow: none !important;
+}
+
+.tv-platform .ota-notes-list li {
+  background: #0f221c !important;
+  border: 1px solid rgba(48, 209, 88, 0.26) !important;
+  border-right: 3px solid var(--success-color) !important;
   box-shadow: none !important;
 }
 
@@ -4322,6 +4635,7 @@ html.tv-platform.ui-hide-list-hints #channel-list .channel-item {
 .tv-platform .color-btn,
 .tv-platform .cat-pill,
 .tv-platform .osd-exit-btn,
+.tv-platform #preview-epg-title,
 .tv-platform .focusable {
   transition: none !important;
 }
@@ -4418,6 +4732,8 @@ html.tv-platform.ui-hide-list-hints #channel-list .channel-item {
 
 .tv-platform .modal-body.settings-tab-content,
 .tv-platform #settings-tab-av,
+.tv-platform .disclaimer-body,
+.tv-platform .ota-popup-body,
 .tv-platform .channel-editor-list,
 .tv-platform .guide-list-col,
 .tv-platform .search-results-list {
@@ -4447,6 +4763,7 @@ html.ui-radius-sharp .osd-card,
 html.ui-radius-sharp .channel-number-jump,
 html.ui-radius-sharp .modal-card:not(.modal-settings-card),
 html.ui-radius-sharp .modal-ota-card,
+html.ui-radius-sharp .modal-disclaimer-card,
 html.ui-radius-sharp .guide-selected-card,
 html.ui-radius-sharp .search-right-panel,
 html.ui-radius-sharp .about-card,
@@ -4466,8 +4783,12 @@ html.ui-radius-sharp .virtual-keyboard,
 html.ui-radius-sharp .preview-epg-box,
 html.ui-radius-sharp .about-developer-box,
 html.ui-radius-sharp .about-features-box,
+html.ui-radius-sharp .about-legal-box,
+html.ui-radius-sharp .disclaimer-sub-en,
 html.ui-radius-sharp .about-app-icon,
 html.ui-radius-sharp .about-info-item,
+html.ui-radius-sharp .disclaimer-points li,
+html.ui-radius-sharp .ota-notes-list li,
 html.ui-radius-sharp .osd-schedule-grid,
 html.ui-radius-sharp .osd-arrows-indicator,
 html.ui-radius-sharp .jump-num-box,
@@ -4531,6 +4852,7 @@ html.ui-radius-sharp .toast,
 html.ui-radius-sharp .qr-easy-badge,
 html.ui-radius-sharp .pairing-code-pill,
 html.ui-radius-sharp .ota-status-pill,
+html.ui-radius-sharp .disclaimer-badge,
 html.ui-radius-sharp .ota-version-compare {
   border-radius: 6px;
 }
@@ -4546,6 +4868,7 @@ html.ui-radius-pill .osd-card,
 html.ui-radius-pill .channel-number-jump,
 html.ui-radius-pill .modal-card:not(.modal-settings-card),
 html.ui-radius-pill .modal-ota-card,
+html.ui-radius-pill .modal-disclaimer-card,
 html.ui-radius-pill .guide-selected-card,
 html.ui-radius-pill .search-right-panel,
 html.ui-radius-pill .about-card,
@@ -4561,7 +4884,9 @@ html.ui-radius-pill .empty-state-card,
 html.ui-radius-pill .virtual-keyboard,
 html.ui-radius-pill .preview-epg-box,
 html.ui-radius-pill .about-developer-box,
-html.ui-radius-pill .about-features-box {
+html.ui-radius-pill .about-features-box,
+html.ui-radius-pill .about-legal-box,
+html.ui-radius-pill .disclaimer-sub-en {
   border-radius: 30px;
 }
 
@@ -4577,6 +4902,8 @@ html.ui-radius-pill .source-item-row,
 html.ui-radius-pill .editor-channel-row,
 html.ui-radius-pill .perf-option-btn,
 html.ui-radius-pill .about-info-item,
+html.ui-radius-pill .disclaimer-points li,
+html.ui-radius-pill .ota-notes-list li,
 html.ui-radius-pill .osd-schedule-grid,
 html.ui-radius-pill .osd-arrows-indicator,
 html.ui-radius-pill .jump-num-box {
@@ -4643,6 +4970,7 @@ html.ui-radius-pill .toast,
 html.ui-radius-pill .qr-easy-badge,
 html.ui-radius-pill .pairing-code-pill,
 html.ui-radius-pill .ota-status-pill,
+html.ui-radius-pill .disclaimer-badge,
 html.ui-radius-pill .ota-version-compare {
   border-radius: 999px;
 }
@@ -4676,6 +5004,7 @@ html.ui-bg-oled:not(.tv-platform) .color-bar,
 html.ui-bg-oled:not(.tv-platform) .osd-card,
 html.ui-bg-oled:not(.tv-platform) .modal-card,
 html.ui-bg-oled:not(.tv-platform) .modal-ota-card,
+html.ui-bg-oled:not(.tv-platform) .modal-disclaimer-card,
 html.ui-bg-oled:not(.tv-platform) .channel-number-jump,
 html.ui-bg-oled:not(.tv-platform) .toast,
 html.ui-bg-oled:not(.tv-platform) .video-pause-indicator,
@@ -4712,6 +5041,8 @@ html.ui-bg-oled:not(.tv-platform) .channel-editor-list,
 html.ui-bg-oled:not(.tv-platform) .perf-actions-bar,
 html.ui-bg-oled:not(.tv-platform) .about-developer-box,
 html.ui-bg-oled:not(.tv-platform) .about-features-box,
+html.ui-bg-oled:not(.tv-platform) .about-legal-box,
+html.ui-bg-oled:not(.tv-platform) .disclaimer-sub-en,
 html.ui-bg-oled:not(.tv-platform) .virtual-keyboard,
 html.ui-bg-oled:not(.tv-platform) .ota-popup-body,
 html.ui-bg-oled:not(.tv-platform) .osd-schedule-grid {
@@ -4741,6 +5072,7 @@ html.tv-platform.ui-bg-oled .color-bar,
 html.tv-platform.ui-bg-oled .osd-card,
 html.tv-platform.ui-bg-oled .modal-card,
 html.tv-platform.ui-bg-oled .modal-ota-card,
+html.tv-platform.ui-bg-oled .modal-disclaimer-card,
 html.tv-platform.ui-bg-oled .channel-number-jump,
 html.tv-platform.ui-bg-oled #channel-number-jump,
 html.tv-platform.ui-bg-oled .toast,
@@ -4779,6 +5111,8 @@ html.tv-platform.ui-bg-oled .ui-pref-card,
 html.tv-platform.ui-bg-oled .perf-actions-bar,
 html.tv-platform.ui-bg-oled .about-developer-box,
 html.tv-platform.ui-bg-oled .about-features-box,
+html.tv-platform.ui-bg-oled .about-legal-box,
+html.tv-platform.ui-bg-oled .disclaimer-sub-en,
 html.tv-platform.ui-bg-oled .virtual-keyboard,
 html.tv-platform.ui-bg-oled .qr-cloud-sync-box,
 html.tv-platform.ui-bg-oled .channel-editor-list,
@@ -4792,6 +5126,7 @@ html.tv-platform.ui-bg-oled .empty-state-card {
 html.tv-platform.ui-bg-oled .about-info-item,
 html.tv-platform.ui-bg-oled .source-item-row,
 html.tv-platform.ui-bg-oled .editor-channel-row,
+html.tv-platform.ui-bg-oled .disclaimer-points li,
 html.tv-platform.ui-bg-oled .channel-item:not(.active):not(.focused),
 html.tv-platform.ui-bg-oled .program-strip-item:not(.status-live):not(.status-past):not(.focused):not(:hover),
 html.tv-platform.ui-bg-oled .guide-prog-item:not(.status-live):not(.focused):not(:hover) {
@@ -4819,6 +5154,7 @@ html.ui-bg-slate:not(.tv-platform) .color-bar,
 html.ui-bg-slate:not(.tv-platform) .osd-card,
 html.ui-bg-slate:not(.tv-platform) .modal-card,
 html.ui-bg-slate:not(.tv-platform) .modal-ota-card,
+html.ui-bg-slate:not(.tv-platform) .modal-disclaimer-card,
 html.ui-bg-slate:not(.tv-platform) .channel-number-jump,
 html.ui-bg-slate:not(.tv-platform) .toast,
 html.ui-bg-slate:not(.tv-platform) .video-pause-indicator,
@@ -4854,6 +5190,7 @@ html.tv-platform.ui-bg-slate .color-bar,
 html.tv-platform.ui-bg-slate .osd-card,
 html.tv-platform.ui-bg-slate .modal-card,
 html.tv-platform.ui-bg-slate .modal-ota-card,
+html.tv-platform.ui-bg-slate .modal-disclaimer-card,
 html.tv-platform.ui-bg-slate .channel-number-jump,
 html.tv-platform.ui-bg-slate #channel-number-jump,
 html.tv-platform.ui-bg-slate .toast,
@@ -4886,6 +5223,8 @@ html.tv-platform.ui-bg-slate .ui-pref-card,
 html.tv-platform.ui-bg-slate .perf-actions-bar,
 html.tv-platform.ui-bg-slate .about-developer-box,
 html.tv-platform.ui-bg-slate .about-features-box,
+html.tv-platform.ui-bg-slate .about-legal-box,
+html.tv-platform.ui-bg-slate .disclaimer-sub-en,
 html.tv-platform.ui-bg-slate .virtual-keyboard,
 html.tv-platform.ui-bg-slate .qr-cloud-sync-box,
 html.tv-platform.ui-bg-slate .channel-editor-list,
@@ -4897,6 +5236,7 @@ html.tv-platform.ui-bg-slate .empty-state-card {
 html.tv-platform.ui-bg-slate .about-info-item,
 html.tv-platform.ui-bg-slate .source-item-row,
 html.tv-platform.ui-bg-slate .editor-channel-row,
+html.tv-platform.ui-bg-slate .disclaimer-points li,
 html.tv-platform.ui-bg-slate .channel-item:not(.active):not(.focused),
 html.tv-platform.ui-bg-slate .program-strip-item:not(.status-live):not(.status-past):not(.focused):not(:hover),
 html.tv-platform.ui-bg-slate .guide-prog-item:not(.status-live):not(.focused):not(:hover) {
@@ -4922,6 +5262,7 @@ html.ui-bg-deepblue:not(.tv-platform) .color-bar,
 html.ui-bg-deepblue:not(.tv-platform) .osd-card,
 html.ui-bg-deepblue:not(.tv-platform) .modal-card,
 html.ui-bg-deepblue:not(.tv-platform) .modal-ota-card,
+html.ui-bg-deepblue:not(.tv-platform) .modal-disclaimer-card,
 html.ui-bg-deepblue:not(.tv-platform) .channel-number-jump,
 html.ui-bg-deepblue:not(.tv-platform) .toast,
 html.ui-bg-deepblue:not(.tv-platform) .video-pause-indicator,
@@ -4957,6 +5298,7 @@ html.tv-platform.ui-bg-deepblue .color-bar,
 html.tv-platform.ui-bg-deepblue .osd-card,
 html.tv-platform.ui-bg-deepblue .modal-card,
 html.tv-platform.ui-bg-deepblue .modal-ota-card,
+html.tv-platform.ui-bg-deepblue .modal-disclaimer-card,
 html.tv-platform.ui-bg-deepblue .channel-number-jump,
 html.tv-platform.ui-bg-deepblue #channel-number-jump,
 html.tv-platform.ui-bg-deepblue .toast,
@@ -4989,6 +5331,8 @@ html.tv-platform.ui-bg-deepblue .ui-pref-card,
 html.tv-platform.ui-bg-deepblue .perf-actions-bar,
 html.tv-platform.ui-bg-deepblue .about-developer-box,
 html.tv-platform.ui-bg-deepblue .about-features-box,
+html.tv-platform.ui-bg-deepblue .about-legal-box,
+html.tv-platform.ui-bg-deepblue .disclaimer-sub-en,
 html.tv-platform.ui-bg-deepblue .virtual-keyboard,
 html.tv-platform.ui-bg-deepblue .qr-cloud-sync-box,
 html.tv-platform.ui-bg-deepblue .channel-editor-list,
@@ -5000,6 +5344,7 @@ html.tv-platform.ui-bg-deepblue .empty-state-card {
 html.tv-platform.ui-bg-deepblue .about-info-item,
 html.tv-platform.ui-bg-deepblue .source-item-row,
 html.tv-platform.ui-bg-deepblue .editor-channel-row,
+html.tv-platform.ui-bg-deepblue .disclaimer-points li,
 html.tv-platform.ui-bg-deepblue .channel-item:not(.active):not(.focused),
 html.tv-platform.ui-bg-deepblue .program-strip-item:not(.status-live):not(.status-past):not(.focused):not(:hover),
 html.tv-platform.ui-bg-deepblue .guide-prog-item:not(.status-live):not(.focused):not(:hover) {
@@ -5275,6 +5620,13 @@ html.ui-focus-solid .perf-option-btn.ui-toggle-btn:hover .ui-toggle-pill {
   color: #ffffff !important;
 }
 
+html.ui-focus-solid .perf-option-btn.ui-toggle-btn.active-option.focused .ui-toggle-pill,
+html.ui-focus-solid .perf-option-btn.ui-toggle-btn.active-option:hover .ui-toggle-pill {
+  background-color: rgba(6, 95, 70, 0.88) !important;
+  border-color: rgba(167, 243, 208, 0.90) !important;
+  color: #ecfdf5 !important;
+}
+
 html.ui-focus-solid .perf-option-btn.focused .ui-accent-dot,
 html.ui-focus-solid .perf-option-btn:hover .ui-accent-dot {
   border-color: #ffffff !important;
@@ -5390,6 +5742,7 @@ html.ui-fx-flat .modal-guide-card,
 html.ui-fx-flat .modal-settings-card,
 html.ui-fx-flat .modal-search-card,
 html.ui-fx-flat .modal-ota-card,
+html.ui-fx-flat .modal-disclaimer-card,
 html.ui-fx-flat .channel-number-jump,
 html.ui-fx-flat #channel-number-jump,
 html.ui-fx-flat .toast,
@@ -5420,6 +5773,7 @@ html.ui-fx-flat .color-bar,
 html.ui-fx-flat .osd-card,
 html.ui-fx-flat .modal-card,
 html.ui-fx-flat .modal-ota-card,
+html.ui-fx-flat .modal-disclaimer-card,
 html.ui-fx-flat .channel-number-jump,
 html.ui-fx-flat .toast,
 html.ui-fx-flat .video-pause-indicator,
@@ -5469,6 +5823,8 @@ html.ui-fx-flat .ui-pref-card,
 html.ui-fx-flat .perf-actions-bar,
 html.ui-fx-flat .about-developer-box,
 html.ui-fx-flat .about-features-box,
+html.ui-fx-flat .about-legal-box,
+html.ui-fx-flat .disclaimer-sub-en,
 html.ui-fx-flat .virtual-keyboard,
 html.ui-fx-flat .qr-cloud-sync-box,
 html.ui-fx-flat .channel-editor-list,
@@ -5477,6 +5833,19 @@ html.ui-fx-flat .empty-state-card {
   background-color: rgba(12, 18, 31, 0.90) !important;
   background-image: none !important;
   border-color: rgba(255, 255, 255, 0.11) !important;
+}
+
+html.ui-fx-flat .disclaimer-points li {
+  background-color: rgba(19, 26, 45, 0.92) !important;
+  background-image: none !important;
+  border-color: rgba(255, 255, 255, 0.11) !important;
+}
+
+html.ui-fx-flat .ota-notes-list li {
+  background-color: rgba(15, 34, 28, 0.92) !important;
+  background-image: none !important;
+  border-color: rgba(48, 209, 88, 0.28) !important;
+  border-right-color: var(--success-color) !important;
 }
 
 html.ui-fx-flat .channel-item,

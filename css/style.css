@@ -632,7 +632,7 @@ html, body {
 .details-badges-line {
   display: flex;
   align-items: center;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .details-ch-num {
@@ -661,6 +661,7 @@ html, body {
 
 .details-group-pill {
   background-color: rgba(148, 163, 184, 0.12);
+  border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
   font-size: 14px;
   font-weight: 700;
@@ -671,6 +672,7 @@ html, body {
 
 .details-source-pill {
   background-color: var(--accent-surface);
+  border: 1px solid var(--accent-border-soft);
   color: var(--primary-bright);
   font-size: 14px;
   font-weight: 700;
@@ -718,7 +720,7 @@ html, body {
   background-color: var(--bg-inset);
   border: 1px solid var(--border-subtle);
   border-radius: 13px;
-  padding: 10px 14px;
+  padding: 11px 15px;
   margin-bottom: 8px;
 }
 
@@ -751,6 +753,16 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
   margin-left: 12px;
+}
+
+#preview-epg-title {
+  cursor: pointer;
+  transition: color 0.12s ease;
+}
+
+#preview-epg-title:hover {
+  color: #ffffff;
+  text-decoration: underline;
 }
 
 .epg-time-range {
@@ -1384,6 +1396,7 @@ html, body {
 
 .osd-quality-tag {
   background-color: rgba(148, 163, 184, 0.16);
+  border: 1px solid var(--border-subtle);
   color: #ffffff;
   font-size: 18px;
   font-weight: 700;
@@ -1794,6 +1807,8 @@ html, body {
 }
 
 .modal-body::-webkit-scrollbar,
+.disclaimer-body::-webkit-scrollbar,
+.ota-popup-body::-webkit-scrollbar,
 .guide-list-col::-webkit-scrollbar,
 .channel-editor-list::-webkit-scrollbar,
 .m3u-sources-list::-webkit-scrollbar,
@@ -1802,6 +1817,8 @@ html, body {
 }
 
 .modal-body::-webkit-scrollbar-track,
+.disclaimer-body::-webkit-scrollbar-track,
+.ota-popup-body::-webkit-scrollbar-track,
 .guide-list-col::-webkit-scrollbar-track,
 .channel-editor-list::-webkit-scrollbar-track,
 .m3u-sources-list::-webkit-scrollbar-track,
@@ -1811,6 +1828,8 @@ html, body {
 }
 
 .modal-body::-webkit-scrollbar-thumb,
+.disclaimer-body::-webkit-scrollbar-thumb,
+.ota-popup-body::-webkit-scrollbar-thumb,
 .guide-list-col::-webkit-scrollbar-thumb,
 .channel-editor-list::-webkit-scrollbar-thumb,
 .m3u-sources-list::-webkit-scrollbar-thumb,
@@ -2506,6 +2525,16 @@ html, body {
   position: relative;
 }
 
+.ui-grid-5 .perf-opt-title {
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.ui-grid-5 .perf-opt-sub {
+  font-size: 14px;
+  line-height: 1.3;
+}
+
 .perf-option-btn.perf-option-wide {
   width: 100%;
   background-color: var(--accent-surface);
@@ -2549,13 +2578,20 @@ html, body {
   color: #ffffff;
 }
 
-/* Toggle Buttons in Appearance & AV Tabs */
+/* Toggle Buttons in Appearance, AV & About Tabs */
 .perf-option-btn.ui-toggle-btn {
   position: relative;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 10px 14px 10px 116px;
+  padding: 10px 14px 10px 118px;
+}
+
+.ui-toggle-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin-left: 12px;
 }
 
 .ui-toggle-pill {
@@ -2573,10 +2609,17 @@ html, body {
   white-space: nowrap;
 }
 
-.perf-option-btn.ui-toggle-btn.active-option .ui-toggle-pill {
+.perf-option-btn.ui-toggle-btn.active-option .ui-toggle-pill,
+.perf-option-btn.ui-toggle-btn .ui-toggle-pill.is-on {
   background-color: rgba(16, 185, 129, 0.22);
   border-color: rgba(52, 211, 153, 0.72);
   color: #6ee7b7;
+}
+
+.perf-option-btn.ui-toggle-btn .ui-toggle-pill.is-off {
+  background-color: rgba(148, 163, 184, 0.12);
+  border-color: var(--border-strong);
+  color: var(--text-muted);
 }
 
 .perf-option-btn.ui-toggle-btn.focused .ui-toggle-pill,
@@ -2584,6 +2627,13 @@ html, body {
   background-color: rgba(255, 255, 255, 0.20);
   border-color: rgba(255, 255, 255, 0.70);
   color: #ffffff;
+}
+
+.perf-option-btn.ui-toggle-btn.active-option.focused .ui-toggle-pill,
+.perf-option-btn.ui-toggle-btn.active-option:hover .ui-toggle-pill {
+  background-color: rgba(6, 95, 70, 0.88);
+  border-color: rgba(110, 231, 183, 0.90);
+  color: #ecfdf5;
 }
 
 /* Accent Color Swatch Dots */
@@ -2631,6 +2681,11 @@ html, body {
 .perf-action-btns {
   display: flex;
   align-items: center;
+}
+
+.perf-section-card .perf-action-btns .btn-tv-secondary:first-child,
+.perf-section-card .perf-action-btns .btn-tv-primary:first-child {
+  margin-right: 0;
 }
 
 /* ==========================================================================
@@ -2689,7 +2744,8 @@ html, body {
 }
 
 .about-developer-box h3,
-.about-features-box h3 {
+.about-features-box h3,
+.about-legal-box h3 {
   font-size: 23px;
   font-weight: 800;
   color: #f59e0b;
@@ -2731,6 +2787,7 @@ html, body {
   border: 1px solid var(--border-subtle);
   border-radius: 14px;
   padding: 18px 26px;
+  margin-bottom: 18px;
 }
 
 .about-features-box ul {
@@ -2742,6 +2799,60 @@ html, body {
   color: var(--text-secondary);
   margin-bottom: 9px;
   line-height: 1.45;
+}
+
+.about-features-box li:last-child {
+  margin-bottom: 0;
+}
+
+.about-ota-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.about-ota-row .perf-option-btn.ui-toggle-btn,
+#btn-toggle-auto-ota {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  margin-bottom: 0;
+  padding: 12px 18px 12px 128px;
+}
+
+.about-header-row #btn-toggle-auto-ota {
+  flex: 0 0 auto;
+  min-width: 340px;
+}
+
+.about-legal-box {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 18px 26px;
+}
+
+.about-legal-box p,
+.about-legal-text {
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+}
+
+.about-legal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.about-legal-actions .btn-tv-secondary,
+.about-legal-actions .btn-tv-primary,
+#btn-open-disclaimer {
+  margin-right: 0;
+  margin-left: 12px;
 }
 
 /* Virtual Keyboard */
@@ -2937,6 +3048,7 @@ html, body {
 .osd-footer-ver {
   margin-right: auto;
   background-color: rgba(148, 163, 184, 0.10);
+  border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
   font-size: 17px;
   font-weight: 700;
@@ -3043,9 +3155,13 @@ html, body {
   margin-left: 8px;
 }
 
-/* OTA Update Popup Modal */
+/* OTA Update Available / Changelog Popup Modal */
 .modal-ota-card {
   width: 960px;
+  max-width: 92vw;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
   background-color: var(--bg-panel);
   border: 1px solid var(--primary-bright);
   border-radius: 24px;
@@ -3053,6 +3169,7 @@ html, body {
 }
 
 .ota-popup-header {
+  flex-shrink: 0;
   border-bottom: 1px solid var(--border-subtle);
   padding-bottom: 16px;
   margin-bottom: 18px;
@@ -3060,11 +3177,12 @@ html, body {
 
 .ota-status-pill {
   display: inline-block;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 800;
-  padding: 4px 15px;
-  border-radius: 9px;
-  margin-bottom: 10px;
+  padding: 5px 16px;
+  border-radius: 999px;
+  margin-bottom: 12px;
+  letter-spacing: 0.01em;
 }
 
 .pill-available {
@@ -3074,40 +3192,45 @@ html, body {
 
 .pill-success {
   background-color: #10b981;
-  color: #052e16;
+  color: #022c22;
 }
 
 .ota-popup-title {
-  font-size: 34px;
+  font-size: 32px;
   font-weight: 800;
   color: #ffffff;
-  margin-bottom: 8px;
+  line-height: 1.24;
+  margin-bottom: 10px;
 }
 
 .ota-version-compare {
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 700;
   color: var(--primary-bright);
   background-color: var(--bg-inset);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--accent-border-soft);
   display: inline-block;
   padding: 6px 16px;
   border-radius: 10px;
 }
 
 .ota-popup-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   background-color: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: 14px;
-  padding: 18px 24px;
+  padding: 18px 22px;
   margin-bottom: 22px;
 }
 
 .ota-notes-heading {
-  font-size: 21px;
+  font-size: 20px;
   font-weight: 800;
   color: var(--accent-text);
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .ota-notes-list {
@@ -3115,11 +3238,20 @@ html, body {
 }
 
 .ota-notes-list li {
-  font-size: 21px;
+  font-size: 20px;
   font-weight: 600;
   color: #f8fafc;
-  margin-bottom: 7px;
-  line-height: 1.4;
+  background-color: rgba(16, 185, 129, 0.07);
+  border: 1px solid rgba(52, 211, 153, 0.20);
+  border-right: 3px solid #10b981;
+  border-radius: 10px;
+  padding: 9px 14px;
+  margin-bottom: 8px;
+  line-height: 1.48;
+}
+
+.ota-notes-list li:last-child {
+  margin-bottom: 0;
 }
 
 .ota-progress-wrap {
@@ -3139,17 +3271,164 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  flex-shrink: 0;
+}
+
+.ota-popup-actions .btn-tv-primary,
+.ota-popup-actions .btn-tv-secondary {
+  margin-right: 0;
 }
 
 .ota-btn-main {
-  font-size: 23px !important;
-  padding: 13px 30px !important;
+  font-size: 22px !important;
+  padding: 13px 32px !important;
+  margin-right: 0 !important;
   margin-left: 14px !important;
 }
 
 .ota-btn-sub {
-  font-size: 21px !important;
+  font-size: 20px !important;
   padding: 13px 24px !important;
+}
+
+/* Legal Disclaimer Modal (#disclaimer-modal) */
+#disclaimer-modal {
+  z-index: 260;
+  background-color: rgba(4, 7, 15, 0.94);
+}
+
+.modal-disclaimer-card {
+  width: 1080px;
+  max-width: 92vw;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  padding: 34px 40px;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-top: 2px solid var(--primary-bright);
+  border-radius: 24px;
+}
+
+.disclaimer-header {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+}
+
+.disclaimer-badge {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 16px;
+  font-weight: 800;
+  padding: 5px 16px;
+  border-radius: 999px;
+  margin-bottom: 10px;
+  background-color: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.55);
+  color: #fde68a;
+}
+
+.disclaimer-title {
+  font-size: 32px;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.24;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+.disclaimer-header .disclaimer-title {
+  margin-bottom: 0;
+}
+
+.disclaimer-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-left: 6px;
+  margin-bottom: 20px;
+}
+
+.disclaimer-points {
+  list-style: none;
+  margin: 0 0 14px 0;
+  padding: 0;
+}
+
+.disclaimer-points li {
+  position: relative;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 11px 36px 11px 16px;
+  margin-bottom: 9px;
+}
+
+.disclaimer-points li::before {
+  content: "";
+  position: absolute;
+  right: 15px;
+  top: 22px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--primary-bright);
+}
+
+.disclaimer-points li:last-child {
+  margin-bottom: 0;
+}
+
+.disclaimer-points code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  direction: ltr;
+  unicode-bidi: isolate;
+  display: inline-block;
+  padding: 0 7px;
+  border-radius: 6px;
+  background-color: var(--accent-surface);
+  border: 1px solid var(--accent-border-soft);
+  color: var(--primary-bright);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.disclaimer-sub-en {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--text-muted);
+  direction: ltr;
+  text-align: left;
+  background-color: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: 11px;
+  padding: 11px 16px;
+}
+
+.disclaimer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+#btn-disclaimer-accept {
+  margin-right: 0 !important;
+  margin-left: 0 !important;
+  font-size: 22px !important;
+  font-weight: 800;
+  padding: 14px 34px !important;
+  min-width: 340px;
 }
 
 /* ==========================================================================
@@ -3585,6 +3864,15 @@ html.ui-list-narrow .channel-details-card {
   padding: 11px 18px;
 }
 
+html.ui-list-narrow .details-top-row {
+  margin-bottom: 6px;
+}
+
+html.ui-list-narrow .preview-epg-box {
+  padding: 8px 13px;
+  margin-bottom: 6px;
+}
+
 html.ui-list-narrow:not(.ui-hide-program-strip) .epg-synopsis {
   -webkit-line-clamp: 3;
   line-clamp: 3;
@@ -3617,6 +3905,7 @@ html.ui-radius-sharp .modal-card:not(.modal-settings-card),
 html.ui-radius-sharp .modal-guide-card,
 html.ui-radius-sharp .modal-search-card,
 html.ui-radius-sharp .modal-ota-card,
+html.ui-radius-sharp .modal-disclaimer-card,
 html.ui-radius-sharp .channel-number-jump,
 html.ui-radius-sharp .about-card,
 html.ui-radius-sharp .guide-selected-card,
@@ -3632,6 +3921,8 @@ html.ui-radius-sharp .preview-epg-box,
 html.ui-radius-sharp .osd-schedule-grid,
 html.ui-radius-sharp .about-developer-box,
 html.ui-radius-sharp .about-features-box,
+html.ui-radius-sharp .about-legal-box,
+html.ui-radius-sharp .disclaimer-sub-en,
 html.ui-radius-sharp .virtual-keyboard,
 html.ui-radius-sharp .empty-state-card,
 html.ui-radius-sharp .toast,
@@ -3652,6 +3943,8 @@ html.ui-radius-sharp .guide-prog-item,
 html.ui-radius-sharp .editor-channel-row,
 html.ui-radius-sharp .source-item-row,
 html.ui-radius-sharp .about-info-item,
+html.ui-radius-sharp .disclaimer-points li,
+html.ui-radius-sharp .ota-notes-list li,
 html.ui-radius-sharp .perf-option-btn,
 html.ui-radius-sharp .top-nav-btn,
 html.ui-radius-sharp .brand-badge,
@@ -3706,6 +3999,7 @@ html.ui-radius-sharp .about-app-icon,
 html.ui-radius-sharp .editor-ch-source,
 html.ui-radius-sharp .settings-status-box,
 html.ui-radius-sharp .ota-status-pill,
+html.ui-radius-sharp .disclaimer-badge,
 html.ui-radius-sharp .ota-version-compare,
 html.ui-radius-sharp .ui-toggle-pill,
 html.ui-radius-sharp .stream-stats-badge,
@@ -3726,6 +4020,7 @@ html.ui-radius-pill .modal-card:not(.modal-settings-card),
 html.ui-radius-pill .modal-guide-card,
 html.ui-radius-pill .modal-search-card,
 html.ui-radius-pill .modal-ota-card,
+html.ui-radius-pill .modal-disclaimer-card,
 html.ui-radius-pill .channel-number-jump,
 html.ui-radius-pill .about-card,
 html.ui-radius-pill .guide-selected-card,
@@ -3749,6 +4044,8 @@ html.ui-radius-pill .preview-epg-box,
 html.ui-radius-pill .osd-schedule-grid,
 html.ui-radius-pill .about-developer-box,
 html.ui-radius-pill .about-features-box,
+html.ui-radius-pill .about-legal-box,
+html.ui-radius-pill .disclaimer-sub-en,
 html.ui-radius-pill .virtual-keyboard,
 html.ui-radius-pill .perf-actions-bar,
 html.ui-radius-pill .channel-item,
@@ -3756,6 +4053,8 @@ html.ui-radius-pill.ui-density-compact .channel-item,
 html.ui-radius-pill .editor-channel-row,
 html.ui-radius-pill .source-item-row,
 html.ui-radius-pill .about-info-item,
+html.ui-radius-pill .disclaimer-points li,
+html.ui-radius-pill .ota-notes-list li,
 html.ui-radius-pill .perf-option-btn,
 html.ui-radius-pill .guide-prog-item,
 html.ui-radius-pill .program-strip-item,
@@ -3810,6 +4109,7 @@ html.ui-radius-pill .qr-easy-badge,
 html.ui-radius-pill .editor-ch-source,
 html.ui-radius-pill .settings-status-box,
 html.ui-radius-pill .ota-status-pill,
+html.ui-radius-pill .disclaimer-badge,
 html.ui-radius-pill .ota-version-compare,
 html.ui-radius-pill .ui-toggle-pill,
 html.ui-radius-pill .stream-stats-badge {
@@ -4023,6 +4323,7 @@ html.ui-fx-light .preview-epg-box,
 html.ui-fx-light .osd-card,
 html.ui-fx-light .modal-card,
 html.ui-fx-light .modal-ota-card,
+html.ui-fx-light .modal-disclaimer-card,
 html.ui-fx-light .toast,
 html.ui-fx-light .channel-number-jump,
 html.ui-fx-light .perf-section-card,
@@ -4263,6 +4564,7 @@ html.tv-platform.ui-hide-list-hints #channel-list .channel-ok-pill {
 .tv-platform .color-btn,
 .tv-platform .cat-pill,
 .tv-platform .osd-exit-btn,
+.tv-platform #preview-epg-title,
 .tv-platform .focusable {
   transition: none !important;
   box-shadow: none !important;
@@ -4350,6 +4652,8 @@ html.ui-fx-flat .channel-details-card,
 html.ui-fx-flat .preview-epg-box,
 html.ui-fx-flat .osd-card,
 html.ui-fx-flat .modal-card,
+html.ui-fx-flat .modal-disclaimer-card,
+html.ui-fx-flat .about-legal-box,
 html.ui-fx-flat .perf-section-card,
 html.ui-fx-flat .ui-pref-card {
   border-width: 1px !important;
