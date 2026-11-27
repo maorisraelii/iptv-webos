@@ -26,26 +26,54 @@ const XML_ENTITY_MAP = {
 const CHANNEL_SYNONYMS = {
   'כאן11': 'kan11',
   'kan11': 'kan11',
+  'channel11': 'kan11',
+  '11כאןשידורחי': 'kan11',
   '11': 'kan11',
   'קשת12': 'keshet12',
   'קשת': 'keshet12',
   'keshet12': 'keshet12',
+  'channel12': 'keshet12',
+  '12שידורחי': 'keshet12',
   '12': 'keshet12',
   'רשת13': 'reshet13',
   'רשת': 'reshet13',
   'reshet13': 'reshet13',
+  'channel13': 'reshet13',
   '13': 'reshet13',
   'עכשיו14': 'now14',
   'now14': 'now14',
+  'channel14': 'now14',
+  '14שידורחי': 'now14',
   '14': 'now14',
+  'kanchinuchit23': 'kanchinuchit',
+  'kanchinuchit': 'kanchinuchit',
+  'חינוכית': 'kanchinuchit',
+  'כאןחינוכית': 'kanchinuchit',
+  '23': 'kanchinuchit',
+  'i24': 'i24news',
+  'i24news': 'i24news',
+  'עבריתi24': 'i24news',
+  'hot3': 'hot3',
+  'הוט3': 'hot3',
+  '3': 'hot3',
+  'one': 'oneil',
+  'onehd': 'oneil',
+  'one1': 'oneil',
+  'one1hd': 'oneil',
+  'oneשידורחי': 'oneil',
+  'one2': 'one2il',
+  'one2hd': 'one2il',
   '9': 'channel9il',
+  '9שידורחי': 'channel9il',
   'ישראלפלוס': 'channel9il',
   '24': 'channel24il',
+  '24בשידורחי': 'channel24il',
   'מוזיקה24': 'channel24il',
   'מכאן33': 'makan33',
   'makan33': 'makan33',
   '33': 'makan33',
   'ספורט5': 'sport5',
+  'ספורט5שידורחי': 'sport5',
   '5sport': 'sport5',
   'sport5': 'sport5',
   '5plus': 'sport5plus',
@@ -53,7 +81,9 @@ const CHANNEL_SYNONYMS = {
   '5stars': 'sport5stars',
   'ספורט5סטארס': 'sport5stars',
   '5live': 'sport5live',
+  'sport5liv': 'sport5live',
   'ספורט5לייב': 'sport5live',
+  'ספורט5פלוסלייב': 'sport5live',
   '5gold': 'sport5gold',
   'ספורט5גולד': 'sport5gold',
   'ספורט1': 'sport1il',
@@ -82,10 +112,12 @@ class EPGService {
   constructor() {
     this.programmesByChannel = new Map();
     this.channelAliasMap = new Map(); // normalizedKey -> xmltvChannelId
+    this.channelAliasCandidates = new Map(); // aliasKey -> Array of xmltvChannelIds
     this.dayBucketsCache = new Map();
     this._channelMatchCache = new Map();
     this._normCache = new Map();
     this._syntheticScheduleCache = new Map(); // Bounded LRU (max 5 channels) for 7-day guide modal only
+    this._lastParseHasLiveCoverage = false;
     this.epgUrl = '';
     this.loadedUrls = [];
     this.isLoading = false;
@@ -94,8 +126,13 @@ class EPGService {
     this.DAY_MS = 86400000;
     this.EPG_CACHE_KEY = 'zenplay_iptv_epg_cache_v491';
     this.TTL_STORAGE_KEY = 'zenplay_iptv_cache_ttl_hours';
-    this.DEFAULT_LIVE_EPG_URL =
-      'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/epg-il.xml';
+    this.DEFAULT_LIVE_EPG_URLS = [
+      'https://raw.githubusercontent.com/maorisraelii/iptv-webos/main/epg-il.xml',
+      'https://maorisraelii.github.io/iptv-webos/epg-il.xml',
+      'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/epg-il.xml',
+      'epg-il.xml'
+    ];
+    this.DEFAULT_LIVE_EPG_URL = this.DEFAULT_LIVE_EPG_URLS[0];
   }
 
   getCacheTtlHours() {
@@ -138,16 +175,39 @@ class EPGService {
     return result;
   }
 
-  registerChannelAlias(rawAlias, targetChannelId, targetMap) {
+  _addAliasCandidate(candMap, key, targetChannelId) {
+    if (!candMap || !key || !targetChannelId) return;
+    let arr = candMap.get(key);
+    if (!arr) {
+      candMap.set(key, [targetChannelId]);
+    } else if (arr.indexOf(targetChannelId) === -1) {
+      arr.push(targetChannelId);
+    }
+  }
+
+  registerChannelAlias(rawAlias, targetChannelId, targetMap, targetCandidatesMap) {
     if (!rawAlias || !targetChannelId) return;
     const trimmed = rawAlias.trim();
     if (!trimmed) return;
     const map = targetMap || this.channelAliasMap;
-    map.set(trimmed, targetChannelId);
-    map.set(trimmed.toLowerCase(), targetChannelId);
+    if (!targetMap && !this.channelAliasCandidates) {
+      this.channelAliasCandidates = new Map();
+    }
+    const candMap = targetCandidatesMap || (targetMap ? null : this.channelAliasCandidates);
+    const lower = trimmed.toLowerCase();
     const norm = this.normalizeChannelKey(trimmed);
+
+    map.set(trimmed, targetChannelId);
+    map.set(lower, targetChannelId);
     if (norm) {
       map.set(norm, targetChannelId);
+    }
+    if (candMap) {
+      this._addAliasCandidate(candMap, trimmed, targetChannelId);
+      this._addAliasCandidate(candMap, lower, targetChannelId);
+      if (norm) {
+        this._addAliasCandidate(candMap, norm, targetChannelId);
+      }
     }
   }
 
@@ -169,17 +229,69 @@ class EPGService {
     });
   }
 
+  _isDefaultLiveEpgUrl(url) {
+    if (!url || typeof url !== 'string') return false;
+    const clean = url.split('?')[0].trim();
+    const defaults = Array.isArray(this.DEFAULT_LIVE_EPG_URLS)
+      ? this.DEFAULT_LIVE_EPG_URLS
+      : [this.DEFAULT_LIVE_EPG_URL];
+    for (let i = 0; i < defaults.length; i++) {
+      if (clean === defaults[i]) return true;
+    }
+    return false;
+  }
+
+  _withDefaultCacheBuster(url) {
+    if (!url || !/^https?:\/\//i.test(url)) return url;
+    if (!this._isDefaultLiveEpgUrl(url)) return url;
+    if (/[?&]v=\d+/.test(url)) return url;
+    const sep = url.indexOf('?') === -1 ? '?' : '&';
+    return url + sep + 'v=' + Math.floor(Date.now() / 600000);
+  }
+
+  hasLiveCoverage(nowMs) {
+    const refMs = typeof nowMs === 'number' && isFinite(nowMs) ? nowMs : Date.now();
+    const minStopMs = refMs - 3600000;
+    const maxStartMs = refMs + 6 * 3600000;
+    let found = false;
+    this.programmesByChannel.forEach((list, chId) => {
+      if (found || !chId || chId.indexOf('gen_') === 0 || !Array.isArray(list)) return;
+      for (let i = 0; i < list.length; i++) {
+        const p = list[i];
+        if (p && p.startMs <= maxStartMs && p.stopMs > minStopMs) {
+          found = true;
+          return;
+        }
+      }
+    });
+    return found;
+  }
+
   loadFromLocalCache(cacheKeyUrl) {
     try {
       const raw = localStorage.getItem(this.EPG_CACHE_KEY);
       if (!raw) return false;
       const data = JSON.parse(raw);
-      if (!data || data.url !== cacheKeyUrl || !Array.isArray(data.entries) || data.entries.length === 0) {
+      if (!data || !Array.isArray(data.entries) || data.entries.length === 0) {
         return false;
       }
 
+      const defaultJoinKey = Array.isArray(this.DEFAULT_LIVE_EPG_URLS)
+        ? this.DEFAULT_LIVE_EPG_URLS.join('|')
+        : this.DEFAULT_LIVE_EPG_URL;
+      const isDefaultCacheReq =
+        cacheKeyUrl === defaultJoinKey || this._isDefaultLiveEpgUrl(cacheKeyUrl);
+      const urlMatches =
+        data.url === cacheKeyUrl ||
+        (isDefaultCacheReq &&
+          (data.url === defaultJoinKey || this._isDefaultLiveEpgUrl(data.url)));
+      if (!urlMatches) {
+        return false;
+      }
+
+      const nowMs = Date.now();
       const ttlHours = this.getCacheTtlHours();
-      const ageMs = Date.now() - (data.updatedAt || 0);
+      const ageMs = nowMs - (data.updatedAt || 0);
       const isExpired = ttlHours > 0 && ageMs > ttlHours * 3600000;
 
       // Stale data is infinitely better than an empty screen.
@@ -188,6 +300,8 @@ class EPGService {
 
       this.programmesByChannel.clear();
       this.channelAliasMap.clear();
+      if (!this.channelAliasCandidates) this.channelAliasCandidates = new Map();
+      this.channelAliasCandidates.clear();
       if (this.dayBucketsCache) this.dayBucketsCache.clear();
       if (this._channelMatchCache) this._channelMatchCache.clear();
 
@@ -213,8 +327,9 @@ class EPGService {
         this.registerChannelAlias(chId, chId);
       }
 
-      // If all cached programmes have already ended more than 3h ago, force immediate network refresh
-      if (latestStopMs < Date.now() - 3 * 3600000) {
+      // If cached data has NO programme covering Date.now() (latestStopMs < Date.now() or no live coverage),
+      // force immediate background network refresh (ageMs >= 20 * 60 * 1000).
+      if (latestStopMs < nowMs || !this.hasLiveCoverage(nowMs)) {
         this.lastUpdatedMs = 0;
       }
 
@@ -244,6 +359,7 @@ class EPGService {
       const maxMs = now + 24 * 3600000;
 
       const entries = [];
+      const savedChannelIds = new Set();
       this.programmesByChannel.forEach((list, chId) => {
         if (!chId || chId.indexOf('gen_') === 0 || !Array.isArray(list)) return;
         // Keep shows in current active viewing window, up to 25 shows per channel
@@ -261,15 +377,28 @@ class EPGService {
         }
         if (compactList.length > 0) {
           entries.push([chId, compactList]);
+          savedChannelIds.add(chId);
         }
       });
 
       const aliases = [];
-      this.channelAliasMap.forEach((targetId, aliasKey) => {
-        if (aliasKey && targetId && aliasKey !== targetId) {
-          aliases.push([aliasKey, targetId]);
-        }
-      });
+      if (this.channelAliasCandidates && this.channelAliasCandidates.size > 0) {
+        this.channelAliasCandidates.forEach((candList, aliasKey) => {
+          if (!aliasKey || !Array.isArray(candList)) return;
+          for (let i = 0; i < candList.length; i++) {
+            const targetId = candList[i];
+            if (targetId && aliasKey !== targetId && savedChannelIds.has(targetId)) {
+              aliases.push([aliasKey, targetId]);
+            }
+          }
+        });
+      } else {
+        this.channelAliasMap.forEach((targetId, aliasKey) => {
+          if (aliasKey && targetId && aliasKey !== targetId && savedChannelIds.has(targetId)) {
+            aliases.push([aliasKey, targetId]);
+          }
+        });
+      }
 
       this.lastUpdatedMs = Date.now();
       const payload = JSON.stringify({
@@ -310,6 +439,7 @@ class EPGService {
       localStorage.removeItem(this.EPG_CACHE_KEY);
       this.programmesByChannel.clear();
       this.channelAliasMap.clear();
+      if (this.channelAliasCandidates) this.channelAliasCandidates.clear();
       this.dayBucketsCache.clear();
       if (this._channelMatchCache) this._channelMatchCache.clear();
       if (this._normCache) this._normCache.clear();
@@ -327,12 +457,16 @@ class EPGService {
     for (let i = 0; i < channels.length; i++) {
       const ch = channels[i];
       if (!ch) continue;
-      if (ch.epgId) this.targetChannelKeys.add(ch.epgId.trim().toLowerCase());
-      if (ch.tvgName) this.targetChannelKeys.add(ch.tvgName.trim().toLowerCase());
-      if (ch.name) this.targetChannelKeys.add(ch.name.trim().toLowerCase());
-      if (ch.rawName) this.targetChannelKeys.add(ch.rawName.trim().toLowerCase());
-      const norm = this.normalizeChannelKey(ch.name || ch.tvgName || '');
-      if (norm) this.targetChannelKeys.add(norm);
+      const fields = [ch.epgId, ch.tvgName, ch.rawName, ch.name];
+      for (let f = 0; f < fields.length; f++) {
+        const val = fields[f];
+        if (!val || typeof val !== 'string') continue;
+        const trimmed = val.trim();
+        if (!trimmed) continue;
+        this.targetChannelKeys.add(trimmed.toLowerCase());
+        const norm = this.normalizeChannelKey(trimmed);
+        if (norm) this.targetChannelKeys.add(norm);
+      }
     }
   }
 
@@ -380,16 +514,32 @@ class EPGService {
       return;
     }
 
-    const cacheKeyUrl = urls.join('|');
-    this.epgUrl = urls[0];
-    this.loadedUrls = urls;
+    const customUrls = [];
+    let hasDefaultUrl = false;
+    for (let i = 0; i < urls.length; i++) {
+      if (this._isDefaultLiveEpgUrl(urls[i])) {
+        hasDefaultUrl = true;
+      } else {
+        customUrls.push(urls[i]);
+      }
+    }
+
+    const defaultCandidates =
+      Array.isArray(this.DEFAULT_LIVE_EPG_URLS) && this.DEFAULT_LIVE_EPG_URLS.length > 0
+        ? this.DEFAULT_LIVE_EPG_URLS.slice()
+        : [this.DEFAULT_LIVE_EPG_URL];
+    const cacheKeyUrl =
+      hasDefaultUrl && customUrls.length === 0 ? defaultCandidates.join('|') : urls.join('|');
+
+    this.epgUrl = customUrls.length > 0 ? customUrls[0] : defaultCandidates[0];
+    this.loadedUrls = customUrls.length === 0 && hasDefaultUrl ? defaultCandidates.slice() : urls;
 
     // Stale-While-Revalidate: render immediately from local cache if available (< 15ms)
     const hasCachedData = !forceRefresh && this.loadFromLocalCache(cacheKeyUrl);
     if (hasCachedData) {
       if (onComplete) onComplete(true);
       const ageMs = Date.now() - (this.lastUpdatedMs || 0);
-      // If cache was refreshed within last 20 minutes, don't spam network fetch
+      // If cache was refreshed within last 20 minutes and has live coverage, don't spam network fetch
       if (ageMs < 20 * 60 * 1000) {
         return;
       }
@@ -397,33 +547,80 @@ class EPGService {
 
     this.isLoading = true;
 
-    // Stream-parse EPG URLs sequentially (never holds full 10MB ArrayBuffer + 15MB UTF-16 string in RAM)
-    let idx = 0;
+    // Stream-parse custom EPG URLs first, then priority-ordered default live EPG fallback candidates
+    let customIdx = 0;
+    let defaultIdx = 0;
+    let hasCustomParsed = false;
     let parsedAny = false;
-    const processNextUrl = () => {
-      if (idx >= urls.length) {
-        const anySuccess = parsedAny && this.programmesByChannel.size > 0;
-        if (anySuccess) {
-          this.saveToLocalCache(cacheKeyUrl);
-          this.dayBucketsCache.clear();
-        }
-        this.isLoading = false;
-        if (onComplete) onComplete(anySuccess);
+
+    const finishLoad = () => {
+      const anySuccess = parsedAny && this.programmesByChannel.size > 0;
+      if (anySuccess) {
+        this.saveToLocalCache(cacheKeyUrl);
+        this.dayBucketsCache.clear();
+      }
+      this.isLoading = false;
+      if (onComplete) onComplete(anySuccess);
+    };
+
+    const processNextDefault = () => {
+      if (!hasDefaultUrl || defaultIdx >= defaultCandidates.length) {
+        finishLoad();
         return;
       }
-      const u = urls[idx++];
-      const isAppend = parsedAny;
-      this.fetchAndStreamParseXMLTV(u, isAppend)
+      const rawCandidate = defaultCandidates[defaultIdx++];
+      const fetchUrl = this._withDefaultCacheBuster(rawCandidate);
+      const isAppend = hasCustomParsed;
+      this.fetchAndStreamParseXMLTV(fetchUrl, isAppend, true)
         .then((ok) => {
-          if (ok) parsedAny = true;
-          processNextUrl();
+          if (ok) {
+            parsedAny = true;
+            if (!hasCustomParsed) {
+              this.epgUrl = rawCandidate;
+            }
+            const hasLive = isAppend
+              ? this._lastParseHasLiveCoverage
+              : this.hasLiveCoverage(Date.now());
+            if (hasLive) {
+              finishLoad();
+              return;
+            }
+            console.warn(
+              'EPG default source stale or lacks live coverage (' + rawCandidate + '), trying fallback...'
+            );
+          } else {
+            console.warn('EPG default source empty (' + rawCandidate + '), trying fallback...');
+          }
+          processNextDefault();
+        })
+        .catch((err) => {
+          console.warn('EPG source warning (' + rawCandidate + '):', err);
+          processNextDefault();
+        });
+    };
+
+    const processNextCustom = () => {
+      if (customIdx >= customUrls.length) {
+        processNextDefault();
+        return;
+      }
+      const u = customUrls[customIdx++];
+      const isAppend = hasCustomParsed;
+      this.fetchAndStreamParseXMLTV(u, isAppend, false)
+        .then((ok) => {
+          if (ok) {
+            hasCustomParsed = true;
+            parsedAny = true;
+          }
+          processNextCustom();
         })
         .catch((err) => {
           console.warn('EPG source warning (' + u + '):', err);
-          processNextUrl();
+          processNextCustom();
         });
     };
-    processNextUrl();
+
+    processNextCustom();
   }
 
   shouldUseAndroidProxy(url) {
@@ -460,14 +657,15 @@ class EPGService {
       });
   }
 
-  _fetchXmltvResponse(url) {
+  _fetchXmltvResponse(url, skipLocalFallback) {
     if (!url) return Promise.resolve(null);
     if (url.indexOf('epg.team') !== -1 || url.indexOf('epg_ripper_ALL') !== -1) {
       url = this.DEFAULT_LIVE_EPG_URL;
     }
     return this.fetchWithProxyFallback(url).catch((err) => {
-      if (url === this.DEFAULT_LIVE_EPG_URL || url.indexOf('epg-il.xml') !== -1) {
-        if (url !== 'epg-il.xml') {
+      if (!skipLocalFallback && (url === this.DEFAULT_LIVE_EPG_URL || url.indexOf('epg-il.xml') !== -1)) {
+        const cleanUrl = url.split('?')[0];
+        if (cleanUrl !== 'epg-il.xml') {
           console.warn('Remote EPG unavailable, falling back to bundled epg-il.xml:', err);
           return fetch('epg-il.xml').then((localRes) => {
             if (!localRes || !localRes.ok) throw err;
@@ -524,11 +722,11 @@ class EPGService {
    * peak at ~2-3 MB RAM with a rolling tail buffer < 64 KB; falls back cleanly to
    * ArrayBuffer + parseXMLTVAsync on older LG webOS Chromium 53 browsers.
    */
-  fetchAndStreamParseXMLTV(url, appendMode) {
+  fetchAndStreamParseXMLTV(url, appendMode, skipLocalFallback) {
     if (!url) return Promise.resolve(false);
     const MAX_SAFE_EPG_BYTES = 35 * 1024 * 1024;
 
-    return this._fetchXmltvResponse(url).then((res) => {
+    return this._fetchXmltvResponse(url, skipLocalFallback).then((res) => {
       if (!res) return false;
       const cl = res.headers && typeof res.headers.get === 'function' ? res.headers.get('content-length') : null;
       if (cl && parseInt(cl, 10) > MAX_SAFE_EPG_BYTES) {
@@ -916,6 +1114,7 @@ class EPGService {
       matchedChannelIds: new Set(),
       progs: new Map(),
       aliasMap: new Map(),
+      aliasCandidates: new Map(),
       phase: 'stream',
       chPos: -1,
       pPos: -1,
@@ -937,6 +1136,12 @@ class EPGService {
     const hasFilter = ctx.hasFilter;
     const lowerId = chId.toLowerCase();
     let isMatch = !hasFilter || this.targetChannelKeys.has(lowerId);
+    if (!isMatch && hasFilter) {
+      const normId = this.normalizeChannelKey(chId);
+      if (normId && this.targetChannelKeys.has(normId)) {
+        isMatch = true;
+      }
+    }
 
     const displayNames = [];
     if (chBody) {
@@ -973,9 +1178,9 @@ class EPGService {
 
     if (isMatch) {
       ctx.matchedChannelIds.add(chId);
-      this.registerChannelAlias(chId, chId, ctx.aliasMap);
+      this.registerChannelAlias(chId, chId, ctx.aliasMap, ctx.aliasCandidates);
       for (let d = 0; d < displayNames.length; d++) {
-        this.registerChannelAlias(displayNames[d], chId, ctx.aliasMap);
+        this.registerChannelAlias(displayNames[d], chId, ctx.aliasMap, ctx.aliasCandidates);
       }
     }
   }
@@ -1025,7 +1230,7 @@ class EPGService {
     if (!list) {
       list = [];
       ctx.progs.set(channelId, list);
-      this.registerChannelAlias(channelId, channelId, ctx.aliasMap);
+      this.registerChannelAlias(channelId, channelId, ctx.aliasMap, ctx.aliasCandidates);
     }
 
     list.push({
@@ -1143,6 +1348,7 @@ class EPGService {
       matchedChannelIds: new Set(),
       progs: new Map(),
       aliasMap: new Map(),
+      aliasCandidates: new Map(),
       phase: 'channels',
       chPos: xmlString.indexOf('<channel'),
       pPos: -1,
@@ -1183,6 +1389,12 @@ class EPGService {
             if (chId) {
               const lowerId = chId.toLowerCase();
               let isMatch = !hasFilter || this.targetChannelKeys.has(lowerId);
+              if (!isMatch && hasFilter) {
+                const normId = this.normalizeChannelKey(chId);
+                if (normId && this.targetChannelKeys.has(normId)) {
+                  isMatch = true;
+                }
+              }
 
               const chBody = xmlString.slice(openEnd + 1, closeIdx);
               const displayNames = [];
@@ -1217,9 +1429,9 @@ class EPGService {
 
               if (isMatch) {
                 ctx.matchedChannelIds.add(chId);
-                this.registerChannelAlias(chId, chId, ctx.aliasMap);
+                this.registerChannelAlias(chId, chId, ctx.aliasMap, ctx.aliasCandidates);
                 for (let d = 0; d < displayNames.length; d++) {
-                  this.registerChannelAlias(displayNames[d], chId, ctx.aliasMap);
+                  this.registerChannelAlias(displayNames[d], chId, ctx.aliasMap, ctx.aliasCandidates);
                 }
               }
             }
@@ -1300,7 +1512,7 @@ class EPGService {
                   if (!list) {
                     list = [];
                     ctx.progs.set(channelId, list);
-                    this.registerChannelAlias(channelId, channelId, ctx.aliasMap);
+                    this.registerChannelAlias(channelId, channelId, ctx.aliasMap, ctx.aliasCandidates);
                   }
 
                   list.push({
@@ -1346,36 +1558,68 @@ class EPGService {
   _xmltvFinish(ctx) {
     ctx.xml = null; // Promptly release large temporary XML string reference
     try {
+      this._lastParseHasLiveCoverage = false;
+      if (ctx.progs.size === 0 && ctx.aliasMap.size === 0) {
+        return false;
+      }
       if (ctx.failed && ctx.progs.size === 0 && ctx.aliasMap.size === 0) {
         return false;
       }
 
+      if (!this.channelAliasCandidates) this.channelAliasCandidates = new Map();
+
       if (!ctx.append) {
         this.programmesByChannel.clear();
         this.channelAliasMap.clear();
+        this.channelAliasCandidates.clear();
       } else {
         this._purgeSyntheticChannels();
       }
+
+      const nowMs = Date.now();
+      const minStopMs = nowMs - 3600000;
+      const maxStartMs = nowMs + 6 * 3600000;
+      let parsedHasLive = false;
 
       ctx.progs.forEach((list, chKey) => {
         const existing = ctx.append ? this.programmesByChannel.get(chKey) : null;
         const merged = existing && existing.length > 0 ? existing.concat(list) : list;
         this.programmesByChannel.set(chKey, this._sortDedupeProgrammes(merged));
+        if (!parsedHasLive) {
+          for (let i = 0; i < list.length; i++) {
+            const p = list[i];
+            if (p && p.startMs <= maxStartMs && p.stopMs > minStopMs) {
+              parsedHasLive = true;
+              break;
+            }
+          }
+        }
       });
+      this._lastParseHasLiveCoverage = parsedHasLive;
+
       ctx.aliasMap.forEach((target, alias) => {
         this.channelAliasMap.set(alias, target);
       });
+      if (ctx.aliasCandidates) {
+        ctx.aliasCandidates.forEach((candList, alias) => {
+          if (!Array.isArray(candList)) return;
+          for (let i = 0; i < candList.length; i++) {
+            this._addAliasCandidate(this.channelAliasCandidates, alias, candList[i]);
+          }
+        });
+      }
 
       if (this.dayBucketsCache) this.dayBucketsCache.clear();
       if (this._channelMatchCache) this._channelMatchCache.clear();
       this._purgeSyntheticChannels();
-      return ctx.accepted > 0 || ctx.aliasMap.size > 0;
+      return ctx.accepted > 0;
     } catch (e) {
       console.warn('XMLTV parse error:', e);
       return false;
     } finally {
       ctx.progs = null;
       ctx.aliasMap = null;
+      ctx.aliasCandidates = null;
       ctx.matchedChannelIds = null;
     }
   }
@@ -1427,16 +1671,26 @@ class EPGService {
   }
 
   /**
-   * Resolves a channel object to its XMLTV programme list using exact ID, tvg-name, display-name, or normalized alias
+   * Resolves a channel object to its XMLTV programme list by inspecting all candidate XMLTV IDs
+   * across exact IDs, display-names, and normalized/synonym keys, preferring live coverage.
    */
   findXmlProgrammesForChannel(channel) {
     if (!channel || this.programmesByChannel.size === 0) return null;
     if (!this._channelMatchCache) this._channelMatchCache = new Map();
+    if (!this.channelAliasCandidates) this.channelAliasCandidates = new Map();
 
+    const nowMs = Date.now();
     const cacheKey = channel.id || channel.uid || '';
     if (cacheKey && this._channelMatchCache.has(cacheKey)) {
       const cachedTarget = this._channelMatchCache.get(cacheKey);
-      return cachedTarget ? this.programmesByChannel.get(cachedTarget) || null : null;
+      if (!cachedTarget) return null;
+      const cachedList = this.programmesByChannel.get(cachedTarget) || null;
+      if (cachedList && cachedList.length > 0) {
+        const lastP = cachedList[cachedList.length - 1];
+        if (lastP && lastP.stopMs > nowMs) {
+          return cachedList;
+        }
+      }
     }
 
     const candidates = [
@@ -1447,38 +1701,120 @@ class EPGService {
       channel.id
     ];
 
+    const seenIds = new Set();
+    let bestId = '';
+    let bestList = null;
+    let bestHasLive = false;
+    let bestExactTier = 999;
+    let bestLastStop = -1;
+    let bestLen = -1;
+
+    const considerCandidate = (xmlId, exactTier) => {
+      if (!xmlId || seenIds.has(xmlId)) return;
+      seenIds.add(xmlId);
+      const list = this.programmesByChannel.get(xmlId);
+      if (!list || list.length === 0) return;
+
+      const hasLive = this.findCurrentProgrammeIndex(list, nowMs) !== -1;
+      const lastP = list[list.length - 1];
+      const lastStop = lastP && typeof lastP.stopMs === 'number' ? lastP.stopMs : 0;
+      const len = list.length;
+
+      if (!bestList) {
+        bestId = xmlId;
+        bestList = list;
+        bestHasLive = hasLive;
+        bestExactTier = exactTier;
+        bestLastStop = lastStop;
+        bestLen = len;
+        return;
+      }
+
+      if (hasLive !== bestHasLive) {
+        if (hasLive) {
+          bestId = xmlId;
+          bestList = list;
+          bestHasLive = hasLive;
+          bestExactTier = exactTier;
+          bestLastStop = lastStop;
+          bestLen = len;
+        }
+        return;
+      }
+
+      if (exactTier !== bestExactTier) {
+        if (exactTier < bestExactTier) {
+          bestId = xmlId;
+          bestList = list;
+          bestHasLive = hasLive;
+          bestExactTier = exactTier;
+          bestLastStop = lastStop;
+          bestLen = len;
+        }
+        return;
+      }
+
+      if (lastStop > bestLastStop || (lastStop === bestLastStop && len > bestLen)) {
+        bestId = xmlId;
+        bestList = list;
+        bestHasLive = hasLive;
+        bestExactTier = exactTier;
+        bestLastStop = lastStop;
+        bestLen = len;
+      }
+    };
+
     for (let i = 0; i < candidates.length; i++) {
       const c = candidates[i];
       if (!c || typeof c !== 'string') continue;
       const trimmed = c.trim();
       if (!trimmed) continue;
+      const lower = trimmed.toLowerCase();
 
       // 1. Direct match
       if (this.programmesByChannel.has(trimmed)) {
-        if (cacheKey) this._channelMatchCache.set(cacheKey, trimmed);
-        return this.programmesByChannel.get(trimmed);
+        considerCandidate(trimmed, i);
       }
 
-      // 2. Alias map match (exact or lowercase)
-      const aliasTarget = this.channelAliasMap.get(trimmed) || this.channelAliasMap.get(trimmed.toLowerCase());
-      if (aliasTarget && this.programmesByChannel.has(aliasTarget)) {
-        if (cacheKey) this._channelMatchCache.set(cacheKey, aliasTarget);
-        return this.programmesByChannel.get(aliasTarget);
+      // 2. Alias candidates (exact or lowercase)
+      const exactCands = this.channelAliasCandidates.get(trimmed);
+      if (exactCands) {
+        for (let k = 0; k < exactCands.length; k++) {
+          considerCandidate(exactCands[k], exactCands[k] === trimmed ? i : 50 + i);
+        }
+      }
+      const lowerCands = this.channelAliasCandidates.get(lower);
+      if (lowerCands) {
+        for (let k = 0; k < lowerCands.length; k++) {
+          considerCandidate(lowerCands[k], lowerCands[k].toLowerCase() === lower ? i : 50 + i);
+        }
+      }
+      const aliasTarget = this.channelAliasMap.get(trimmed) || this.channelAliasMap.get(lower);
+      if (aliasTarget) {
+        considerCandidate(aliasTarget, 50 + i);
       }
 
-      // 3. Normalized fuzzy alias match
+      // 3. Normalized fuzzy / synonym alias candidates
       const norm = this.normalizeChannelKey(trimmed);
       if (norm) {
+        if (this.programmesByChannel.has(norm)) {
+          considerCandidate(norm, 100 + i);
+        }
+        const normCands = this.channelAliasCandidates.get(norm);
+        if (normCands) {
+          for (let k = 0; k < normCands.length; k++) {
+            considerCandidate(normCands[k], 100 + i);
+          }
+        }
         const normTarget = this.channelAliasMap.get(norm);
-        if (normTarget && this.programmesByChannel.has(normTarget)) {
-          if (cacheKey) this._channelMatchCache.set(cacheKey, normTarget);
-          return this.programmesByChannel.get(normTarget);
+        if (normTarget) {
+          considerCandidate(normTarget, 100 + i);
         }
       }
     }
 
-    if (cacheKey) this._channelMatchCache.set(cacheKey, '');
-    return null;
+    if (cacheKey) this._channelMatchCache.set(cacheKey, bestId);
+    return bestList;
   }
 
   _getCachedSyntheticSevenDaySchedule(channel) {

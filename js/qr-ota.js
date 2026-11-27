@@ -16,6 +16,7 @@ const OTA_STORAGE_KEYS = {
   INSTALLED_BUNDLE: 'zenplay_ota_installed_bundle',
   LAST_BASE_BUNDLE_VERSION: 'zenplay_last_base_bundle_version',
   JUST_UPDATED_INFO: 'zenplay_ota_just_updated_info',
+  AUTO_OTA_ENABLED: 'zenplay_ota_auto_update_v1',
   TV_PAIRING_CODE: 'zenplay_tv_pairing_code',
   LAST_CLOUD_MSG_ID: 'zenplay_last_cloud_msg_id',
   CUSTOM_OTA_URL: 'zenplay_custom_ota_manifest_url'
@@ -305,6 +306,7 @@ class OTACloudManager {
     this.pendingManifest = null;
     this.otaAutoTimer = null;
     this._isInstallingOta = false;
+    this._pendingChangelogInfo = null;
     this._appliedBundleSignature = null;
     this._fetchingGlassCss = false;
 
@@ -320,6 +322,21 @@ class OTACloudManager {
     this.reconcileBaseBundleUpgrade();
     this.ensureOTAChannelControlsDOM();
     this.applySavedOTABundle();
+  }
+
+  isAutoOtaEnabled() {
+    try {
+      return localStorage.getItem(OTA_STORAGE_KEYS.AUTO_OTA_ENABLED) !== '0';
+    } catch (e) {
+      return true;
+    }
+  }
+
+  setAutoOtaEnabled(enabled) {
+    try {
+      localStorage.setItem(OTA_STORAGE_KEYS.AUTO_OTA_ENABLED, enabled ? '1' : '0');
+    } catch (e) {}
+    return this.isAutoOtaEnabled();
   }
 
   getBaseBundleVersion() {
@@ -863,7 +880,11 @@ class OTACloudManager {
 
         if (isNewer) {
           this.pendingManifest = manifest;
-          this.showOTAUpdateAvailablePopup(manifest, currentVer);
+          if (this.isAutoOtaEnabled()) {
+            this.performOTAUpdate(manifest, { autoSilent: true });
+          } else {
+            this.showOTAUpdateAvailablePopup(manifest, currentVer);
+          }
           return manifest;
         }
 
@@ -884,6 +905,10 @@ class OTACloudManager {
   showOTAUpdateAvailablePopup(manifest, currentVer) {
     const modal = document.getElementById('ota-modal');
     if (!modal) return;
+
+    if (this.app && typeof this.app.cancelAutoFullscreen === 'function') {
+      this.app.cancelAutoFullscreen();
+    }
 
     const settingsModal = document.getElementById('settings-modal');
     if (settingsModal && !settingsModal.classList.contains('hidden')) {
@@ -943,11 +968,70 @@ class OTACloudManager {
     }
   }
 
-  performOTAUpdate(manifest) {
+  _commitAndApplyOTABundle(manifest, previousVer) {
+    try {
+      const baseVer = this.getBaseBundleVersion();
+      localStorage.setItem(OTA_STORAGE_KEYS.INSTALLED_VERSION, manifest.version);
+      localStorage.setItem(OTA_STORAGE_KEYS.INSTALLED_CHANNEL, 'stable');
+      localStorage.setItem(OTA_STORAGE_KEYS.UPDATE_CHANNEL, 'stable');
+      localStorage.setItem(OTA_STORAGE_KEYS.LAST_BASE_BUNDLE_VERSION, baseVer);
+      this.saveInstalledBundleSafe({
+        version: manifest.version,
+        channel: 'stable',
+        baseBundleVersion: baseVer,
+        appliedOnBaseVersion: baseVer,
+        updatedAt: Date.now(),
+        cssPatch: manifest.cssPatch || '',
+        cssGlassPatch: manifest.cssGlassPatch || '',
+        jsPatch: manifest.jsPatch || ''
+      });
+      localStorage.setItem(
+        OTA_STORAGE_KEYS.JUST_UPDATED_INFO,
+        JSON.stringify({
+          version: manifest.version,
+          channel: 'stable',
+          previousVersion: previousVer,
+          title: manifest.title || ('האפליקציה עודכנה לגרסה v' + manifest.version),
+          releaseNotes: manifest.releaseNotes || []
+        })
+      );
+    } catch (e) {}
+
+    this.applySavedOTABundle();
+    this.updateVersionBadgesUI();
+    if (this.app && typeof this.app.updateVideoSurfacePosition === 'function') {
+      this.app.updateVideoSurfacePosition(true);
+    }
+
+    try {
+      localStorage.removeItem(OTA_STORAGE_KEYS.JUST_UPDATED_INFO);
+    } catch (e) {}
+
+    return {
+      version: manifest.version,
+      channel: 'stable',
+      previousVersion: previousVer,
+      title: manifest.title,
+      releaseNotes: manifest.releaseNotes
+    };
+  }
+
+  performOTAUpdate(manifest, options) {
     if (!manifest || this._isInstallingOta) return;
     this._isInstallingOta = true;
 
     const previousVer = this.getRunningVersion();
+    const autoSilent = Boolean(options && options.autoSilent);
+
+    if (autoSilent) {
+      try {
+        const info = this._commitAndApplyOTABundle(manifest, previousVer);
+        this.showOTASuccessPopup(info);
+      } finally {
+        this._isInstallingOta = false;
+      }
+      return;
+    }
 
     const progressWrap = document.getElementById('ota-progress-wrap');
     const progressFill = document.getElementById('ota-progress-fill');
@@ -975,59 +1059,36 @@ class OTACloudManager {
         if (progressFill) progressFill.style.width = '100%';
         if (progressText) progressText.textContent = 'העדכון הושלם (100%)!';
 
-        try {
-          const baseVer = this.getBaseBundleVersion();
-          localStorage.setItem(OTA_STORAGE_KEYS.INSTALLED_VERSION, manifest.version);
-          localStorage.setItem(OTA_STORAGE_KEYS.INSTALLED_CHANNEL, 'stable');
-          localStorage.setItem(OTA_STORAGE_KEYS.UPDATE_CHANNEL, 'stable');
-          localStorage.setItem(OTA_STORAGE_KEYS.LAST_BASE_BUNDLE_VERSION, baseVer);
-          this.saveInstalledBundleSafe({
-            version: manifest.version,
-            channel: 'stable',
-            baseBundleVersion: baseVer,
-            appliedOnBaseVersion: baseVer,
-            updatedAt: Date.now(),
-            cssPatch: manifest.cssPatch || '',
-            cssGlassPatch: manifest.cssGlassPatch || '',
-            jsPatch: manifest.jsPatch || ''
-          });
-          localStorage.setItem(
-            OTA_STORAGE_KEYS.JUST_UPDATED_INFO,
-            JSON.stringify({
-              version: manifest.version,
-              channel: 'stable',
-              previousVersion: previousVer,
-              title: manifest.title || ('האפליקציה עודכנה לגרסה v' + manifest.version),
-              releaseNotes: manifest.releaseNotes || []
-            })
-          );
-        } catch (e) {}
-
-        this.applySavedOTABundle();
-        this.updateVersionBadgesUI();
-        if (this.app && typeof this.app.updateVideoSurfacePosition === 'function') {
-          this.app.updateVideoSurfacePosition(true);
-        }
-
-        try {
-          localStorage.removeItem(OTA_STORAGE_KEYS.JUST_UPDATED_INFO);
-        } catch (e) {}
-
-        this.showOTASuccessPopup({
-          version: manifest.version,
-          channel: 'stable',
-          title: manifest.title,
-          releaseNotes: manifest.releaseNotes
-        });
+        const info = this._commitAndApplyOTABundle(manifest, previousVer);
+        this.showOTASuccessPopup(info);
       } finally {
         this._isInstallingOta = false;
       }
     }, 750);
   }
 
+  flushPendingChangelog() {
+    if (!this._pendingChangelogInfo) return false;
+    if (this.app && this.app.mode === 'DISCLAIMER') return false;
+    const info = this._pendingChangelogInfo;
+    this._pendingChangelogInfo = null;
+    this.showOTASuccessPopup(info);
+    return true;
+  }
+
   showOTASuccessPopup(info) {
+    if (!info) return;
+    if (this.app && this.app.mode === 'DISCLAIMER') {
+      this._pendingChangelogInfo = info;
+      return;
+    }
+
     const modal = document.getElementById('ota-modal');
     if (!modal) return;
+
+    if (this.app && typeof this.app.cancelAutoFullscreen === 'function') {
+      this.app.cancelAutoFullscreen();
+    }
 
     const settingsModal = document.getElementById('settings-modal');
     if (settingsModal && !settingsModal.classList.contains('hidden')) {
@@ -1051,14 +1112,14 @@ class OTACloudManager {
     const btnLater = document.getElementById('btn-ota-later');
 
     if (badgeEl) {
-      badgeEl.textContent = 'עודכן בהצלחה ✓';
+      badgeEl.textContent = 'מה חדש בגרסה ✓';
       badgeEl.className = 'ota-status-pill pill-success';
     }
     if (titleEl) {
-      titleEl.textContent = 'האפליקציה עודכנה בהצלחה לגרסה ' + verLabel + '!';
+      titleEl.textContent = 'המערכת התעדכנה אוטומטית לגרסה ' + verLabel;
     }
     if (verCompareEl) {
-      verCompareEl.textContent = 'גרסה פעילה כעת: ' + verLabel + ' • גרסה מאוחדת';
+      verCompareEl.textContent = 'שינויים וחידושים בגרסה ' + verLabel;
     }
     if (notesListEl) {
       notesListEl.innerHTML = '';
@@ -1091,11 +1152,17 @@ class OTACloudManager {
     if (this.app.previousModeBeforeModal === 'FULLSCREEN') {
       this.app.mode = 'FULLSCREEN';
       this.app.updateVideoSurfacePosition();
+      if (typeof this.app.updateStreamStatsOverlay === 'function') {
+        this.app.updateStreamStatsOverlay();
+      }
     } else {
       this.app.mode = 'BROWSE';
       this.app.focusArea = 'channels';
       this.app.updateVideoSurfacePosition();
       this.app.updateChannelFocusFast();
+      if (typeof this.app.scheduleAutoFullscreen === 'function') {
+        this.app.scheduleAutoFullscreen();
+      }
     }
   }
 

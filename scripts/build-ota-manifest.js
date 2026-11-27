@@ -122,11 +122,26 @@ const jsPatch = `
       if (app.epg) {
         syncClassProto({ prototype: Object.getPrototypeOf(app.epg) }, OtaEPGService);
         if (!app.epg.channelAliasMap) app.epg.channelAliasMap = new Map();
+        if (!app.epg.channelAliasCandidates) app.epg.channelAliasCandidates = new Map();
+        if (app.epg.channelAliasCandidates.size === 0 && app.epg.channelAliasMap.size > 0 && typeof app.epg._addAliasCandidate === 'function') {
+          app.epg.channelAliasMap.forEach(function(targetId, aliasKey) {
+            app.epg._addAliasCandidate(app.epg.channelAliasCandidates, aliasKey, targetId);
+          });
+        }
         if (!app.epg.loadedUrls) app.epg.loadedUrls = [];
         if (!app.epg._channelMatchCache) app.epg._channelMatchCache = new Map();
         if (!app.epg._normCache) app.epg._normCache = new Map();
         app.epg.EPG_CACHE_KEY = 'zenplay_iptv_epg_cache_v491';
-        app.epg.DEFAULT_LIVE_EPG_URL = 'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/epg-il.xml';
+        app.epg.DEFAULT_LIVE_EPG_URLS = [
+          'https://raw.githubusercontent.com/maorisraelii/iptv-webos/main/epg-il.xml',
+          'https://maorisraelii.github.io/iptv-webos/epg-il.xml',
+          'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/epg-il.xml',
+          'epg-il.xml'
+        ];
+        app.epg.DEFAULT_LIVE_EPG_URL = app.epg.DEFAULT_LIVE_EPG_URLS[0];
+        if (typeof app.epg.rebuildAliasesFromLoadedChannels === 'function') {
+          app.epg.rebuildAliasesFromLoadedChannels();
+        }
       }
 
       if (app.store) {
@@ -177,6 +192,9 @@ const jsPatch = `
 
       if (app.otaManager) {
         syncClassProto({ prototype: Object.getPrototypeOf(app.otaManager) }, OtaOTACloudManager);
+        if (typeof app.otaManager._pendingChangelogInfo === 'undefined') {
+          app.otaManager._pendingChangelogInfo = null;
+        }
         if (typeof app.otaManager.ensureOTAChannelControlsDOM === 'function') {
           app.otaManager.ensureOTAChannelControlsDOM();
         }
@@ -190,6 +208,9 @@ const jsPatch = `
       }
       if (typeof app.ensureUiCustomizationDOM === 'function') {
         app.ensureUiCustomizationDOM();
+      }
+      if (typeof app.ensureDisclaimerDOM === 'function') {
+        app.ensureDisclaimerDOM();
       }
       if (typeof app.applyUiPrefs === 'function') {
         app.applyUiPrefs(true);
