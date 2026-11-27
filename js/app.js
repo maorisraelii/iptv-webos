@@ -15,7 +15,8 @@ const STORAGE_KEYS = {
   LAST_CHANNEL: 'zenplay_iptv_last_channel',
   UI_THEME: 'zenplay_ui_theme',
   UI_PREFS: 'zenplay_ui_prefs_v1',
-  AV_PREFS: 'zenplay_av_prefs_v1'
+  AV_PREFS: 'zenplay_av_prefs_v1',
+  DISCLAIMER_ACCEPTED: 'zenplay_disclaimer_accepted_v1'
 };
 
 const DEFAULT_UI_PREFS = {
@@ -50,7 +51,9 @@ const DEFAULT_UI_PREFS = {
   seekStepSec: 30,
   numericJumpMs: 1200,
   singleClickFullscreen: false,
-  zapDebounceMs: 120
+  zapDebounceMs: 120,
+  autoFullscreenSec: 8,
+  backHidesOsdFirst: true
 };
 
 const DEFAULT_AV_PREFS = {
@@ -210,7 +213,11 @@ class IPTVApp {
     this._deferredEpgTimer = null;
     this._bootSplashSafetyTimer = null;
     this._appReadyNotified = false;
+    this._disclaimerFromSettings = false;
+    this._autoFullscreenTimer = null;
+    this._clockTimer = null;
     this.osdTimer = null;
+    this.osdTickTimer = null;
     this.toastTimer = null;
     this.jumpTimer = null;
 
@@ -262,6 +269,9 @@ class IPTVApp {
     if (typeof this._streamStatsTimer === 'undefined') this._streamStatsTimer = null;
     if (typeof this._lastStreamStatsText !== 'string') this._lastStreamStatsText = '';
     if (typeof this._renderingShowRowLogos === 'undefined') this._renderingShowRowLogos = null;
+    if (typeof this._disclaimerFromSettings !== 'boolean') this._disclaimerFromSettings = false;
+    if (typeof this._autoFullscreenTimer === 'undefined') this._autoFullscreenTimer = null;
+    if (typeof this._clockTimer === 'undefined') this._clockTimer = null;
   }
 
   isSafeMode() {
@@ -487,7 +497,8 @@ class IPTVApp {
       osdTimeoutSec: { 3: 1, 5: 1, 8: 1, 12: 1 },
       seekStepSec: { 10: 1, 15: 1, 30: 1, 60: 1 },
       numericJumpMs: { 700: 1, 1200: 1, 2000: 1 },
-      zapDebounceMs: { 0: 1, 120: 1, 280: 1 }
+      zapDebounceMs: { 0: 1, 120: 1, 280: 1 },
+      autoFullscreenSec: { 0: 1, 5: 1, 8: 1, 12: 1, 20: 1 }
     };
     for (let k in DEFAULT_UI_PREFS) {
       if (!Object.prototype.hasOwnProperty.call(DEFAULT_UI_PREFS, k)) continue;
@@ -559,7 +570,8 @@ class IPTVApp {
       key === 'osdTimeoutSec' ||
       key === 'seekStepSec' ||
       key === 'numericJumpMs' ||
-      key === 'zapDebounceMs';
+      key === 'zapDebounceMs' ||
+      key === 'autoFullscreenSec';
     candidate[key] = typeof DEFAULT_UI_PREFS[key] === 'boolean'
       ? Boolean(value)
       : (isIntKey ? parseInt(value, 10) : value);
@@ -1319,6 +1331,36 @@ class IPTVApp {
             '</span>' +
             '<span class="ui-toggle-pill">כבוי</span>' +
           '</button>' +
+          '<button id="btn-pref-backHidesOsdFirst" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="backHidesOsdFirst">' +
+            '<span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">' +
+              '<span class="perf-opt-title">חזור ראשון מסתיר פס מידע</span>' +
+              '<span class="perf-opt-sub">במסך מלא: לחיצה ראשונה תסתיר OSD, שנייה תחזור לרשימה</span>' +
+            '</span>' +
+            '<span class="ui-toggle-pill">מופעל ✓</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">כניסה אוטומטית למסך מלא בעמידה על ערוץ:</p>' +
+        '<div class="perf-options-grid ui-grid-5" id="ui-autofullscreen-options">' +
+          '<button id="btn-autofs-0" class="perf-option-btn focusable" data-ui-pref="autoFullscreenSec" data-ui-value="0">' +
+            '<span class="perf-opt-title">כבוי</span>' +
+            '<span class="perf-opt-sub">ללא מעבר אוטומטי</span>' +
+          '</button>' +
+          '<button id="btn-autofs-5" class="perf-option-btn focusable" data-ui-pref="autoFullscreenSec" data-ui-value="5">' +
+            '<span class="perf-opt-title">5 שניות</span>' +
+            '<span class="perf-opt-sub">מעבר מהיר</span>' +
+          '</button>' +
+          '<button id="btn-autofs-8" class="perf-option-btn focusable" data-ui-pref="autoFullscreenSec" data-ui-value="8">' +
+            '<span class="perf-opt-title">8 שניות</span>' +
+            '<span class="perf-opt-sub">ברירת מחדל</span>' +
+          '</button>' +
+          '<button id="btn-autofs-12" class="perf-option-btn focusable" data-ui-pref="autoFullscreenSec" data-ui-value="12">' +
+            '<span class="perf-opt-title">12 שניות</span>' +
+            '<span class="perf-opt-sub">המתנה נוחה</span>' +
+          '</button>' +
+          '<button id="btn-autofs-20" class="perf-option-btn focusable" data-ui-pref="autoFullscreenSec" data-ui-value="20">' +
+            '<span class="perf-opt-title">20 שניות</span>' +
+            '<span class="perf-opt-sub">המתנה ארוכה</span>' +
+          '</button>' +
         '</div>' +
         '<p class="perf-desc">צעד הרצה קדימה/אחורה במסך מלא (שניות):</p>' +
         '<div class="perf-options-grid ui-grid-4" id="ui-seekstep-options">' +
@@ -1729,7 +1771,15 @@ class IPTVApp {
       } else {
         settingsCard.appendChild(appPanel);
       }
-    } else if (appPanel && (!document.getElementById('ui-layout-options') || !document.getElementById('btn-pref-showClock'))) {
+    } else if (
+      appPanel &&
+      (
+        !document.getElementById('ui-layout-options') ||
+        !document.getElementById('btn-pref-showClock') ||
+        !document.getElementById('btn-pref-backHidesOsdFirst') ||
+        !document.getElementById('ui-autofullscreen-options')
+      )
+    ) {
       appPanel.innerHTML = this._getAppearanceTabHTML();
     }
 
@@ -1771,7 +1821,8 @@ class IPTVApp {
                 key === 'osdTimeoutSec' ||
                 key === 'seekStepSec' ||
                 key === 'numericJumpMs' ||
-                key === 'zapDebounceMs';
+                key === 'zapDebounceMs' ||
+                key === 'autoFullscreenSec';
               this.setUiPref(key, isInt ? parseInt(val, 10) : val, false);
             }
           });
@@ -1875,6 +1926,7 @@ class IPTVApp {
     }
 
     this.ensureIssueReporterDOM();
+    this.ensureDisclaimerDOM();
   }
 
   ensureIssueReporterDOM() {
@@ -2010,7 +2062,322 @@ class IPTVApp {
     }
   }
 
+  _getDisclaimerModalHTML() {
+    return (
+      '<div class="modal-card modal-disclaimer-card">' +
+        '<div class="disclaimer-header">' +
+          '<span class="disclaimer-badge">הצהרה משפטית ותנאי שימוש</span>' +
+          '<h2 class="disclaimer-title">תנאי שימוש והסרת אחריות — IPTV Live TV</h2>' +
+        '</div>' +
+        '<div class="disclaimer-body">' +
+          '<ul class="disclaimer-points">' +
+            '<li>האפליקציה הינה נגן מדיה טכנולוגי בלבד לקבצי M3U / XMLTV שמזין המשתמש.</li>' +
+            '<li>המפתח והפרויקט אינם מארחים, משדרים, מוכרים, מפיצים או מקדמים שידורי טלוויזיה, תכנים מוגנים בזכויות יוצרים או רשימות פרטיות כלשהן.</li>' +
+            '<li>המשתמש בלבד אחראי באופן בלעדי על חוקיות המקורות והקישורים שהוא טוען ועל עמידה בדיני זכויות היוצרים במדינתו.</li>' +
+            '<li>רשימת ההדגמה הראשונית מבוססת על מאגר פתוח וציבורי (<code>iptv-org</code>) וניתנת להחלפה או הסרה בכל עת בהגדרות.</li>' +
+            '<li>השירות והתוכנה מסופקים "כמות שהם" (AS-IS) ללא אחריות מכל סוג; המפתח אינו נושא באחריות לנזק ישיר או עקיף או לזמינות זרמים חיצוניים.</li>' +
+          '</ul>' +
+          '<div class="disclaimer-sub-en" dir="ltr">Media player software only — provides no media content or streams. Users are solely responsible for their own playlists and local copyright compliance. Provided AS-IS.</div>' +
+        '</div>' +
+        '<div class="disclaimer-actions">' +
+          '<button id="btn-disclaimer-accept" class="btn-tv-primary ota-btn-main focusable">אני מאשר/ת את התנאים וממשיך/ה (OK)</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  ensureDisclaimerDOM() {
+    if (typeof document === 'undefined') return;
+
+    if (!document.getElementById('disclaimer-modal') && document.body) {
+      const modal = document.createElement('div');
+      modal.id = 'disclaimer-modal';
+      modal.className = 'modal-backdrop hidden';
+      modal.innerHTML = this._getDisclaimerModalHTML();
+      document.body.appendChild(modal);
+    }
+
+    const aboutCard = document.querySelector('#settings-tab-about .about-card');
+    if (aboutCard) {
+      if (!document.getElementById('btn-toggle-auto-ota')) {
+        const otaRow = document.createElement('div');
+        otaRow.className = 'about-ota-row';
+        otaRow.innerHTML =
+          '<button id="btn-toggle-auto-ota" class="perf-option-btn ui-toggle-btn focusable">' +
+            '<span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">' +
+              '<span class="perf-opt-title">עדכון אוטומטי שקט (ללא לחיצות)</span>' +
+              '<span class="perf-opt-sub">מתקין עדכוני מערכת ברקע אוטומטית ומציג רק את פירוט החידושים</span>' +
+            '</span>' +
+            '<span class="ui-toggle-pill">מופעל ✓</span>' +
+          '</button>';
+        const headerRow = aboutCard.querySelector('.about-header-row');
+        if (headerRow && headerRow.parentNode === aboutCard) {
+          aboutCard.insertBefore(otaRow, headerRow.nextSibling);
+        } else {
+          aboutCard.insertBefore(otaRow, aboutCard.firstChild);
+        }
+      }
+
+      if (!document.getElementById('btn-open-disclaimer')) {
+        const legalBox = document.createElement('div');
+        legalBox.className = 'about-legal-box';
+        legalBox.innerHTML =
+          '<h3>הצהרה משפטית ותנאי שימוש</h3>' +
+          '<p class="about-legal-summary">האפליקציה הינה נגן מדיה טכנולוגי בלבד לקבצי M3U / XMLTV שמזין המשתמש, ואינה מארחת, משדרת או מפיצה תכנים מוגנים. התוכנה מסופקת "כמות שהיא" (AS-IS) והאחריות הבלעדית על חוקיות המקורות חלה על המשתמש בלבד.</p>' +
+          '<div class="about-legal-actions">' +
+            '<button id="btn-open-disclaimer" class="btn-tv-secondary focusable">הצג הצהרה משפטית מלאה</button>' +
+          '</div>';
+        const featBox = aboutCard.querySelector('.about-features-box');
+        if (featBox && featBox.parentNode === aboutCard) {
+          aboutCard.insertBefore(legalBox, featBox.nextSibling);
+        } else {
+          aboutCard.appendChild(legalBox);
+        }
+      }
+    }
+
+    const acceptBtn = document.getElementById('btn-disclaimer-accept');
+    if (acceptBtn && acceptBtn.dataset && acceptBtn.dataset.disclaimerBound !== '1') {
+      acceptBtn.dataset.disclaimerBound = '1';
+      acceptBtn.addEventListener('click', () => this.acceptDisclaimer());
+    }
+
+    const openLegalBtn = document.getElementById('btn-open-disclaimer');
+    if (openLegalBtn && openLegalBtn.dataset && openLegalBtn.dataset.disclaimerBound !== '1') {
+      openLegalBtn.dataset.disclaimerBound = '1';
+      openLegalBtn.addEventListener('click', () => this.openDisclaimerModal(true));
+    }
+
+    const autoOtaBtn = document.getElementById('btn-toggle-auto-ota');
+    if (autoOtaBtn && autoOtaBtn.dataset && autoOtaBtn.dataset.disclaimerBound !== '1') {
+      autoOtaBtn.dataset.disclaimerBound = '1';
+      autoOtaBtn.addEventListener('click', () => {
+        let nextEnabled = false;
+        if (
+          this.otaManager &&
+          typeof this.otaManager.isAutoOtaEnabled === 'function' &&
+          typeof this.otaManager.setAutoOtaEnabled === 'function'
+        ) {
+          nextEnabled = !this.otaManager.isAutoOtaEnabled();
+          this.otaManager.setAutoOtaEnabled(nextEnabled);
+        } else {
+          try {
+            const cur = localStorage.getItem('zenplay_ota_auto_update_v1') !== '0';
+            nextEnabled = !cur;
+            localStorage.setItem('zenplay_ota_auto_update_v1', nextEnabled ? '1' : '0');
+          } catch (e) {}
+        }
+        this.updateAutoOtaButtonUI();
+        this.showToast(nextEnabled ? 'עדכון אוטומטי שקט הופעל ✓' : 'עדכון אוטומטי שקט כובה');
+      });
+    }
+
+    const previewEpgTitle = document.getElementById('preview-epg-title');
+    if (previewEpgTitle && previewEpgTitle.dataset && previewEpgTitle.dataset.guideBound !== '1') {
+      previewEpgTitle.dataset.guideBound = '1';
+      previewEpgTitle.title = 'לחץ לפתיחת מדריך תוכניות 7 ימים';
+      previewEpgTitle.addEventListener('click', (e) => {
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        this.openGuideModal(this.previewedChannel || this.selectedChannel);
+      });
+    }
+
+    this.updateAutoOtaButtonUI();
+  }
+
+  updateAutoOtaButtonUI() {
+    if (typeof document === 'undefined') return;
+    const btn = document.getElementById('btn-toggle-auto-ota');
+    if (!btn) return;
+    let enabled = true;
+    if (this.otaManager && typeof this.otaManager.isAutoOtaEnabled === 'function') {
+      enabled = Boolean(this.otaManager.isAutoOtaEnabled());
+    } else {
+      try {
+        enabled = localStorage.getItem('zenplay_ota_auto_update_v1') !== '0';
+      } catch (e) {}
+    }
+    if (enabled) {
+      btn.classList.add('active-option');
+    } else {
+      btn.classList.remove('active-option');
+    }
+    const pill = btn.querySelector('.ui-toggle-pill');
+    if (pill) {
+      pill.textContent = enabled ? 'מופעל ✓' : 'כבוי';
+      if (enabled) {
+        pill.classList.add('is-on');
+        pill.classList.remove('is-off');
+      } else {
+        pill.classList.remove('is-on');
+        pill.classList.add('is-off');
+      }
+    }
+  }
+
+  shouldShowFirstRunDisclaimer() {
+    if (this.isSafeMode()) return false;
+    try {
+      return localStorage.getItem(STORAGE_KEYS.DISCLAIMER_ACCEPTED) !== '1';
+    } catch (e) {
+      return true;
+    }
+  }
+
+  openDisclaimerModal(fromSettings) {
+    this.ensureDisclaimerDOM();
+    this.cancelAutoFullscreen();
+    const modal = document.getElementById('disclaimer-modal');
+    if (!modal) return;
+
+    const settingsModal = document.getElementById('settings-modal');
+    if (settingsModal && !settingsModal.classList.contains('hidden')) {
+      settingsModal.classList.add('hidden');
+      if (this.otaManager) this.otaManager.stopCloudSyncPolling();
+    }
+
+    this._disclaimerFromSettings = Boolean(fromSettings);
+    this.previousModeBeforeModal = this._disclaimerFromSettings ? 'SETTINGS' : 'BROWSE';
+    this.mode = 'DISCLAIMER';
+
+    const body = modal.querySelector('.disclaimer-body');
+    if (body) body.scrollTop = 0;
+
+    modal.classList.remove('hidden');
+    this.updateVideoSurfacePosition();
+
+    const acceptBtn = document.getElementById('btn-disclaimer-accept');
+    if (acceptBtn) {
+      this.setFocusedElementFast(acceptBtn);
+    } else {
+      this.setupModalFocus('#disclaimer-modal');
+    }
+  }
+
+  closeDisclaimerModal() {
+    const modal = document.getElementById('disclaimer-modal');
+    if (modal) modal.classList.add('hidden');
+
+    const fromSettings = Boolean(this._disclaimerFromSettings);
+    this._disclaimerFromSettings = false;
+
+    if (fromSettings) {
+      this.previousModeBeforeModal = 'BROWSE';
+      this.mode = 'SETTINGS';
+      const settingsModal = document.getElementById('settings-modal');
+      if (settingsModal) settingsModal.classList.remove('hidden');
+      this.switchSettingsTab('about');
+      if (this.otaManager) {
+        this.otaManager.startCloudSyncPolling();
+        this.otaManager.updateVersionBadgesUI();
+      }
+      this.updateVideoSurfacePosition();
+      const openBtn = document.getElementById('btn-open-disclaimer');
+      if (openBtn) {
+        this.setFocusedElementFast(openBtn);
+        this.scrollModalTargetIntoView(openBtn);
+      } else {
+        this.setupModalFocus('#settings-modal');
+      }
+    } else {
+      this.previousModeBeforeModal = 'BROWSE';
+      this.mode = 'BROWSE';
+      this.focusArea = 'channels';
+      this.updateVideoSurfacePosition(true);
+      this.updateChannelFocusFast();
+      this.scheduleAutoFullscreen();
+    }
+  }
+
+  acceptDisclaimer() {
+    try {
+      localStorage.setItem(STORAGE_KEYS.DISCLAIMER_ACCEPTED, '1');
+    } catch (e) {}
+
+    const modal = document.getElementById('disclaimer-modal');
+    if (modal) modal.classList.add('hidden');
+
+    if (this._disclaimerFromSettings) {
+      this.closeDisclaimerModal();
+      return;
+    }
+
+    this._disclaimerFromSettings = false;
+    this.previousModeBeforeModal = 'BROWSE';
+    this.mode = 'BROWSE';
+    this.focusArea = 'channels';
+    this.updateVideoSurfacePosition(true);
+    this.updateChannelFocusFast();
+    this.scheduleAutoFullscreen();
+
+    if (this.otaManager && typeof this.otaManager.flushPendingChangelog === 'function') {
+      this.otaManager.flushPendingChangelog();
+    }
+  }
+
+  cancelAutoFullscreen() {
+    if (this._autoFullscreenTimer) {
+      clearTimeout(this._autoFullscreenTimer);
+      this._autoFullscreenTimer = null;
+    }
+  }
+
+  scheduleAutoFullscreen() {
+    this.cancelAutoFullscreen();
+    if (this.mode !== 'BROWSE' || this.focusArea !== 'channels') return;
+    if (this.isModalOpen() || this.isSafeMode()) return;
+    if (!Array.isArray(this.visibleChannels) || this.visibleChannels.length === 0) return;
+
+    const prefs = this.getUiPrefs();
+    const sec = Number(prefs.autoFullscreenSec);
+    if (!sec || sec <= 0 || isNaN(sec)) return;
+
+    this._autoFullscreenTimer = setTimeout(() => {
+      this._autoFullscreenTimer = null;
+      if (this.mode !== 'BROWSE' || this.focusArea !== 'channels') return;
+      if (this.isModalOpen() || this.isSafeMode()) return;
+      if (!Array.isArray(this.visibleChannels) || this.visibleChannels.length === 0) return;
+
+      const ch = this.visibleChannels[this.focusedChannelIndex] || this.selectedChannel;
+      if (!ch) return;
+      if (!this.selectedChannel || this.selectedChannel.id !== ch.id) {
+        this.highlightChannel(ch, true);
+      }
+      this.enterFullscreen();
+    }, sec * 1000);
+  }
+
+  destroy() {
+    this.cancelAutoFullscreen();
+    this.cancelPendingPreviewPlayback();
+    clearTimeout(this.previewTimer);
+    clearTimeout(this._visibleEpgSyncTimer);
+    clearTimeout(this._miniTimelineTimer);
+    clearTimeout(this._deferredEpgTimer);
+    clearTimeout(this._bootSplashSafetyTimer);
+    clearTimeout(this._resizeDebounceTimer);
+    clearTimeout(this.osdTimer);
+    clearInterval(this.osdTickTimer);
+    clearInterval(this._clockTimer);
+    clearTimeout(this.toastTimer);
+    clearTimeout(this.jumpTimer);
+    clearTimeout(this._seekBadgeClearTimer);
+    clearTimeout(this.editorNumberTimer);
+    this._cancelFullscreenRaf();
+    if (this._streamStatsTimer) {
+      clearInterval(this._streamStatsTimer);
+      this._streamStatsTimer = null;
+    }
+    if (this.otaManager && typeof this.otaManager.stopCloudSyncPolling === 'function') {
+      this.otaManager.stopCloudSyncPolling();
+    }
+    if (this.player && typeof this.player.destroy === 'function') {
+      this.player.destroy();
+    }
+  }
+
   openIssueModal() {
+    this.cancelAutoFullscreen();
     this.ensureIssueReporterDOM();
     const modal = document.getElementById('issue-modal');
     if (!modal) return;
@@ -2157,7 +2524,10 @@ class IPTVApp {
       }
       const pill = btn.querySelector('.ui-toggle-pill');
       if (pill) {
-        const isActionToggle = key === 'wrapNavigation' || key === 'singleClickFullscreen';
+        const isActionToggle =
+          key === 'wrapNavigation' ||
+          key === 'singleClickFullscreen' ||
+          key === 'backHidesOsdFirst';
         pill.textContent = isActionToggle ? (isOn ? 'מופעל ✓' : 'כבוי') : (isOn ? 'מוצג ✓' : 'מוסתר');
         if (isOn) {
           pill.classList.add('is-on');
@@ -2178,7 +2548,8 @@ class IPTVApp {
         key === 'osdTimeoutSec' ||
         key === 'seekStepSec' ||
         key === 'numericJumpMs' ||
-        key === 'zapDebounceMs';
+        key === 'zapDebounceMs' ||
+        key === 'autoFullscreenSec';
       const targetVal = isInt ? parseInt(rawVal, 10) : rawVal;
       if (prefs[key] === targetVal) {
         btn.classList.add('active-option');
@@ -2461,6 +2832,18 @@ class IPTVApp {
       }
     }
 
+    if (Number(prefs.autoFullscreenSec) <= 0) {
+      this.cancelAutoFullscreen();
+    } else if (
+      prev &&
+      prev.autoFullscreenSec !== prefs.autoFullscreenSec &&
+      this.mode === 'BROWSE' &&
+      this.focusArea === 'channels' &&
+      !this.isModalOpen()
+    ) {
+      this.scheduleAutoFullscreen();
+    }
+
     this.renderAppearanceTab();
 
     if (!silent) {
@@ -2563,7 +2946,10 @@ class IPTVApp {
           this.loadActiveEPGSources(false);
         }
         this.applyChannelFilter();
-        const startupFullscreen = !this.isSafeMode() && this.getUiPrefs().startupMode === 'fullscreen';
+        const startupFullscreen =
+          !this.isSafeMode() &&
+          !this.shouldShowFirstRunDisclaimer() &&
+          this.getUiPrefs().startupMode === 'fullscreen';
         this.restoreLastWatchedChannel(startupFullscreen);
         this.updateVideoSurfacePosition(true);
         this.hideBootSplash();
@@ -2654,6 +3040,12 @@ class IPTVApp {
         }
       }
     }
+
+    if (this.shouldShowFirstRunDisclaimer()) {
+      this.openDisclaimerModal(false);
+    } else if (this.mode === 'BROWSE' && this.focusArea === 'channels' && !this.isModalOpen()) {
+      this.scheduleAutoFullscreen();
+    }
   }
 
   /**
@@ -2683,12 +3075,21 @@ class IPTVApp {
       });
     }
 
-    // If no EPG URLs were discovered from playlists or custom settings, supply default fallback feed
+    const defaultLiveEpg =
+      (this.epg && this.epg.DEFAULT_LIVE_EPG_URL) ||
+      'https://raw.githubusercontent.com/maorisraelii/iptv-webos/main/epg-il.xml';
+    const defaultLiveEpgList =
+      this.epg && Array.isArray(this.epg.DEFAULT_LIVE_EPG_URLS) && this.epg.DEFAULT_LIVE_EPG_URLS.length > 0
+        ? this.epg.DEFAULT_LIVE_EPG_URLS
+        : [defaultLiveEpg];
+
+    // If no EPG URLs were discovered from playlists or custom settings, supply default fallback feeds
     if (urls.length === 0) {
-      const defaultLiveEpg =
-        (this.epg && this.epg.DEFAULT_LIVE_EPG_URL) ||
-        'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/epg-il.xml';
-      urls.push(defaultLiveEpg);
+      for (let i = 0; i < defaultLiveEpgList.length; i++) {
+        if (defaultLiveEpgList[i] && urls.indexOf(defaultLiveEpgList[i]) === -1) {
+          urls.push(defaultLiveEpgList[i]);
+        }
+      }
     }
 
     const epgInput = document.getElementById('epg-url-input');
@@ -2702,15 +3103,17 @@ class IPTVApp {
 
     // Safety guard: rewrite monolithic global EPG feeds (like epg.team/3.1.xml which is 307MB)
     // to lightweight curated XMLTV feed to prevent WebKit OOM crash on Smart TV hardware
-    const defaultLiveEpg =
-      (this.epg && this.epg.DEFAULT_LIVE_EPG_URL) ||
-      'https://gist.githubusercontent.com/maorisraelii/b4408ca1c31143ed2f50164629f53f1c/raw/epg-il.xml';
-    const safeUrls = urls.map((u) => {
+    const safeUrls = [];
+    for (let i = 0; i < urls.length; i++) {
+      const u = urls[i];
       if (u && (u.indexOf('epg.team') !== -1 || u.indexOf('epg_ripper_ALL') !== -1)) {
-        return defaultLiveEpg;
+        for (let j = 0; j < defaultLiveEpgList.length; j++) {
+          if (defaultLiveEpgList[j]) safeUrls.push(defaultLiveEpgList[j]);
+        }
+      } else if (u) {
+        safeUrls.push(u);
       }
-      return u;
-    });
+    }
     const uniqueUrls = Array.from(new Set(safeUrls));
 
     if (uniqueUrls.length > 0 && this.epg) {
@@ -2793,7 +3196,8 @@ class IPTVApp {
       osd: document.getElementById('osd-clock')
     };
     this.updateClock();
-    setInterval(() => this.updateClock(), 15000);
+    clearInterval(this._clockTimer);
+    this._clockTimer = setInterval(() => this.updateClock(), 15000);
   }
 
   updateClock() {
@@ -2822,6 +3226,9 @@ class IPTVApp {
   }
 
   updateVideoSurfacePosition(forceRecalc) {
+    if (this.mode === 'FULLSCREEN' || this.isModalOpen()) {
+      this.cancelAutoFullscreen();
+    }
     const surface = this._videoSurfaceEl || (this._videoSurfaceEl = document.getElementById('video-surface'));
     if (!surface) return;
 
@@ -2948,7 +3355,10 @@ class IPTVApp {
         if (!silentBackground) {
           this.onlyFavorites = false;
           this.applyChannelFilter();
-          const shouldFullscreen = !this.isSafeMode() && this.getUiPrefs().startupMode === 'fullscreen';
+          const shouldFullscreen =
+            !this.isSafeMode() &&
+            !this.shouldShowFirstRunDisclaimer() &&
+            this.getUiPrefs().startupMode === 'fullscreen';
           this.restoreLastWatchedChannel(shouldFullscreen);
           this.updateVideoSurfacePosition();
           this.hideBootSplash();
@@ -2986,7 +3396,9 @@ class IPTVApp {
     const startIdx = this.visibleChannels.findIndex((c) => c.id === lastChId);
     this.focusedChannelIndex = startIdx !== -1 ? startIdx : 0;
 
-    this.updateChannelFocusFast();
+    if (!this.isModalOpen()) {
+      this.updateChannelFocusFast();
+    }
     const startCh = this.visibleChannels[this.focusedChannelIndex];
     if (startCh) {
       const prefs = this.getUiPrefs();
@@ -3000,6 +3412,9 @@ class IPTVApp {
         this.cancelPendingPreviewPlayback();
         this.highlightChannel(startCh, false, true);
         this.updateAutoplayOffBadge();
+        if (this._bootSplashHidden && this.mode === 'BROWSE' && this.focusArea === 'channels' && !this.isModalOpen()) {
+          this.scheduleAutoFullscreen();
+        }
         return;
       }
       if (this.isAndroidTvWebView() && !openFullscreen) {
@@ -3014,6 +3429,8 @@ class IPTVApp {
       }
       if (openFullscreen) {
         this.enterFullscreen();
+      } else if (this._bootSplashHidden && this.mode === 'BROWSE' && this.focusArea === 'channels' && !this.isModalOpen()) {
+        this.scheduleAutoFullscreen();
       }
     }
     this.updateAutoplayOffBadge();
@@ -3070,7 +3487,10 @@ class IPTVApp {
     }
 
     this.renderChannelList();
-    if (this.focusArea === 'channels') {
+    if (this.visibleChannels.length === 0) {
+      this.cancelAutoFullscreen();
+    }
+    if (this.focusArea === 'channels' && !this.isModalOpen()) {
       this.updateChannelFocusFast();
     }
   }
@@ -4108,6 +4528,24 @@ class IPTVApp {
     }, waitMs);
   }
 
+  hideOSD() {
+    clearTimeout(this.osdTimer);
+    this.osdTimer = null;
+    clearInterval(this.osdTickTimer);
+    this.osdTickTimer = null;
+    const osd = this._getOsdEls().osd || document.getElementById('fullscreen-osd');
+    if (osd && !osd.classList.contains('hidden')) {
+      osd.classList.add('hidden');
+    }
+    if (this.isSurfing) {
+      this.isSurfing = false;
+      const curChannel = this.selectedChannel || this.visibleChannels[this.focusedChannelIndex];
+      if (curChannel) {
+        this.updateOSD(curChannel, false);
+      }
+    }
+  }
+
   /* --------------------------------------------------------------------------
      Favorites Management
      -------------------------------------------------------------------------- */
@@ -4312,6 +4750,7 @@ class IPTVApp {
   }
 
   updateTimelineFocusFast() {
+    this.cancelAutoFullscreen();
     const target = this.timelineItemNodes[this.focusedTimelineIndex];
     if (target) {
       this._focusedChannelEl = null;
@@ -4324,6 +4763,7 @@ class IPTVApp {
   }
 
   updateHeaderFocusFast() {
+    this.cancelAutoFullscreen();
     const buttons = this.getHeaderButtons();
     const target = buttons[this.focusedHeaderIndex];
     if (target) {
@@ -4407,8 +4847,22 @@ class IPTVApp {
       return;
     }
 
-    // 3. SETTINGS / SEARCH / OTA MODAL MODE
-    if (this.mode === 'SETTINGS' || this.mode === 'SEARCH' || this.mode === 'OTA') {
+    // 2b. LEGAL DISCLAIMER MODAL MODE
+    if (this.mode === 'DISCLAIMER') {
+      if (direction === 'up') {
+        this.scrollActiveModalBy(-160);
+      } else if (direction === 'down') {
+        this.scrollActiveModalBy(160);
+      }
+      const acceptBtn = document.getElementById('btn-disclaimer-accept');
+      if (acceptBtn) {
+        this.setFocusedElementFast(acceptBtn);
+      }
+      return;
+    }
+
+    // 3. SETTINGS / SEARCH / OTA / ISSUE MODAL MODE
+    if (this.mode === 'SETTINGS' || this.mode === 'SEARCH' || this.mode === 'OTA' || this.mode === 'ISSUE') {
       this.navigateModal(direction);
       return;
     }
@@ -4434,6 +4888,7 @@ class IPTVApp {
           this.focusedChannelIndex = 0;
           this._scheduleFocusVisualFlush();
         }
+        this.scheduleAutoFullscreen();
       } else if (direction === 'up') {
         this.cancelPendingPreviewPlayback();
         clearTimeout(this.previewTimer);
@@ -4448,9 +4903,11 @@ class IPTVApp {
         if (this.focusedChannelIndex > 0) {
           this.focusedChannelIndex--;
           this._scheduleFocusVisualFlush();
+          this.scheduleAutoFullscreen();
         } else if (wrap) {
           this.focusedChannelIndex = this.visibleChannels.length - 1;
           this._scheduleFocusVisualFlush();
+          this.scheduleAutoFullscreen();
         } else {
           this._flushFocusVisualsNow();
           this.focusHeaderBar();
@@ -4460,6 +4917,7 @@ class IPTVApp {
         this.flushPendingMiniTimeline();
         // Move focus to the Channel's Program Timeline Strip (Prev/Current/Next shows) or Header
         if (this.timelineItemNodes.length > 0 && prefs.showProgramStrip !== false) {
+          this.cancelAutoFullscreen();
           this.focusArea = 'timeline';
           this.updateTimelineFocusFast();
         } else {
@@ -4514,6 +4972,7 @@ class IPTVApp {
   }
 
   focusHeaderBar() {
+    this.cancelAutoFullscreen();
     this._flushFocusVisualsNow();
     this.focusArea = 'header';
     this.focusedHeaderIndex = 0;
@@ -4530,6 +4989,7 @@ class IPTVApp {
       }
     }
     this.updateChannelFocusFast();
+    this.scheduleAutoFullscreen();
   }
 
   /* --------------------------------------------------------------------------
@@ -4588,10 +5048,16 @@ class IPTVApp {
       return;
     }
 
-    // 3. SETTINGS / SEARCH / OTA MODAL MODE
-    if (this.mode === 'SETTINGS' || this.mode === 'SEARCH' || this.mode === 'OTA') {
+    // 2b. LEGAL DISCLAIMER MODAL MODE
+    if (this.mode === 'DISCLAIMER') {
+      this.acceptDisclaimer();
+      return;
+    }
+
+    // 3. SETTINGS / SEARCH / OTA / ISSUE MODAL MODE
+    if (this.mode === 'SETTINGS' || this.mode === 'SEARCH' || this.mode === 'OTA' || this.mode === 'ISSUE') {
       if (this.currentFocusedEl) {
-        if (this.currentFocusedEl.tagName === 'INPUT') {
+        if (this.currentFocusedEl.tagName === 'INPUT' || this.currentFocusedEl.tagName === 'TEXTAREA') {
           this.activeSettingsInputId = this.currentFocusedEl.id;
           this.currentFocusedEl.focus();
         } else {
@@ -4640,6 +5106,16 @@ class IPTVApp {
   }
 
   handleBack() {
+    if (this.mode === 'DISCLAIMER') {
+      if (this._disclaimerFromSettings) {
+        this.closeDisclaimerModal();
+      } else {
+        const acceptBtn = document.getElementById('btn-disclaimer-accept');
+        if (acceptBtn) this.setFocusedElementFast(acceptBtn);
+      }
+      return;
+    }
+
     if (this.isModalOpen()) {
       this.closeModals();
       return;
@@ -4647,12 +5123,15 @@ class IPTVApp {
 
     if (this.mode === 'FULLSCREEN') {
       if (this.isSurfing) {
-        this.isSurfing = false;
-        const curChannel = this.visibleChannels[this.focusedChannelIndex] || this.selectedChannel;
-        if (curChannel) this.updateOSD(curChannel, false);
-        const osd = document.getElementById('fullscreen-osd');
-        if (osd) osd.classList.add('hidden');
+        this.hideOSD();
         return;
+      }
+      if (this.getUiPrefs().backHidesOsdFirst !== false) {
+        const osd = document.getElementById('fullscreen-osd');
+        if (osd && !osd.classList.contains('hidden')) {
+          this.hideOSD();
+          return;
+        }
       }
       this.exitFullscreen();
       return;
@@ -4684,6 +5163,7 @@ class IPTVApp {
 
   enterFullscreen() {
     if (!this.selectedChannel) return;
+    this.cancelAutoFullscreen();
     this._flushFocusVisualsNow();
     this.mode = 'FULLSCREEN';
     this.isSurfing = false;
@@ -4785,6 +5265,7 @@ class IPTVApp {
       } else {
         runExitFrame();
       }
+      this.scheduleAutoFullscreen();
     } catch (err) {
       console.warn('exitFullscreen notice:', err);
     }
@@ -4804,6 +5285,9 @@ class IPTVApp {
       this.showOSD();
     } else {
       this.updateChannelFocusFast();
+      if (this.mode === 'BROWSE' && this.focusArea === 'channels') {
+        this.scheduleAutoFullscreen();
+      }
     }
   }
 
@@ -4824,6 +5308,9 @@ class IPTVApp {
         this.showOSD();
       } else {
         this.updateChannelFocusFast();
+        if (this.mode === 'BROWSE' && this.focusArea === 'channels') {
+          this.scheduleAutoFullscreen();
+        }
       }
     } else {
       this.showToast('ערוץ מספר ' + num + ' לא נמצא', true);
@@ -5093,6 +5580,7 @@ class IPTVApp {
     const ch = channelOverride || this.previewedChannel || this.selectedChannel || this.visibleChannels[0];
     if (!ch) return;
 
+    this.cancelAutoFullscreen();
     this.previousModeBeforeModal = this.mode === 'FULLSCREEN' ? 'FULLSCREEN' : 'BROWSE';
     this.mode = 'GUIDE';
     this.guideChannel = ch;
@@ -5304,11 +5792,13 @@ class IPTVApp {
       this.mode === 'SEARCH' ||
       this.mode === 'GUIDE' ||
       this.mode === 'OTA' ||
-      this.mode === 'ISSUE'
+      this.mode === 'ISSUE' ||
+      this.mode === 'DISCLAIMER'
     );
   }
 
   openSettingsModal() {
+    this.cancelAutoFullscreen();
     this.previousModeBeforeModal = 'BROWSE';
     this.mode = 'SETTINGS';
     this.activeSettingsInputId = 'm3u-url-input';
@@ -5373,6 +5863,8 @@ class IPTVApp {
     } else if (tabName === 'sources') {
       this.renderSourcesManagerList();
     } else if (tabName === 'about') {
+      this.ensureDisclaimerDOM();
+      this.updateAutoOtaButtonUI();
       if (this.otaManager && typeof this.otaManager.updateVersionBadgesUI === 'function') {
         this.otaManager.updateVersionBadgesUI();
       }
@@ -5591,6 +6083,7 @@ class IPTVApp {
   }
 
   openSearchModal() {
+    this.cancelAutoFullscreen();
     this.previousModeBeforeModal = 'BROWSE';
     this.mode = 'SEARCH';
     document.getElementById('search-modal').classList.remove('hidden');
@@ -5602,6 +6095,12 @@ class IPTVApp {
   }
 
   closeModals() {
+    if (this.mode === 'DISCLAIMER') {
+      if (this._disclaimerFromSettings) {
+        this.closeDisclaimerModal();
+      }
+      return;
+    }
     if (this.otaManager) {
       this.otaManager.stopCloudSyncPolling();
     }
@@ -5611,6 +6110,7 @@ class IPTVApp {
     }
     if (this.previousModeBeforeModal === 'FULLSCREEN') {
       this.mode = 'FULLSCREEN';
+      this.cancelAutoFullscreen();
       this.updateVideoSurfacePosition();
       this.updateStreamStatsOverlay();
     } else {
@@ -5619,6 +6119,7 @@ class IPTVApp {
       this.updateStreamStatsOverlay();
       this.updateVideoSurfacePosition(true);
       this.updateChannelFocusFast();
+      this.scheduleAutoFullscreen();
     }
   }
 
@@ -5647,7 +6148,14 @@ class IPTVApp {
         node.id === 'channel-editor-list' ||
         node.id === 'search-results-list' ||
         node.id === 'guide-programmes-list' ||
-        (node.classList && (node.classList.contains('modal-body') || node.classList.contains('settings-tab-content')))
+        (
+          node.classList &&
+          (
+            node.classList.contains('modal-body') ||
+            node.classList.contains('settings-tab-content') ||
+            node.classList.contains('disclaimer-body')
+          )
+        )
       ) {
         if (node.scrollHeight > node.clientHeight + 2) {
           return node;
@@ -5724,7 +6232,7 @@ class IPTVApp {
     if (typeof document === 'undefined') return;
     const activeModal = document.querySelector('.modal-backdrop:not(.hidden)');
     if (!activeModal) return;
-    const visibleBody = activeModal.querySelector('.modal-body:not(.hidden)');
+    const visibleBody = activeModal.querySelector('.modal-body:not(.hidden), .disclaimer-body');
     if (visibleBody && visibleBody.scrollTop > 0) {
       visibleBody.scrollTop = 0;
     }
@@ -5739,7 +6247,8 @@ class IPTVApp {
       activeModal.querySelector('#guide-programmes-list'),
       activeModal.querySelector('#channel-editor-list'),
       activeModal.querySelector('#search-results-list'),
-      activeModal.querySelector('.modal-body:not(.hidden)')
+      activeModal.querySelector('.modal-body:not(.hidden)'),
+      activeModal.querySelector('.disclaimer-body')
     ];
     for (let i = 0; i < candidates.length; i++) {
       const el = candidates[i];
@@ -6069,6 +6578,8 @@ class IPTVApp {
           this.highlightChannel(ch, true);
           if (prefs.previewAutoplay === 'off' || prefs.singleClickFullscreen === true) {
             this.enterFullscreen();
+          } else {
+            this.scheduleAutoFullscreen();
           }
         }
       });
