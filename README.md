@@ -2,21 +2,23 @@
   <img src="https://files.catbox.moe/f4jrx8.png" alt="IPTV Live TV App Icon" width="128" height="128" />
 </div>
 
-<h1 align="center">📺 Live TV for LG webOS, Android TV &amp; Web Browser (v5.2.0)</h1>
+<h1 align="center">📺 Live TV for LG webOS, Android TV &amp; Web Browser (v5.5.0)</h1>
 
 <p align="center">
-  <strong>Smart, ultra-fast, native-feeling Live TV &amp; Catch-Up IPTV player built for LG webOS Smart TVs (webOS 4.0 – webOS 24+), Android TV / Google TV, and Laptop/Desktop Web Browsers, complete with Built-in Classic &amp; Apple Liquid Glass Themes and an Android One-Click webOS Installer Wizard!</strong>
+  <strong>Smart, ultra-fast, native-feeling Live TV &amp; 7-Day Catch-Up IPTV player built for LG webOS Smart TVs (webOS 4.0 – webOS 24+), Android TV / Google TV, and Laptop/Desktop Web Browsers — featuring Classic &amp; Apple Liquid Glass themes, Web Audio Volume Normalization, Picture Calibration, Automatic Background OTA Updates, and an Android One-Click webOS Installer Wizard.</strong>
 </p>
 
 <p align="center">
   <a href="https://maorisraelii.github.io/iptv-webos/">🌐 Open Web Player (Laptop / PC)</a> •
+  <a href="#-legal-disclaimer--terms-of-use">⚖️ Legal Disclaimer</a> •
   <a href="#-english-documentation">English</a> •
   <a href="#-תיעוד-והתקנה-בעברית">עברית (Hebrew)</a> •
+  <a href="#-הצהרה-משפטית-ותנאי-שימוש">הצהרה משפטית</a> •
   <a href="https://github.com/maorisraelii/iptv-webos/releases/latest">Download Latest Release</a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-5.2.0%20Unified-0284c7?style=for-the-badge" alt="Version 5.2.0" />
+  <img src="https://img.shields.io/badge/Version-5.5.0%20Unified-0284c7?style=for-the-badge" alt="Version 5.5.0" />
   <img src="https://img.shields.io/badge/Web%20App-GitHub%20Pages%20Live-0ea5e9?style=for-the-badge&logo=googlechrome" alt="Web App Live" />
   <img src="https://img.shields.io/badge/Platform-LG%20webOS%20TV-a50034?style=for-the-badge&logo=lg" alt="LG webOS" />
   <img src="https://img.shields.io/badge/Platform-Android%20TV%20%2F%20Google%20TV-16a34a?style=for-the-badge&logo=android" alt="Android TV" />
@@ -26,36 +28,38 @@
   <img src="https://img.shields.io/badge/Language-RTL%20Hebrew%20%2F%20All%20Feeds-0284c7?style=for-the-badge" alt="RTL Hebrew" />
 </p>
 
-> ✨ **Unified Release (`v5.2.0`):** Apple Liquid Glass UI is now built directly into the main app! Switch instantly between **Classic Broadcast** and **Apple Liquid Glass (60fps webOS engine)** anytime inside **Settings → Theme, Buffer & Cache**. Primary Downloader Code: **`2606856`** (legacy Beta code **`2087324`** also automatically downloads the same unified `v5.2.0` build).
+> ✨ **Unified Release (`v5.5.0`):** Classic Broadcast and **Apple Liquid Glass (60fps webOS & Android TV engine)** are built into one unified app with **Automatic Silent Background OTA Updates**, **Audio Normalization**, **Picture Calibration**, **35+ UI/Remote settings**, **Auto-Fullscreen**, and **2-Step Fullscreen Back**. Primary Downloader Code: **`2606856`** (legacy code **`2087324`** also points to the same unified `v5.5.0` build).
 >
-> ✨ **גרסה מאוחדת (`v5.2.0`):** עיצוב **Apple Liquid Glass** אוחד לתוך הגרסה הראשית! ניתן להחליף מיידית בין **קלאסי** ל-**Apple Liquid Glass (מנוע 60fps ל-webOS)** מתוך **הגדרות ← ערכת נושא, באפר וקאש**. קוד Downloader ראשי: **`2606856`** (גם הקוד הקודם **`2087324`** מפנה כעת לאותה גרסה מאוחדת).
+> ✨ **גרסה מאוחדת (`v5.5.0`):** ממשק **Classic Broadcast** ו-**Apple Liquid Glass (מנוע 60fps ל-webOS ו-Android TV)** משולבים בגרסה אחת עם **עדכוני OTA אוטומטיים ברקע**, **נרמול שמע**, **כיול תמונה**, **35+ הגדרות עיצוב ושלט**, **מסך מלא אוטומטי** ו-**חזור דו-שלבי (OSD ← רשימה)**. קוד Downloader ראשי: **`2606856`** (גם הקוד הקודם **`2087324`** מפנה לאותה גרסה מאוחדת).
+
+> ⚖️ **Legal Notice / הבהרה משפטית:** This application is neutral IPTV/M3U media player software only — it does **not** host, provide, sell, distribute, or curate any streams or copyrighted media. Users must supply their own playlists/EPG URLs and bear 100% sole legal responsibility. ([Read full English Disclaimer](#-legal-disclaimer--terms-of-use) • [לקריאת ההצהרה המשפטית המלאה בעברית](#-הצהרה-משפטית-ותנאי-שימוש))
 
 ---
 
-## 📸 Screenshots (v5.2.0)
+## 📸 Screenshots (v5.5.0)
 
 <p align="center">
   <img src="https://files.catbox.moe/fzplkt.png" alt="Live TV Main Split Workspace" width="90%" />
   <br />
-  <em>Main Split Workspace: Right-side O(1) Channel List with Real-Time EPG, Mini Progress Bars, Start/End Times &amp; Remaining Minutes + Left-side 16:9 Live Preview &amp; 5-Program Start-Over Strip.</em>
+  <em>Main Split Workspace: O(1) Channel List (configurable Right or Left side) with Real-Time EPG, Mini Progress Bars, Start/End Times &amp; Remaining Minutes + 16:9 Live Preview &amp; 5-Program Start-Over Strip.</em>
 </p>
 
 <p align="center">
   <img src="https://files.catbox.moe/wnosf1.png" alt="Live TV Fullscreen Info Bar OSD" width="90%" />
   <br />
-  <em>Fullscreen Unified Info Bar (OSD): Live &amp; Start-Over programme details, elapsed/total progress, previous &amp; next shows, seek speed multiplier badge, and instant remote shortcuts.</em>
+  <em>Fullscreen Unified Info Bar (OSD): Live &amp; Start-Over programme details, elapsed/total progress, previous &amp; next shows, seek speed multiplier badge, optional live Stream Stats overlay, and instant remote shortcuts.</em>
 </p>
 
 <p align="center">
   <img src="https://files.catbox.moe/57jh6j.png" alt="7-Day Channel Program Guide Modal" width="90%" />
   <br />
-  <em>7-Day Channel Program Guide (Yellow / Menu / Guide): Instant day-by-day zapping and 1-click Start-Over on past or live broadcasts.</em>
+  <em>7-Day Channel Program Guide (Yellow / Menu / Guide / clickable Programme Title): Instant day-by-day zapping and 1-click Start-Over on past or live broadcasts.</em>
 </p>
 
 <p align="center">
   <img src="https://files.catbox.moe/lxrrei.png" alt="Multi-M3U & Phone QR Sync Settings" width="90%" />
   <br />
-  <em>Settings &amp; QR Phone Sync: Push M3U playlists and XMLTV feeds directly from your phone without typing on the TV remote.</em>
+  <em>Settings &amp; QR Phone Sync: Push M3U playlists and XMLTV feeds directly from your phone without typing on the TV remote, plus 6-tab Audio, Picture, Appearance &amp; About customization.</em>
 </p>
 
 ---
@@ -63,30 +67,56 @@
 <a id="-english-documentation"></a>
 ## 🇬🇧 English Documentation
 
-### 🚀 What's New in v5.2.0
+<a id="-legal-disclaimer--terms-of-use"></a>
+### ⚖️ Legal Disclaimer &amp; Terms of Use
 
-1. **GitHub Pages Live Web Player (Laptop / Desktop) & CI Deployment Fix (`.github/workflows/build_ipk.yml`, `js/loader.js`, `js/remote.js`)**:
-   - Restored GitHub Pages at **[`https://maorisraelii.github.io/iptv-webos/`](https://maorisraelii.github.io/iptv-webos/)** so you can watch directly in any Laptop/PC browser (`Space` Play/Pause, `F` Fullscreen toggle, `M` Mute, `Esc` or clickable Back button to exit fullscreen, plus local `.m3u` file import in Settings and proportional width+height laptop scaling).
-   - Restricted `deploy-pages` strictly to non-PR `main` pushes so Pull Requests no longer create failed `github-pages` deployments.
-2. **Built-In Theme Switcher (`Classic` ↔ `Apple Liquid Glass`) & 60fps webOS Engine (`css/theme-glass.css`, `index.html`, `js/app.js`)**:
-   - Unified the former Beta Liquid Glass branch cleanly into the main app — switch instantly anytime inside **Settings → Theme, Buffer & Cache** (`ערכת נושא, באפר וקאש`) between **Classic Broadcast** and **Apple Liquid Glass (10-iteration 60fps LG webOS & Android TV engine)** with zero reload and persistent theme boot splash!
-2. **Android TV 11 (API 30) Black Screen Fix &amp; Safe Browse Boot (`android-tv/`, `js/app.js`, `js/loader.js`)**:
-   - Serves bundled web assets from a virtual HTTPS origin (`https://appassets.androidplatform.net/`) with a built-in native CORS proxy (`/__proxy__`), Chromium 83 layout compatibility (`top/right/bottom/left` + `zoom` scaling for 720p/1080p), native boot overlay until `notifyAppReady()`, and reliable startup directly into the split Browse workspace.
-2. **Native Android TV / Google TV Edition (`IPTV-Live-AndroidTV.apk`)**:
-   - Full native Android TV launcher app (`android-tv/`, Leanback TV banner + `LAUNCHER` / `LEANBACK_LAUNCHER` support, `1920px` responsive viewport, immersive fullscreen, keep-screen-on, hardware-accelerated WebView, and zero gray default video poster).
-   - Seamless D-Pad &amp; TV remote bridge forwarding `DPAD`, `CH+/CH-`, `Play/Pause`, `Rewind/Fast-Forward`, `Guide/Info/Menu`, `Color` buttons, and `0–9` digits — including **long-press `OK` (550ms)** in fullscreen to toggle Start-Over ON/OFF on remotes without color buttons!
-3. **Channel List EPG Sync Fix (`js/app.js`, `js/epg.js`)**:
-   - Loads cached EPG synchronously before channel filtering/rendering on cold boot, purges synthetic `gen_*` fallback entries whenever real XMLTV data is present, clears stale match caches, and refreshes **all** rendered channel rows (including offscreen rows and `timeRange`) so the channel list is never out of sync with the OSD.
-4. **Continuous Live Start-Over Playback (`js/player.js`)**:
-   - Fixed live Start-Over archive URLs (`buildCatchupUrl`) so `stopUnix` is never truncated at `nowUnix` — watching a currently airing show from the beginning now plays continuously to the end without freezing at the moment you pressed Start-Over.
-   - Catchup seeking (`seekCatchup`) seeks smoothly inside the existing HLS buffer when available and debounces (`220ms`) seamless stream reloads when jumping outside the buffer.
-5. **Seamless Auto-Advance &amp; Red Button Start-Over Toggle (`js/player.js`, `js/app.js`)**:
-   - When a Start-Over programme finishes, `handleCatchupStreamBoundary` automatically transitions `player.currentProgramme` and the OSD Info Bar (including true Previous/Next adjacent programmes) to the next show — or exits cleanly back to Live when catching up to real time.
-   - Pressing **Red** 🔴 (or long-pressing **OK**) while Start-Over is active toggles it **OFF** and returns immediately to Live broadcast via `exitStartOverToLive()`.
-6. **Hebrew RTL Seek Direction Swap (`js/app.js`)**:
-   - In Fullscreen RTL mode, pressing **Left (`◄`)** now seeks **Forward (`+15s`)** and pressing **Right (`►`)** seeks **Backward (`-15s`)** to match the RTL progress bar visually.
-7. **Accelerated Long-Press Seeking (`js/app.js`, `js/remote.js`)**:
-   - Holding `◄` / `►` (or Green/Blue / Rewind/Fast-Forward) continuously ramps seek speed smoothly through progressive tiers: **`15s → 30s (×2) → 60s (×4) → 180s (×8) → 300s (×16)`** with a live speed badge inside `#osd-live-badge`.
+- **Media Player Software Only:** This project is strictly a neutral IPTV / M3U / XMLTV media player software interface. It does **not** host, stream, provide, sell, distribute, or curate any television channels, video streams, or copyrighted media content.
+- **User Responsibility &amp; Copyright Compliance:** Users must supply their own M3U playlists and XMLTV EPG URLs and bear **100% sole legal responsibility** for verifying the legality of all sources they load and complying with applicable local copyright and broadcasting laws.
+- **Optional Public Demo Feed (`iptv-org`):** On initial launch, the app points only to open, publicly listed streams from the community [`iptv-org`](https://github.com/iptv-org/iptv) repository (`countries/il.m3u`) for demonstration. You can remove or replace it at any time in **Settings → Sources**.
+- **Provided "AS-IS":** The software is provided strictly **"AS-IS"** without warranty of any kind, express or implied, including without limitation warranties of merchantability, fitness for a particular purpose, stream availability, or non-infringement.
+- **Built-In In-App Acceptance:** Starting in `v5.5.0`, the Legal Disclaimer is presented on first launch and remains accessible anytime under **Settings → About**.
+
+---
+
+### 🚀 What's New in v5.5.0
+
+1. **Built-In Legal Disclaimer (First Launch + Settings → About)**:
+   - Displays a mandatory first-launch Legal Disclaimer &amp; Terms of Use modal (`#disclaimer-modal`) before playback/browse and adds a permanent **Legal Notice &amp; Terms** card in **Settings → About** (`הגדרות ← אודות`) to review the full disclaimer anytime.
+2. **Real-Time Israeli EPG Multi-Source Freshness Fallback &amp; Multi-Alias Matching Fix (`js/epg.js`)**:
+   - Upgraded default EPG loading to a prioritized multi-source list (`DEFAULT_LIVE_EPG_URLS`: GitHub `raw.githubusercontent.com` → GitHub Pages → Gist → local fallback) with automatic live-coverage verification (`hasLiveCoverage()`), automatically falling back whenever a cached or upstream feed has expired schedules.
+   - Upgraded channel alias resolution (`channelAliasCandidates`) to evaluate all matching XMLTV channel IDs and prioritize IDs carrying live/fresh programmes instead of letting stale sibling IDs overwrite active schedules.
+3. **Automatic Background OTA Updates with Changelog-Only Modal (`js/qr-ota.js`, **Settings → About**)**:
+   - Automatic background OTA updates are enabled by default (toggleable anytime in **Settings → About**): new web bundles apply seamlessly without extra confirmation prompts and present a clean **Changelog-only popup** (`מה חדש בגרסה ✓` + single **Continue Watching (`OK`)** button), deferring cleanly until after first-launch Legal Disclaimer acceptance.
+4. **Browse Auto-Fullscreen Timer (`autoFullscreenSec`)**:
+   - Automatically enters Fullscreen when idling on a focused channel in Browse mode after a configurable delay (`0 / 5 / 8 / 12 / 20s`, default **`8s`**) inside **Settings → Appearance → Navigation &amp; Remote**, cancelling automatically when opening modals, focusing the top bar/timeline, or in Safe Mode.
+5. **2-Step Fullscreen Back (`backHidesOsdFirst`)**:
+   - In Fullscreen mode, pressing **BACK / ESC** for the first time cleanly dismisses the Info Bar (OSD) while keeping video fullscreen; pressing **BACK / ESC** a second time returns to the Browse channel list (toggleable back to 1-step exit in **Settings → Appearance → Navigation &amp; Remote**).
+6. **Clickable Programme Title + UI/Theme Polish**:
+   - Clicking the current programme title in the Browse channel details card now opens the 7-Day Program Guide directly, alongside refined modal spacing, focus polish, and visual balance across both **Classic Broadcast** and **Apple Liquid Glass**.
+
+---
+
+### ✨ Major Updates (v5.3.0 – v5.4.1)
+
+- **`v5.4.1` — In-App GitHub Issue Reporter with Redacted Logs (`js/diagnostics.js`, Settings → About)**:
+  - Added **"Report Issue (Send Log)"** (`דווח על תקלה (שלח לוג)`) inside **Settings → About**, automatically bundling system metadata (version, platform, buffer mode, theme) and the last 80 log lines with automatic privacy redaction for private M3U URLs and tokens — ready for phone QR scan or direct submission.
+- **`v5.4.0` — Audio Volume Normalization (`js/player.js`, Settings → Sound &amp; Picture)**:
+  - Web Audio API real-time RMS volume normalizer with **`Off` (Passthrough)**, **`Gentle` (`-18 dBFS`)**, **`Broadcast` (`-16 dBFS`)**, and **`Night` (`-22 dBFS`)** compression profiles, **`280ms` soft Zap Fade**, **Voice Boost** (`2.4kHz` dialogue clarity filter), and **per-channel `-6dB .. +6dB` Volume Trim** with persistent 250-channel learned loudness memory.
+- **`v5.4.0` — Picture Calibration, Video Quality, Latency, Memory Saver &amp; Telemetry**:
+  - **Picture Presets &amp; Calibration**: **`Original`** (zero-GPU-overhead bypass), **`Vivid`**, **`Cinema`**, **`Crisp`**, **`Soft`**, individual **Brightness / Contrast / Saturation** levels, **Crisp** edge rendering, and **Aspect Ratio** modes (`Contain` / `Cover` / `Fill` / `Zoom 12%`).
+  - **Stream Engine Controls**: ABR quality presets (`Smart` / `Max` / `1080p` / `720p`), **Low Latency** live mode, **Memory Saver** (`Auto` / `Aggressive` 20MB cap / `Off`), and a live Fullscreen **Stream Stats** overlay (resolution, bitrate, buffer, and audio gain).
+- **`v5.3.0` + `v5.4.0` — Clean UI Redesign &amp; 35+ UI / Remote Customization Settings**:
+  - Added **Appearance** and **Sound &amp; Picture** tabs (`6-tab` single-row Settings layout) featuring Quick Presets (`Clean` / `Minimal` / `Full`), **Left / Right channel list layout** (`layoutSide`), adjustable list width, pure `#000000` **OLED** / Midnight / Slate / Deep Blue backgrounds, corner radii (`Sharp` / `Rounded` / `Pill`), focus styles (`Glow` / `Border` / `Solid`), OSD styles &amp; opacity, granular declutter toggles (clock, synopsis, prev/next bar, channel numbers, color bar, logos, toasts), wrap navigation, customizable seek step (`10 / 15 / 30 / 60s`), numeric jump delay, and single-OK fullscreen.
+
+<details>
+<summary><strong>📜 Earlier Foundations (v5.2.0 Highlights)</strong></summary>
+
+1. **GitHub Pages Live Web Player**: Live browser playback at [`https://maorisraelii.github.io/iptv-webos/`](https://maorisraelii.github.io/iptv-webos/) with local `.m3u` file import, QR pairing, clickable fullscreen exit, and proportional viewport scaling.
+2. **Built-In Theme Switcher (`Classic` ↔ `Apple Liquid Glass`)**: Unified both themes into one app with instant zero-reload switching and a 60fps TV-optimized rendering engine.
+3. **Android TV 11 Black Screen Fix &amp; Native Android TV Edition (`IPTV-Live-AndroidTV.apk`)**: Virtual HTTPS origin (`https://appassets.androidplatform.net/`) with native CORS proxy (`/__proxy__`), Leanback TV launcher, D-pad &amp; hardware media key bridge, and **long-press `OK` (0.5s)** to toggle Start-Over on remotes without color buttons.
+4. **Channel List EPG Sync Fix &amp; Continuous Live Start-Over**: Synchronous cache loading, full row synchronization, non-truncated live Start-Over playback, smooth HLS catch-up seeking, seamless auto-advance to the next show, RTL seek direction swap, and progressive long-press seek acceleration (`15s → ×2 → ×4 → ×8 → ×16`).
+
+</details>
 
 ---
 
@@ -99,11 +129,11 @@ Compatible with NVIDIA Shield TV, Chromecast with Google TV, Xiaomi Mi Box / TV 
 2. Enable **"Install unknown apps"** for **Downloader**:
    - Open TV **Settings → Apps → Security &amp; restrictions** (or **Special app access → Install unknown apps**) and turn ON permission for **Downloader**.
 3. Open **Downloader** and enter the Downloader numeric code:
-   - **Unified Release (v5.2.0 — Classic + Apple Liquid Glass Themes built in):**
+   - **Unified Release (v5.5.0 — Classic + Apple Liquid Glass Themes built in):**
      ```text
      2606856
      ```
-   *(Resolves via `https://aftv.news/2606856`. Legacy code `2087324` now also points to the unified `v5.2.0` release.)*
+   *(Resolves via `https://aftv.news/2606856`. Legacy code `2087324` now also points to the unified `v5.5.0` release.)*
 4. Press **Go** — Downloader automatically fetches `IPTV-Live-AndroidTV.apk`. When prompted, select **Install**, then **Open**.
 
 #### Method B (Wi-Fi Transfer from Phone via Send Files to TV)
@@ -120,7 +150,7 @@ Compatible with NVIDIA Shield TV, Chromecast with Google TV, Xiaomi Mi Box / TV 
   ```
 
 #### First-Time Setup &amp; Android TV Remote Tips
-- Open **IPTV Live TV** from your Android TV Home Screen (Apps / Leanback Launcher), open **הגדרות ו-M3U**, and scan the **QR code** with your phone to send your M3U playlists &amp; EPG links effortlessly without typing with the TV remote.
+- Open **IPTV Live TV** from your Android TV Home Screen (Apps / Leanback Launcher), open **Settings → Sources** (`הגדרות ← מקורות`), and scan the **QR code** with your phone to send your M3U playlists &amp; EPG links effortlessly without typing with the TV remote.
 - **Remote Shortcut**: On minimalist Android TV remotes without colored buttons, **hold `OK` (Center button) for 0.5s** in fullscreen to toggle **Start-Over** ON/OFF, press **Menu / Guide** for the 7-Day Program Guide, and hold **◄ / ►** to accelerate seeking (`×2` to `×16`)!
 
 ---
@@ -146,7 +176,7 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 
 1. Install **Developer Mode** on your LG TV from the LG Apps Store and turn ON **Dev Mode Status** + **Key Server**.
 2. Download the latest `.ipk` from GitHub Releases:
-   👉 **[Download `com.iptv.livetv_5.2.0_all.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/com.iptv.livetv_5.2.0_all.ipk)** / **[`IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-webOS.ipk)**
+   👉 **[Download `com.iptv.livetv_5.5.0_all.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/com.iptv.livetv_5.5.0_all.ipk)** / **[`IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-webOS.ipk)**
 3. Open **webOS Dev Manager**, connect to your TV, click **Install App**, and select the downloaded `.ipk`.
 
 ---
@@ -154,30 +184,55 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 <a id="-תיעוד-והתקנה-בעברית"></a>
 ## 🇮🇱 תיעוד והתקנה בעברית
 
-### מה חדש בגרסה v5.2.0?
+<a id="-הצהרה-משפטית-ותנאי-שימוש"></a>
+### ⚖️ הצהרה משפטית ותנאי שימוש
 
-1. **נגן ווב חי ב-GitHub Pages ללפטופ ולמחשב + תיקון Deployments (`.github/workflows/build_ipk.yml`, `js/loader.js`, `js/remote.js`)**:
-   - אתר הווב חזר לפעול בכתובת **[`https://maorisraelii.github.io/iptv-webos/`](https://maorisraelii.github.io/iptv-webos/)** לצפייה מיידית מכל דפדפן במחשב/לפטופ — כולל התאמת תצוגה אוטומטית לפי רוחב+גובה מסך הלפטופ, טעינת קובץ `.m3u` מקומי בהגדרות, כפתור יציאה ממסך מלא בעכבר וקיצורי מקלדת (`Space` השהיה/נגינה, `F` מסך מלא, `M` השתקה).
-   - תוקנה זרימת ה-Deploy ב-GitHub Actions כך ש-Pull Requests לא יוצרים יותר ריצות כושלות ב-Deployments.
-2. **בחירת ערכת נושא מובנית בהגדרות (`קלאסי` ↔ `Apple Liquid Glass`) ומנוע 60fps ל-webOS (`css/theme-glass.css`, `index.html`, `js/app.js`)**:
-   - גרסת הבטא אוחדה לתוך האפליקציה הראשית — ניתן להחליף מיידית וללא הפעלה מחדש בין הממשק הקלאסי לעיצוב **Apple Liquid Glass** (כולל 10 איטרציות האצת חומרה ל-LG webOS ו-Android TV) תחת **הגדרות ← ערכת נושא, באפר וקאש**.
-2. **תיקון מסך שחור ב-Android TV 11 (API 30) ועלייה בטוחה למסך הערוצים**:
-   - טעינת ממשק ה-Web על גבי Virtual HTTPS Origin (`https://appassets.androidplatform.net/`) עם CORS Proxy מובנה (`/__proxy__`), התאמת Chromium 83 וסקיילינג אוטומטי למכשירי 720p/1080p, שכבת טעינה מקורית עד עליית האפליקציה, ופתיחה מיידית ובטוחה למסך רשימת הערוצים המפוצל (Browse Mode).
-2. **מהדורת Android TV / Google TV מלאה (`IPTV-Live-AndroidTV.apk`)**:
-   - אפליקציית Android TV מקורית עם באנר Leanback, תצוגת Fullscreen מותאמת למסכי טלוויזיה (`1920px`), מניעת כיבוי מסך והאצת חומרה.
-   - תמיכה מלאה בשלטי Android TV / Google TV / Mi Box / Shield כולל **לחיצה ארוכה על `OK` (כ-0.5 שנייה)** במסך מלא להפעלה וכיבוי של **סטארט אובר** (גם בשלטים ללא כפתור אדום) וכפתור **Menu / Guide** למדריך 7 ימים!
-3. **תיקון סנכרון לוח השידורים (EPG) ברשימת הערוצים**:
-   - טעינה סינכרונית של המטמון מיד בעליית האפליקציה לפני רינדור הרשימה, ניקוי רשומות דמה (`gen_*`) כשיש EPG אמיתי, ועדכון מלא של כל השורות וטווח השעות (`timeRange`) כדי שרשימת הערוצים ופס המידע יהיו מסונכרנים תמיד.
-4. **סטארט אובר חי רציף ללא קפיאות**:
-   - תיקון בניית כתובת ה-Catchup לתוכנית שמשודרת כעת (ללא קטיעה של זמן הסיום לזמן הנוכחי) כך שהתוכנית מתנגנת ברצף מ-`00:00` ועד סופה בלי לקפוא.
-   - הרצה חכמה בתוך הבאפר הקיים או טעינה מחודשת חלקה (`220ms` debounce) בקפיצות מחוץ לבאפר.
-5. **מעבר אוטומטי לתוכנית הבאה בסטארט אובר + כיבוי באדום 🔴**:
-   - כשמסיימים לצפות בתוכנית בסטארט אובר, הנגן ופס המידע ממשיכים אוטומטית לתוכנית הבאה ברצף (וחוזרים אוטומטית לשידור חי כשמדביקים את זמן האמת).
-   - לחיצה חוזרת על הכפתור האדום 🔴 (או לחיצה ארוכה על `OK`) מכבה את הסטארט אובר ומחזירה מיד לשידור החי.
-6. **התאמת כיווני הרצה לעברית (RTL)**:
-   - במסך מלא, חץ **שמאלה (`◄`)** מריץ **קדימה** (+15 שניות) וחץ **ימינה (`►`)** מריץ **אחורה** (-15 שניות) בהתאמה מלאה לכיוון ציר הזמן בעברית.
-7. **האצת הרצה בלחיצה ארוכה (`×2` עד `×16`)**:
-   - החזקה רציפה של `◄` / `►` (או ירוק/כחול) מאיצה את קפיצות ההרצה בהדרגה: **`15 שניות ← ×2 (30 ש') ← ×4 (דקה) ← ×8 (3 דק') ← ×16 (5 דק')`** עם חיווי מהירות ברור בפס המידע.
+- **נגן מדיה טכנולוגי בלבד:** אפליקציה זו הינה נגן מדיה טכנולוגי בלבד לקובצי M3U / XMLTV שמזין המשתמש. המפתח והפרויקט **אינם** מארחים, משדרים, מוכרים, מפיצים או מקדמים ערוצי טלוויזיה, זרמי מדיה או תכנים המוגנים בזכויות יוצרים.
+- **אחריות בלעדית של המשתמש:** המשתמש נדרש לספק פלייליסטים וכתובות EPG משלו ונושא ב-**100% אחריות משפטית בלעדית** על חוקיות המקורות שהוא טוען ועל עמידה בדיני זכויות היוצרים והשידורים במדינתו.
+- **רשימת הדגמה ציבורית (`iptv-org`):** בהפעלה הראשונית, רשימת ברירת המחדל מבוססת אך ורק על זרמים פתוחים וציבוריים ממאגר הקהילה [`iptv-org`](https://github.com/iptv-org/iptv) (`countries/il.m3u`), וניתנת להסרה או להחלפה בכל עת מתוך **הגדרות ← מקורות**.
+- **ללא אחריות ("AS-IS"):** התוכנה מסופקת **"כמות שהיא" (AS-IS)** ללא אחריות מכל סוג, מפורשת או משתמעת; המפתח והתורמים אינם נושאים באחריות לזמינות זרמים חיצוניים או לכל נזק ישיר או עקיף.
+- **אישור מובנה באפליקציה:** החל מגרסה `v5.5.0`, ההצהרה המשפטית מוצגת לאישור בהפעלה הראשונה וזמינה לעיון מחדש בכל עת תחת **הגדרות ← אודות**.
+
+---
+
+### 🚀 מה חדש בגרסה v5.5.0?
+
+1. **הצהרה משפטית מובנית בהפעלה הראשונה ובלשונית אודות (`index.html`, `js/app.js`)**:
+   - מסך הצהרה משפטית ותנאי שימוש (`#disclaimer-modal`) בהפעלה הראשונה (לפני השימוש השוטף), לצד כרטיסיית מידע משפטי קבועה תחת **הגדרות ← אודות** עם אפשרות לצפות בהצהרה המלאה בכל רגע.
+2. **תיקון אמינות לוח שידורים ישראלי (EPG) ונתיבי גיבוי אוטומטיים (`js/epg.js`)**:
+   - מעבר לרשימת מקורות מתעדפת (`DEFAULT_LIVE_EPG_URLS`: מאגר GitHub הראשי ← GitHub Pages ← Gist ← מקומי) עם בדיקת עדכניות (`hasLiveCoverage()`), כך שאם מקור אחד פג תוקף המערכת עוברת אוטומטית למקור עדכני.
+   - שדרוג מנגנון התאמת הערוצים (`channelAliasCandidates`) לבחירת מזהה הערוץ בעל השידורים העדכניים והחיים ביותר, במקום דריסה על-ידי מזהה כפול לא פעיל.
+3. **עדכוני OTA אוטומטיים ברקע + חלון שינויים בלבד (`js/qr-ota.js`)**:
+   - עדכונים אוטומטיים ברקע מופעלים כברירת מחדל (ניתנים להפעלה/כיבוי תחת **הגדרות ← אודות**): גרסאות חדשות מוחלות אוטומטית ללא חלון אישור מיותר ומציגות חלון **שינויים וחידושים בלבד** (`מה חדש בגרסה ✓` עם כפתור **המשך לצפייה (`OK`)**), תוך המתנה נקייה לאחר אישור ההצהרה המשפטית בהפעלה ראשונה.
+4. **טיימר כניסה אוטומטית למסך מלא (`autoFullscreenSec`)**:
+   - עמידה ללא תזוזה על ערוץ ברשימת הערוצים מעבירה אוטומטית למסך מלא לאחר זמן לבחירה (**`0 / 5 / 8 / 12 / 20` שניות**, ברירת מחדל **`8` שניות**) תחת **הגדרות ← עיצוב וממשק ← ניווט ושלט רחוק**, ומתבטלת אוטומטית בפתיחת חלונות, במעבר לסרגל העליון/סטריפ התוכניות או ב-Safe Mode.
+5. **כפתור חזור דו-שלבי במסך מלא (`backHidesOsdFirst`)**:
+   - במסך מלא, לחיצה ראשונה על **`BACK` / `ESC`** מסתירה את פס המידע (OSD) ומשאירה את הווידאו במסך מלא; לחיצה שנייה מחזירה לרשימת הערוצים (ניתן לשנות חזרה ליציאה בלחיצה אחת בהגדרות).
+6. **פתיחת מדריך 7 ימים בלחיצה על שם התוכנית + ליטוש ממשק**:
+   - לחיצה על שם התוכנית הנוכחית בכרטיס פרטי הערוץ פותחת ישירות את מדריך 7 הימים, לצד ליטוש עיצובי ומרווחים בשתי ערכות הנושא (**Classic** ו-**Apple Liquid Glass**).
+
+---
+
+### ✨ עדכונים מרכזיים קודמים (v5.3.0 – v5.4.1)
+
+- **`v5.4.1` — דיווח תקלות מתוך האפליקציה עם לוג מסונן אוטומטית (`js/diagnostics.js`)**:
+  - כפתור **"דווח על תקלה (שלח לוג)"** בלשונית **אודות** האוסף אוטומטית פרטי מערכת ואת 80 שורות הלוג האחרונות תוך סינון פרטיות אוטומטי של קישורי M3U וטוקנים פרטיים, לשליחה ישירה או בסריקת QR מהטלפון.
+- **`v5.4.0` — נרמול עוצמת שמע (Audio Normalization) וכיול תמונה (`js/player.js`, תמונה וסאונד)**:
+  - **נרמול שמע חכם (Web Audio RMS)**: מצבי **`כבוי`**, **`עדין (-18 dBFS)`**, **`שידור אחיד (-16 dBFS)`** ו-**`לילה (-22 dBFS)`**, כניסת שמע רכה בזפזופ (**`280ms` Zap Fade**), **הדגשת דיבור (`Voice Boost 2.4kHz`)**, וכיוון עוצמה אישי לכל ערוץ (**`-6dB .. +6dB` Volume Trim**) עם זיכרון לומד עד 250 ערוצים.
+  - **כיול תמונה ויחס מסך**: מצב **`מקורי`** (ללא עיבוד GPU), מצבים מהירים (**`חי` / `קולנוע` / `חד` / `רך`**), כיוון **בהירות / ניגודיות / רוויית צבע**, חידוד תמונה (**`Crisp`**) ויחס מסך (**`Contain` / `Cover` / `Fill` / `זום 12%`**).
+  - **איכות וידאו, שיהוי נמוך, חיסכון בזיכרון ונתוני שידור**: פרופילי איכות (**`Smart` / `Max` / `1080p` / `720p`**), מצב **Low Latency** לשידורי ספורט, **Memory Saver** (`Auto` / `Aggressive` 20MB / `Off`), ותצוגת **Stream Stats** חיה במסך מלא.
+- **`v5.3.0` + `v5.4.0` — ממשק נקי מחדש ו-35+ הגדרות עיצוב וניווט**:
+  - לשוניות **עיצוב וממשק** ו-**תמונה וסאונד** (סרגל 6 לשוניות בשורה אחת): מצבי עיצוב מהירים (`Clean` / `Minimal` / `Full`), העברת רשימת הערוצים ל**ימין או לשמאל** (`layoutSide`), רוחב רשימה, רקע **שחור OLED טהור (`#000`)** / חצות / צפחה / כחול עמוק, עגוליות פינות (`Sharp` / `Rounded` / `Pill`), סגנון פוקוס (`Glow` / `Border` / `Solid`), שקיפות וסגנון OSD, הסתרה/הצגה פרטנית של שעון/תקציר/תוכנית קודמת והבאה/מספרי ערוצים/סרגל צבע/לוגואים/Toasts, גלילה מעגלית, צעד הרצה מותאם (`10 / 15 / 30 / 60s`), השהיית קפיצה במספרים ומסך מלא בלחיצת OK אחת.
+
+<details>
+<summary><strong>📜 חידושי בסיס מגרסאות קודמות (v5.2.0)</strong></summary>
+
+1. **נגן ווב חי ב-GitHub Pages ללפטופ ולמחשב**: צפייה ישירה בדפדפן בכתובת [`https://maorisraelii.github.io/iptv-webos/`](https://maorisraelii.github.io/iptv-webos/) כולל טעינת קובץ `.m3u` מקומי, התאמת תצוגה אוטומטית ויציאה ממסך מלא בעכבר.
+2. **החלפה מובנית בין Classic ל-Apple Liquid Glass (60fps)**: החלפה מיידית ללא הפעלה מחדש תחת **הגדרות ← נושא ובאפר**.
+3. **מהדורת Android TV / Google TV מלאה (`IPTV-Live-AndroidTV.apk`)**: תמיכה מלאה ב-Android TV 11+ (Virtual HTTPS Origin + CORS Proxy מובנה), באנר Leanback, **לחיצה ארוכה על `OK` (`0.5` שנייה)** להפעלה/כיבוי של סטארט אובר, וכפתור **Menu / Guide** למדריך 7 ימים.
+4. **סטארט אובר חי רציף + מעבר אוטומטי לתוכנית הבאה + האצת הרצה (`×2` עד `×16`)**: התאמת כיווני הרצה לעברית (שמאל = קדימה, ימין = אחורה), מעבר רציף לתוכנית הבאה או חזרה אוטומטית לשידור חי, וסנכרון EPG מלא ברשימה.
+
+</details>
 
 ---
 
@@ -190,7 +245,7 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 2. אפשר הרשאת התקנת אפליקציות חיצוניות עבור Downloader בטלוויזיה:
    - היכנס ל**הגדרות (Settings) ← אפליקציות (Apps) ← אבטחה והגבלות / גישה מיוחדת (Security &amp; restrictions / Special app access) ← התקנת אפליקציות לא ידועות (Install unknown apps)** והדלק את ההרשאה ל-**Downloader**.
 3. פתח את אפליקציית **Downloader** והקלד בשורת החיפוש/כתובת את **קוד ה-Downloader המספרי**:
-   - **גרסה מאוחדת (v5.2.0 — כולל עיצוב קלאסי + Apple Liquid Glass בהגדרות):**
+   - **גרסה מאוחדת (v5.5.0 — כולל עיצוב קלאסי + Apple Liquid Glass בהגדרות):**
      ```text
      2606856
      ```
@@ -211,7 +266,7 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
   ```
 
 #### הגדרה ראשונית וטיפים לשלט Android TV
-- פתח את **IPTV Live TV** ממסך הבית של הטלוויזיה, היכנס ל-**הגדרות ו-M3U**, וסרוק עם הטלפון את **קוד ה-QR** כדי לשלוח פלייליסטים ו-EPG ישירות מהנייד בלי להקליד עם השלט!
+- פתח את **IPTV Live TV** ממסך הבית של הטלוויזיה, היכנס ל-**הגדרות ← מקורות**, וסרוק עם הטלפון את **קוד ה-QR** כדי לשלוח פלייליסטים ו-EPG ישירות מהנייד בלי להקליד עם השלט!
 - **קיצורי שלט מותאמים ל-Android TV:** בשלטים בלי כפתורים צבעוניים (כמו Xiaomi / Chromecast), **החזקה ארוכה על `OK` (כחצי שנייה)** במסך מלא מפעילה ומכבה **סטארט אובר**, כפתור **Menu / Guide** פותח את מדריך 7 הימים, והחזקה של **◄ / ►** מריצה קדימה/אחורה בהאצה מדורגת (`×2` עד `×16`).
 
 ---
@@ -239,7 +294,7 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 
 1. התקן **Developer Mode** מחנות LG בטלוויזיה, התחבר לחשבון LG, והפעל **Dev Mode Status** + **Key Server**.
 2. הורד את קובץ ההתקנה העדכני:
-   👉 **[הורד `com.iptv.livetv_5.2.0_all.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/com.iptv.livetv_5.2.0_all.ipk)** / **[`IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-webOS.ipk)**
+   👉 **[הורד `com.iptv.livetv_5.5.0_all.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/com.iptv.livetv_5.5.0_all.ipk)** / **[`IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-webOS.ipk)**
 3. התקן בעזרת **webOS Dev Manager** (לחיצה על **Install App** ובחירת קובץ ה-`.ipk`).
 
 ---
@@ -248,14 +303,15 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 
 | כפתור בשלט / Button | מצב רשימה (Browse) | מצב מסך מלא (Fullscreen) |
 | :--- | :--- | :--- |
-| **▲ / ▼** או **CH+ / CH-** | דפדוף ברשימת הערוצים | לחיצה 1: פתיחת פס מידע נוכחי • לחיצה 2+: זפזופ |
-| **◄ (שמאל)** | מעבר לסטריפ 5 התוכניות | **הרצה קדימה 15 שניות** (החזקה רציפה מאיצה `×2 → ×16`) |
-| **► (ימין)** | חזרה לרשימת הערוצים | **הרצה אחורה 15 שניות** (החזקה רציפה מאיצה `×2 → ×16`) |
-| **OK (לחיצה קצרה)** | נגינה / מסך מלא / הפעלת סטארט אובר | השהיה / המשך (`Play/Pause`) או אישור זפזופ |
-| **OK (לחיצה ארוכה 0.5 ש')** | — | **הפעלה / כיבוי של סטארט אובר** (שימושי במיוחד ב-Android TV!) |
-| **0–9** | מעבר מהיר לערוץ עם תצוגת שם הערוץ | מעבר מהיר לערוץ עם תצוגת שם הערוץ |
-| **אדום 🔴** | יציאה מסטארט אובר חזרה לחי | **סטארט אובר** לתוכנית החיה (`00:00`) / לחיצה נוספת לחזרה לחי |
-| **ירוק 🟢 / Rewind ⏪** | — | הרצה אחורה 30 שניות (החזקה מאיצה עד `×16`) |
-| **כחול 🔵 / Fast-Forward ⏩** | — | הרצה קדימה 30 שניות (החזקה מאיצה עד `×16`) |
-| **צהוב 🟡 / Menu / Guide** | פתיחת מדריך תוכניות (7 ימים) | פתיחת מדריך תוכניות (7 ימים) |
-| **Back / Return** | חזרה למסך מלא | חזרה לרשימת הערוצים (או יציאה מתיבת קלט) |
+| **▲ / ▼** או **CH+ / CH-** | דפדוף ברשימת הערוצים (ניתן להפעיל גלילה מעגלית בהגדרות) / Scroll channel list | לחיצה 1: פתיחת פס מידע נוכחי • לחיצה 2+: זפזופ / 1st press: open OSD • 2+: surf channels |
+| **◄ (שמאל / Left)** | מעבר לסטריפ 5 התוכניות / Focus 5-show Program Strip | **הרצה קדימה** (`15s`, החזקה מאיצה `×2 → ×16`) / **Seek forward** (hold ramps `×2 → ×16`) |
+| **► (ימין / Right)** | חזרה לרשימת הערוצים / Return to channel list | **הרצה אחורה** (`15s`, החזקה מאיצה `×2 → ×16`) / **Seek backward** (hold ramps `×2 → ×16`) |
+| **OK (לחיצה קצרה / Short)** | נגינה / מסך מלא / הפעלת סטארט אובר מהסטריפ / Play, Fullscreen, or Start-Over | השהיה / המשך (`Play/Pause`) או אישור זפזופ / Play/Pause or confirm channel surf |
+| **OK (לחיצה ארוכה 0.5 ש')** | — | **הפעלה / כיבוי של סטארט אובר** (שימושי ב-Android TV!) / **Toggle Start-Over ON/OFF** |
+| **0–9** | מעבר מהיר לערוץ עם תצוגת שם הערוץ / Quick numeric channel jump | מעבר מהיר לערוץ עם תצוגת שם הערוץ / Quick numeric channel jump |
+| **אדום 🔴 (Red)** | יציאה מסטארט אובר חזרה לחי / Exit Start-Over to Live | **סטארט אובר** לתוכנית החיה (`00:00`) / לחיצה נוספת לחזרה לחי / **Start-Over** or return to Live |
+| **ירוק 🟢 / Rewind ⏪** | — | הרצה אחורה (ברירת מחדל `30s`, מותאם אישית בהגדרות; החזקה עד `×16`) / Rewind (`10–60s`, hold `×16`) |
+| **כחול 🔵 / Fast-Forward ⏩** | — | הרצה קדימה (ברירת מחדל `30s`, מותאם אישית בהגדרות; החזקה עד `×16`) / Fast-Forward (`10–60s`, hold `×16`) |
+| **צהוב 🟡 / Menu / Guide** | פתיחת מדריך תוכניות (היום + 7 ימים אחורה) / Open 7-Day Program Guide | פתיחת מדריך תוכניות (היום + 7 ימים אחורה) / Open 7-Day Program Guide |
+| **Back / Return / ESC** | חזרה למסך מלא (או יציאה ממודאל/תיבת קלט) / Return to Fullscreen or close modal | **חזור דו-שלבי (2-Step Back):** לחיצה 1 מסתירה את פס המידע (OSD) ונשארת במסך מלא • לחיצה 2 מחזירה לרשימת הערוצים (ניתן לשנות ליציאה מידית בהגדרות) / **1st press hides OSD • 2nd press returns to Browse** |
+| **Auto-Fullscreen (אוטומטי)** | עמידה ללא פעולה על ערוץ עוברת אוטומטית למסך מלא אחרי **8 שניות** (ניתן להגדרה: `0 / 5 / 8 / 12 / 20` ש') / Idle on a channel enters Fullscreen after **8s** (`0/5/8/12/20s` in Settings) | — |
