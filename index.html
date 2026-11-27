@@ -84,7 +84,9 @@
           seekStepSec: 30,
           numericJumpMs: 1200,
           singleClickFullscreen: false,
-          zapDebounceMs: 120
+          zapDebounceMs: 120,
+          autoFullscreenSec: 8,
+          backHidesOsdFirst: true
         };
         var uiPrefs = {};
         var prefKey;
@@ -119,7 +121,8 @@
                 osdTimeoutSec: { 3: 1, 5: 1, 8: 1, 12: 1 },
                 seekStepSec: { 10: 1, 15: 1, 30: 1, 60: 1 },
                 numericJumpMs: { 700: 1, 1200: 1, 2000: 1 },
-                zapDebounceMs: { 0: 1, 120: 1, 280: 1 }
+                zapDebounceMs: { 0: 1, 120: 1, 280: 1 },
+                autoFullscreenSec: { 0: 1, 5: 1, 8: 1, 12: 1, 20: 1 }
               };
               for (prefKey in defaultUiPrefs) {
                 if (!Object.prototype.hasOwnProperty.call(defaultUiPrefs, prefKey)) continue;
@@ -1415,6 +1418,36 @@
               </span>
               <span class="ui-toggle-pill">כבוי</span>
             </button>
+            <button id="btn-pref-backHidesOsdFirst" class="perf-option-btn ui-toggle-btn focusable" data-ui-toggle="backHidesOsdFirst">
+              <span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">
+                <span class="perf-opt-title">חזור ראשון מסתיר פס מידע</span>
+                <span class="perf-opt-sub">במסך מלא: לחיצה ראשונה תסתיר OSD, שנייה תחזור לרשימה</span>
+              </span>
+              <span class="ui-toggle-pill">מופעל ✓</span>
+            </button>
+          </div>
+          <p class="perf-desc">כניסה אוטומטית למסך מלא בעמידה על ערוץ:</p>
+          <div class="perf-options-grid ui-grid-5" id="ui-autofullscreen-options">
+            <button id="btn-autofs-0" class="perf-option-btn focusable" data-ui-pref="autoFullscreenSec" data-ui-value="0">
+              <span class="perf-opt-title">כבוי</span>
+              <span class="perf-opt-sub">ללא מעבר אוטומטי</span>
+            </button>
+            <button id="btn-autofs-5" class="perf-option-btn focusable" data-ui-pref="autoFullscreenSec" data-ui-value="5">
+              <span class="perf-opt-title">5 שניות</span>
+              <span class="perf-opt-sub">מעבר מהיר</span>
+            </button>
+            <button id="btn-autofs-8" class="perf-option-btn focusable" data-ui-pref="autoFullscreenSec" data-ui-value="8">
+              <span class="perf-opt-title">8 שניות</span>
+              <span class="perf-opt-sub">ברירת מחדל</span>
+            </button>
+            <button id="btn-autofs-12" class="perf-option-btn focusable" data-ui-pref="autoFullscreenSec" data-ui-value="12">
+              <span class="perf-opt-title">12 שניות</span>
+              <span class="perf-opt-sub">המתנה נוחה</span>
+            </button>
+            <button id="btn-autofs-20" class="perf-option-btn focusable" data-ui-pref="autoFullscreenSec" data-ui-value="20">
+              <span class="perf-opt-title">20 שניות</span>
+              <span class="perf-opt-sub">המתנה ארוכה</span>
+            </button>
           </div>
           <p class="perf-desc">צעד הרצה קדימה/אחורה במסך מלא (שניות):</p>
           <div class="perf-options-grid ui-grid-4" id="ui-seekstep-options">
@@ -1749,6 +1782,16 @@
             </div>
           </div>
 
+          <div class="about-ota-row">
+            <button id="btn-toggle-auto-ota" class="perf-option-btn ui-toggle-btn focusable">
+              <span class="ui-toggle-text" style="display:flex;flex-direction:column;min-width:0;margin-left:12px;">
+                <span class="perf-opt-title">עדכון אוטומטי שקט (ללא לחיצות)</span>
+                <span class="perf-opt-sub">מתקין עדכוני מערכת ברקע אוטומטית ומציג רק את פירוט החידושים</span>
+              </span>
+              <span class="ui-toggle-pill">מופעל ✓</span>
+            </button>
+          </div>
+
           <div class="about-developer-box">
             <h3>פיתוח, ארכיטקטורה ועיצוב מערכת</h3>
             <div class="about-info-grid">
@@ -1779,6 +1822,14 @@
               <li><strong>מדריך תוכניות 7 ימים וסטארט אובר:</strong> דפדוף נוח לפי ימים (צהוב בשלט), ציר זמן חי במסך הראשי ופאוז/נגן בכפתור האמצע (OK).</li>
               <li><strong>ריבוי מקורות M3U ו-PC Web Studio:</strong> מיזוג מספר רשימות M3U, בחירת ערוצים ומספור ערוצים מותאם אישית מהמחשב או מהטלוויזיה.</li>
             </ul>
+          </div>
+
+          <div class="about-legal-box">
+            <h3>הצהרה משפטית ותנאי שימוש</h3>
+            <p class="about-legal-summary">האפליקציה הינה נגן מדיה טכנולוגי בלבד לקבצי M3U / XMLTV שמזין המשתמש, ואינה מארחת, משדרת או מפיצה תכנים מוגנים. התוכנה מסופקת "כמות שהיא" (AS-IS) והאחריות הבלעדית על חוקיות המקורות חלה על המשתמש בלבד.</p>
+            <div class="about-legal-actions">
+              <button id="btn-open-disclaimer" class="btn-tv-secondary focusable">הצג הצהרה משפטית מלאה</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1884,6 +1935,29 @@
         <div id="issue-submit-status" class="settings-status-box issue-status-box">
           <span id="issue-submit-status-text">מוכן לשליחה — קישורי M3U וטוקנים פרטיים מסוננים אוטומטית לפני השליחה.</span>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Legal Disclaimer & Terms of Use Modal (First-Launch + About Tab) -->
+  <div id="disclaimer-modal" class="modal-backdrop hidden">
+    <div class="modal-card modal-disclaimer-card">
+      <div class="disclaimer-header">
+        <span class="disclaimer-badge">הצהרה משפטית ותנאי שימוש</span>
+        <h2 class="disclaimer-title">תנאי שימוש והסרת אחריות — IPTV Live TV</h2>
+      </div>
+      <div class="disclaimer-body">
+        <ul class="disclaimer-points">
+          <li>האפליקציה הינה נגן מדיה טכנולוגי בלבד לקבצי M3U / XMLTV שמזין המשתמש.</li>
+          <li>המפתח והפרויקט אינם מארחים, משדרים, מוכרים, מפיצים או מקדמים שידורי טלוויזיה, תכנים מוגנים בזכויות יוצרים או רשימות פרטיות כלשהן.</li>
+          <li>המשתמש בלבד אחראי באופן בלעדי על חוקיות המקורות והקישורים שהוא טוען ועל עמידה בדיני זכויות היוצרים במדינתו.</li>
+          <li>רשימת ההדגמה הראשונית מבוססת על מאגר פתוח וציבורי (<code>iptv-org</code>) וניתנת להחלפה או הסרה בכל עת בהגדרות.</li>
+          <li>השירות והתוכנה מסופקים "כמות שהם" (AS-IS) ללא אחריות מכל סוג; המפתח אינו נושא באחריות לנזק ישיר או עקיף או לזמינות זרמים חיצוניים.</li>
+        </ul>
+        <div class="disclaimer-sub-en" dir="ltr">Media player software only — provides no media content or streams. Users are solely responsible for their own playlists and local copyright compliance. Provided AS-IS.</div>
+      </div>
+      <div class="disclaimer-actions">
+        <button id="btn-disclaimer-accept" class="btn-tv-primary ota-btn-main focusable">אני מאשר/ת את התנאים וממשיך/ה (OK)</button>
       </div>
     </div>
   </div>

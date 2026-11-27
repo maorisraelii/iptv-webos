@@ -69,6 +69,22 @@ class RemoteController {
     if (!this.app || !action) return false;
     const act = String(action).toLowerCase();
 
+    if (this.app.mode === 'DISCLAIMER') {
+      if (act === 'up' || act === 'down' || act === 'left' || act === 'right') {
+        this.app.navigate(act);
+        return true;
+      }
+      if (act === 'ok') {
+        this.confirmOrSelectOk();
+        return true;
+      }
+      if (act === 'back') {
+        this.app.handleBack();
+        return true;
+      }
+      return false;
+    }
+
     if (/^[0-9]$/.test(act)) {
       this.unlockAudioOnGesture();
       this.handleNumberKey(act);
@@ -410,7 +426,10 @@ class RemoteController {
       return;
     }
     if (code === 8 || key === 'Backspace') {
-      if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+      if (
+        document.activeElement &&
+        (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')
+      ) {
         return;
       }
       if (typeof e.preventDefault === 'function') e.preventDefault();
@@ -442,6 +461,11 @@ class RemoteController {
         return;
       }
       this.app.changeChannelByOffset(-1);
+      return;
+    }
+
+    // While Legal Disclaimer is open, prevent Guide/Color/OSD/Media hotkeys from opening behind/over it
+    if (this.app && this.app.mode === 'DISCLAIMER') {
       return;
     }
 
