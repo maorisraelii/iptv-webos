@@ -86,7 +86,9 @@
           singleClickFullscreen: false,
           zapDebounceMs: 120,
           autoFullscreenSec: 8,
-          backHidesOsdFirst: true
+          backHidesOsdFirst: true,
+          sleepTimeoutHours: 4,
+          voiceLang: 'he-IL'
         };
         var uiPrefs = {};
         var prefKey;
@@ -115,14 +117,16 @@
                 cornerRadius: { sharp: 1, rounded: 1, pill: 1 },
                 bgTone: { midnight: 1, oled: 1, slate: 1, deepblue: 1 },
                 focusStyle: { glow: 1, border: 1, solid: 1 },
-                osdOpacity: { solid: 1, balanced: 1, light: 1 }
+                osdOpacity: { solid: 1, balanced: 1, light: 1 },
+                voiceLang: { 'he-IL': 1, 'en-US': 1 }
               };
               var uiIntMaps = {
                 osdTimeoutSec: { 3: 1, 5: 1, 8: 1, 12: 1 },
                 seekStepSec: { 10: 1, 15: 1, 30: 1, 60: 1 },
                 numericJumpMs: { 700: 1, 1200: 1, 2000: 1 },
                 zapDebounceMs: { 0: 1, 120: 1, 280: 1 },
-                autoFullscreenSec: { 0: 1, 5: 1, 8: 1, 12: 1, 20: 1 }
+                autoFullscreenSec: { 0: 1, 5: 1, 8: 1, 12: 1, 20: 1 },
+                sleepTimeoutHours: { 0: 1, 1: 1, 2: 1, 3: 1, 4: 1, 6: 1, 8: 1 }
               };
               for (prefKey in defaultUiPrefs) {
                 if (!Object.prototype.hasOwnProperty.call(defaultUiPrefs, prefKey)) continue;
@@ -543,9 +547,17 @@
           <span>מדריך</span>
         </button>
 
+        <button id="btn-open-vod" class="top-nav-btn top-nav-btn-vod focusable" data-action="open-vod">
+          <span>🎬 VOD 7 ימים</span>
+        </button>
+
         <button id="btn-search-trigger" class="top-nav-btn focusable" data-action="open-search">
           <svg class="svg-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
           <span>חיפוש</span>
+        </button>
+
+        <button id="btn-voice-command" class="top-nav-btn top-nav-btn-voice focusable" data-action="voice-command" title="פקודה קולית (V)">
+          <span>🎤 פקודה קולית</span>
         </button>
 
         <button id="btn-open-settings" class="top-nav-btn focusable" data-action="open-settings">
@@ -676,6 +688,7 @@
             <h2 id="osd-channel-name" class="osd-channel-title">שם הערוץ</h2>
             <span id="osd-live-badge" class="osd-live-tag">שידור חי</span>
             <span id="osd-channel-category" class="osd-quality-tag">HD</span>
+            <span id="osd-vod-badge" class="channel-vod-badge hidden">VOD 7d</span>
             <span id="osd-version-badge" class="osd-version-tag">v5.5.0</span>
           </div>
 
@@ -744,6 +757,7 @@
       <div class="jump-preview-info">
         <div id="jump-channel-name" class="jump-channel-name">שם הערוץ</div>
         <div id="jump-channel-epg" class="jump-channel-epg">כעת: שידור ישיר</div>
+        <div id="numeric-zap-preview" class="numeric-zap-preview hidden"></div>
       </div>
     </div>
   </div>
@@ -786,6 +800,18 @@
           <span id="guide-modal-subtitle" class="guide-subtitle-pill">בחר יום בחצים ◀ ▶ ובחר תוכנית לסטארט אובר</span>
         </div>
         <button class="modal-close-btn focusable" data-action="close-modal">✕ סגור (BACK)</button>
+      </div>
+
+      <!-- Guide Mode Scope Switcher (Channel 7-Day Schedule vs Global 7-Day VOD Browser) -->
+      <div id="guide-scope-bar" class="guide-scope-bar">
+        <button id="btn-guide-scope-channel" class="guide-scope-btn active focusable" type="button" data-guide-scope="channel">הערוץ הנוכחי</button>
+        <button id="btn-guide-scope-vod" class="guide-scope-btn focusable" type="button" data-guide-scope="vod">VOD כל הערוצים — 7 ימים</button>
+      </div>
+
+      <!-- Global 7-Day VOD Search & Filter Bar -->
+      <div id="vod-search-bar" class="vod-search-bar hidden">
+        <input type="text" id="vod-search-input" class="tv-input vod-search-input focusable" placeholder="חפש תוכנית מ-7 הימים האחרונים..." dir="rtl">
+        <button id="btn-vod-only-past" class="vod-filter-btn focusable" type="button">רק שידורים מוקלטים</button>
       </div>
 
       <!-- Day Selector Bar (Today + 7 Days Back) -->
@@ -883,6 +909,9 @@
           <div class="epg-actions-col">
             <button id="btn-load-sample" class="btn-tv-secondary focusable" data-action="load-sample">
               איפוס לערוצי ברירת מחדל
+            </button>
+            <button id="btn-append-default-source" class="btn-tv-secondary focusable" data-action="append-default-source" type="button">
+              + הוסף מקור ברירת מחדל (ללא מחיקה)
             </button>
             <button id="btn-save-playlist" class="btn-tv-primary focusable" data-action="save-playlist">
               שמור וטען את כל המקורות
@@ -1500,6 +1529,52 @@
           </div>
         </div>
 
+        <div class="perf-section-card ui-pref-card" id="ui-power-voice-card">
+          <h3>כיבוי מסך אוטומטי (חיסכון בחשמל) ושפת פקודות קוליות</h3>
+          <p class="perf-desc">טיימר כיבוי מסך אוטומטי בחוסר פעילות (ברירת מחדל: 4 שעות):</p>
+          <div class="perf-options-grid ui-grid-4" id="ui-sleep-options">
+            <button id="btn-sleep-0" class="perf-option-btn focusable" type="button" data-sleep-hours="0">
+              <span class="perf-opt-title">כבוי</span>
+              <span class="perf-opt-sub">ללא כיבוי אוטומטי</span>
+            </button>
+            <button id="btn-sleep-1" class="perf-option-btn focusable" type="button" data-sleep-hours="1">
+              <span class="perf-opt-title">1 שעה</span>
+              <span class="perf-opt-sub">חיסכון מהיר</span>
+            </button>
+            <button id="btn-sleep-2" class="perf-option-btn focusable" type="button" data-sleep-hours="2">
+              <span class="perf-opt-title">2 שעות</span>
+              <span class="perf-opt-sub">צפייה קצרה</span>
+            </button>
+            <button id="btn-sleep-3" class="perf-option-btn focusable" type="button" data-sleep-hours="3">
+              <span class="perf-opt-title">3 שעות</span>
+              <span class="perf-opt-sub">מאוזן</span>
+            </button>
+            <button id="btn-sleep-4" class="perf-option-btn focusable" type="button" data-sleep-hours="4">
+              <span class="perf-opt-title">4 שעות</span>
+              <span class="perf-opt-sub">ברירת מחדל</span>
+            </button>
+            <button id="btn-sleep-6" class="perf-option-btn focusable" type="button" data-sleep-hours="6">
+              <span class="perf-opt-title">6 שעות</span>
+              <span class="perf-opt-sub">צפייה ממושכת</span>
+            </button>
+            <button id="btn-sleep-8" class="perf-option-btn focusable" type="button" data-sleep-hours="8">
+              <span class="perf-opt-title">8 שעות</span>
+              <span class="perf-opt-sub">לילה ארוך</span>
+            </button>
+          </div>
+          <p class="perf-desc">שפת זיהוי פקודות קוליות (Voice Language):</p>
+          <div class="perf-options-grid" id="ui-voice-lang-options">
+            <button id="btn-voicelang-he" class="perf-option-btn focusable" type="button" data-voice-lang="he-IL">
+              <span class="perf-opt-title">עברית (he-IL)</span>
+              <span class="perf-opt-sub">ברירת מחדל</span>
+            </button>
+            <button id="btn-voicelang-en" class="perf-option-btn focusable" type="button" data-voice-lang="en-US">
+              <span class="perf-opt-title">English (en-US)</span>
+              <span class="perf-opt-sub">פקודות באנגלית</span>
+            </button>
+          </div>
+        </div>
+
         <div class="perf-actions-bar">
           <div id="ui-prefs-status" class="perf-cache-status">מצב: נקי ומאוזן • צפיפות: מאוזנת • אנימציות: מופחתות</div>
           <div class="perf-action-btns">
@@ -1960,6 +2035,47 @@
         <button id="btn-disclaimer-accept" class="btn-tv-primary ota-btn-main focusable">אני מאשר/ת את התנאים וממשיך/ה (OK)</button>
       </div>
     </div>
+  </div>
+
+  <!-- 60s Power-Saving Sleep Warning Modal -->
+  <div id="sleep-warning-modal" class="modal-backdrop hidden" aria-hidden="true">
+    <div id="sleep-warning-card" class="modal-card sleep-warning-card">
+      <div class="sleep-warning-badge">מצב חיסכון בחשמל</div>
+      <h2 class="sleep-warning-title">המסך ייכבה בקרוב עקב חוסר פעילות</h2>
+      <p class="sleep-warning-desc">המערכת עומדת לעבור למצב חיסכון בחשמל ולהפסיק את השידור כדי לחסוך באנרגיה ולמנוע צריבת מסך.</p>
+      <div class="sleep-countdown-row">
+        <span id="sleep-countdown-sec" class="sleep-countdown-sec">60</span>
+        <span class="sleep-countdown-unit">שניות לכיבוי</span>
+      </div>
+      <div id="sleep-countdown-bar-track" class="sleep-countdown-bar-track" dir="ltr">
+        <div id="sleep-countdown-bar" class="sleep-countdown-bar" style="width:100%;"></div>
+      </div>
+      <div class="sleep-warning-actions">
+        <button id="btn-sleep-stay-awake" class="btn-tv-primary focusable" type="button">אני עדיין צופה — בטל כיבוי (OK)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Voice Command Overlay (1-Press Direct Voice Engine) -->
+  <div id="voice-overlay" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="modal-card voice-card">
+      <div class="voice-header">
+        <div id="voice-mic-ring" class="voice-mic-ring">🎤</div>
+        <div class="voice-title-col">
+          <h2 id="voice-status-text">מקשיב... אמור שם ערוץ, מספר או תוכנית</h2>
+          <div id="voice-transcript-text" class="voice-transcript-text">דוגמה: "קשת 12", "ערוץ 11", "מסך מלא", "חדשות"</div>
+        </div>
+      </div>
+      <div class="voice-actions">
+        <button id="btn-voice-fallback-search" class="btn-tv-primary focusable hidden" type="button">פתח חיפוש מהיר (ערוצים / VOD)</button>
+        <button id="btn-voice-cancel" class="btn-tv-secondary focusable" type="button">✕ ביטול (BACK)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Power-Save Pure Blackout Screen (#000000) -->
+  <div id="power-save-screen" class="power-save-screen hidden" aria-hidden="true">
+    <div class="power-save-hint">מצב חיסכון בחשמל פעיל — לחץ על כל מקש לחזרה לצפייה</div>
   </div>
 
   <!-- Toast Notification -->

@@ -53,7 +53,9 @@ const DEFAULT_UI_PREFS = {
   singleClickFullscreen: false,
   zapDebounceMs: 120,
   autoFullscreenSec: 8,
-  backHidesOsdFirst: true
+  backHidesOsdFirst: true,
+  sleepTimeoutHours: 4,
+  voiceLang: 'he-IL'
 };
 
 const DEFAULT_AV_PREFS = {
@@ -195,13 +197,39 @@ class IPTVApp {
     this.editorNumberBuffer = '';
     this.editorNumberTimer = null;
 
-    // 7-Day Guide Modal state
+    // 7-Day Guide & Global VOD Modal state
     this.guideChannel = null;
+    this.guideScope = 'channel'; // 'channel' | 'vod'
+    this.vodOnlyPast = false;
+    this.vodSearchQuery = '';
+    this.vodResults = [];
+    this._vodSearchDebounceTimer = null;
     this.guideDays = [];
     this.guideDayIndex = 0; // 0 = Today, 1 = Yesterday, ... up to 7
     this.guideProgIndex = 0;
     this.guideProgNodes = [];
     this.guideDayTabNodes = [];
+
+    // Power-Saving Sleep Timer & Blackout Mode state
+    this.isPowerSaveMode = false;
+    this._sleepWarningActive = false;
+    this._sleepWarningTimer = null;
+    this._sleepWarningRemainingSec = 60;
+    this._sleepWarningTotalSec = 60;
+    this._sleepCheckInterval = null;
+    this._lastUserActivityMs = Date.now();
+    this._lastActivityNoteMs = 0;
+    this._channelBeforePowerSave = null;
+    this._modeBeforePowerSave = 'BROWSE';
+    this._modeBeforeSleepWarning = 'BROWSE';
+
+    // Direct 1-Press Voice Command & Focus Restoration state
+    this._activeSpeechRecognition = null;
+    this._savedFocusContext = null;
+    this._lastToastMsg = '';
+    this._lastToastTime = 0;
+    this._lastToastCritical = false;
+    this._pendingToastTimer = null;
 
     // Fullscreen Info-Bar Surfing state
     this.isSurfing = false;
@@ -272,6 +300,19 @@ class IPTVApp {
     if (typeof this._disclaimerFromSettings !== 'boolean') this._disclaimerFromSettings = false;
     if (typeof this._autoFullscreenTimer === 'undefined') this._autoFullscreenTimer = null;
     if (typeof this._clockTimer === 'undefined') this._clockTimer = null;
+    if (this.guideScope !== 'vod' && this.guideScope !== 'channel') this.guideScope = 'channel';
+    if (typeof this.vodOnlyPast !== 'boolean') this.vodOnlyPast = false;
+    if (typeof this.vodSearchQuery !== 'string') this.vodSearchQuery = '';
+    if (!Array.isArray(this.vodResults)) this.vodResults = [];
+    if (typeof this.isPowerSaveMode !== 'boolean') this.isPowerSaveMode = false;
+    if (typeof this._sleepWarningActive !== 'boolean') this._sleepWarningActive = false;
+    if (typeof this._sleepWarningRemainingSec !== 'number') this._sleepWarningRemainingSec = 60;
+    if (typeof this._sleepWarningTotalSec !== 'number') this._sleepWarningTotalSec = 60;
+    if (typeof this._lastUserActivityMs !== 'number') this._lastUserActivityMs = Date.now();
+    if (typeof this._lastActivityNoteMs !== 'number') this._lastActivityNoteMs = 0;
+    if (typeof this._lastToastMsg !== 'string') this._lastToastMsg = '';
+    if (typeof this._lastToastTime !== 'number') this._lastToastTime = 0;
+    if (typeof this._lastToastCritical !== 'boolean') this._lastToastCritical = false;
   }
 
   isSafeMode() {
@@ -491,14 +532,16 @@ class IPTVApp {
       cornerRadius: { sharp: 1, rounded: 1, pill: 1 },
       bgTone: { midnight: 1, oled: 1, slate: 1, deepblue: 1 },
       focusStyle: { glow: 1, border: 1, solid: 1 },
-      osdOpacity: { solid: 1, balanced: 1, light: 1 }
+      osdOpacity: { solid: 1, balanced: 1, light: 1 },
+      voiceLang: { 'he-IL': 1, 'en-US': 1 }
     };
     const intMaps = {
       osdTimeoutSec: { 3: 1, 5: 1, 8: 1, 12: 1 },
       seekStepSec: { 10: 1, 15: 1, 30: 1, 60: 1 },
       numericJumpMs: { 700: 1, 1200: 1, 2000: 1 },
       zapDebounceMs: { 0: 1, 120: 1, 280: 1 },
-      autoFullscreenSec: { 0: 1, 5: 1, 8: 1, 12: 1, 20: 1 }
+      autoFullscreenSec: { 0: 1, 5: 1, 8: 1, 12: 1, 20: 1 },
+      sleepTimeoutHours: { 0: 1, 1: 1, 2: 1, 3: 1, 4: 1, 6: 1, 8: 1 }
     };
     for (let k in DEFAULT_UI_PREFS) {
       if (!Object.prototype.hasOwnProperty.call(DEFAULT_UI_PREFS, k)) continue;
@@ -571,7 +614,8 @@ class IPTVApp {
       key === 'seekStepSec' ||
       key === 'numericJumpMs' ||
       key === 'zapDebounceMs' ||
-      key === 'autoFullscreenSec';
+      key === 'autoFullscreenSec' ||
+      key === 'sleepTimeoutHours';
     candidate[key] = typeof DEFAULT_UI_PREFS[key] === 'boolean'
       ? Boolean(value)
       : (isIntKey ? parseInt(value, 10) : value);
@@ -1412,6 +1456,51 @@ class IPTVApp {
           '</button>' +
         '</div>' +
       '</div>' +
+      '<div class="perf-section-card ui-pref-card" id="ui-power-voice-card">' +
+        '<h3>כיבוי מסך אוטומטי (חיסכון בחשמל) ושפת פקודות קוליות</h3>' +
+        '<p class="perf-desc">טיימר כיבוי מסך אוטומטי בחוסר פעילות (ברירת מחדל: 4 שעות):</p>' +
+        '<div class="perf-options-grid ui-grid-4" id="ui-sleep-options">' +
+          '<button id="btn-sleep-0" class="perf-option-btn focusable" type="button" data-sleep-hours="0">' +
+            '<span class="perf-opt-title">כבוי</span>' +
+            '<span class="perf-opt-sub">ללא כיבוי אוטומטי</span>' +
+          '</button>' +
+          '<button id="btn-sleep-1" class="perf-option-btn focusable" type="button" data-sleep-hours="1">' +
+            '<span class="perf-opt-title">1 שעה</span>' +
+            '<span class="perf-opt-sub">חיסכון מהיר</span>' +
+          '</button>' +
+          '<button id="btn-sleep-2" class="perf-option-btn focusable" type="button" data-sleep-hours="2">' +
+            '<span class="perf-opt-title">2 שעות</span>' +
+            '<span class="perf-opt-sub">צפייה קצרה</span>' +
+          '</button>' +
+          '<button id="btn-sleep-3" class="perf-option-btn focusable" type="button" data-sleep-hours="3">' +
+            '<span class="perf-opt-title">3 שעות</span>' +
+            '<span class="perf-opt-sub">מאוזן</span>' +
+          '</button>' +
+          '<button id="btn-sleep-4" class="perf-option-btn focusable" type="button" data-sleep-hours="4">' +
+            '<span class="perf-opt-title">4 שעות</span>' +
+            '<span class="perf-opt-sub">ברירת מחדל</span>' +
+          '</button>' +
+          '<button id="btn-sleep-6" class="perf-option-btn focusable" type="button" data-sleep-hours="6">' +
+            '<span class="perf-opt-title">6 שעות</span>' +
+            '<span class="perf-opt-sub">צפייה ממושכת</span>' +
+          '</button>' +
+          '<button id="btn-sleep-8" class="perf-option-btn focusable" type="button" data-sleep-hours="8">' +
+            '<span class="perf-opt-title">8 שעות</span>' +
+            '<span class="perf-opt-sub">לילה ארוך</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="perf-desc">שפת זיהוי פקודות קוליות (Voice Language):</p>' +
+        '<div class="perf-options-grid" id="ui-voice-lang-options">' +
+          '<button id="btn-voicelang-he" class="perf-option-btn focusable" type="button" data-voice-lang="he-IL">' +
+            '<span class="perf-opt-title">עברית (he-IL)</span>' +
+            '<span class="perf-opt-sub">ברירת מחדל</span>' +
+          '</button>' +
+          '<button id="btn-voicelang-en" class="perf-option-btn focusable" type="button" data-voice-lang="en-US">' +
+            '<span class="perf-opt-title">English (en-US)</span>' +
+            '<span class="perf-opt-sub">פקודות באנגלית</span>' +
+          '</button>' +
+        '</div>' +
+      '</div>' +
       '<div class="perf-actions-bar">' +
         '<div id="ui-prefs-status" class="perf-cache-status">מצב: נקי ומאוזן • צפיפות: מאוזנת • אנימציות: מופחתות</div>' +
         '<div class="perf-action-btns">' +
@@ -1777,7 +1866,9 @@ class IPTVApp {
         !document.getElementById('ui-layout-options') ||
         !document.getElementById('btn-pref-showClock') ||
         !document.getElementById('btn-pref-backHidesOsdFirst') ||
-        !document.getElementById('ui-autofullscreen-options')
+        !document.getElementById('ui-autofullscreen-options') ||
+        !document.getElementById('ui-sleep-options') ||
+        !document.getElementById('ui-voice-lang-options')
       )
     ) {
       appPanel.innerHTML = this._getAppearanceTabHTML();
@@ -1822,8 +1913,37 @@ class IPTVApp {
                 key === 'seekStepSec' ||
                 key === 'numericJumpMs' ||
                 key === 'zapDebounceMs' ||
-                key === 'autoFullscreenSec';
+                key === 'autoFullscreenSec' ||
+                key === 'sleepTimeoutHours';
               this.setUiPref(key, isInt ? parseInt(val, 10) : val, false);
+            }
+          });
+        }
+      }
+
+      const sleepBtns = appPanel.querySelectorAll('[data-sleep-hours]');
+      for (let i = 0; i < sleepBtns.length; i++) {
+        const btn = sleepBtns[i];
+        if (btn && btn.dataset && btn.dataset.sleepBound !== '1') {
+          btn.dataset.sleepBound = '1';
+          btn.addEventListener('click', () => {
+            const hrs = parseInt(btn.dataset.sleepHours, 10);
+            if (!isNaN(hrs)) {
+              this.setUiPref('sleepTimeoutHours', hrs, false);
+            }
+          });
+        }
+      }
+
+      const voiceLangBtns = appPanel.querySelectorAll('[data-voice-lang]');
+      for (let i = 0; i < voiceLangBtns.length; i++) {
+        const btn = voiceLangBtns[i];
+        if (btn && btn.dataset && btn.dataset.voiceLangBound !== '1') {
+          btn.dataset.voiceLangBound = '1';
+          btn.addEventListener('click', () => {
+            const lang = btn.dataset.voiceLang;
+            if (lang) {
+              this.setUiPref('voiceLang', lang, false);
             }
           });
         }
@@ -1927,6 +2047,10 @@ class IPTVApp {
 
     this.ensureIssueReporterDOM();
     this.ensureDisclaimerDOM();
+    this.ensureVodHeaderBtnDOM();
+    this.ensurePowerSaveDOM();
+    this.ensureVoiceDOM();
+    this.ensureAppendDefaultBtnDOM();
   }
 
   ensureIssueReporterDOM() {
@@ -2185,6 +2309,1235 @@ class IPTVApp {
     this.updateAutoOtaButtonUI();
   }
 
+  ensureVodHeaderBtnDOM() {
+    if (typeof document === 'undefined') return;
+    const headerLeft = document.querySelector('#top-header .header-left');
+    if (headerLeft && !document.getElementById('btn-open-vod')) {
+      const btn = document.createElement('button');
+      btn.id = 'btn-open-vod';
+      btn.className = 'top-nav-btn top-nav-btn-vod focusable';
+      btn.setAttribute('data-action', 'open-vod');
+      btn.innerHTML = '<span>🎬 VOD 7 ימים</span>';
+      const guideBtn = document.getElementById('btn-open-guide');
+      if (guideBtn && guideBtn.parentNode === headerLeft) {
+        headerLeft.insertBefore(btn, guideBtn.nextSibling);
+      } else {
+        headerLeft.appendChild(btn);
+      }
+    }
+    const vodBtn = document.getElementById('btn-open-vod');
+    if (vodBtn && vodBtn.dataset && vodBtn.dataset.vodBound !== '1') {
+      vodBtn.dataset.vodBound = '1';
+      vodBtn.addEventListener('click', () => this.openGuideModal('vod'));
+    }
+
+    const guideCard = document.querySelector('#guide-modal .modal-guide-card') || document.querySelector('#guide-modal .modal-card');
+    if (guideCard && !document.getElementById('guide-scope-bar')) {
+      const daysBar = document.getElementById('guide-days-bar');
+      const scopeBar = document.createElement('div');
+      scopeBar.id = 'guide-scope-bar';
+      scopeBar.className = 'guide-scope-bar';
+      scopeBar.innerHTML =
+        '<button id="btn-guide-scope-channel" class="guide-scope-btn active focusable" type="button" data-guide-scope="channel">הערוץ הנוכחי</button>' +
+        '<button id="btn-guide-scope-vod" class="guide-scope-btn focusable" type="button" data-guide-scope="vod">VOD כל הערוצים — 7 ימים</button>';
+
+      const searchBar = document.createElement('div');
+      searchBar.id = 'vod-search-bar';
+      searchBar.className = 'vod-search-bar hidden';
+      searchBar.innerHTML =
+        '<input type="text" id="vod-search-input" class="tv-input vod-search-input focusable" placeholder="חפש תוכנית מ-7 הימים האחרונים..." dir="rtl">' +
+        '<button id="btn-vod-only-past" class="vod-filter-btn focusable" type="button">רק שידורים מוקלטים</button>';
+
+      if (daysBar && daysBar.parentNode === guideCard) {
+        guideCard.insertBefore(scopeBar, daysBar);
+        guideCard.insertBefore(searchBar, daysBar);
+      } else {
+        guideCard.appendChild(scopeBar);
+        guideCard.appendChild(searchBar);
+      }
+    }
+
+    const scopeChannelBtn = document.getElementById('btn-guide-scope-channel');
+    if (scopeChannelBtn && scopeChannelBtn.dataset && scopeChannelBtn.dataset.vodBound !== '1') {
+      scopeChannelBtn.dataset.vodBound = '1';
+      scopeChannelBtn.addEventListener('click', () => this.setGuideScope('channel'));
+    }
+    const scopeVodBtn = document.getElementById('btn-guide-scope-vod');
+    if (scopeVodBtn && scopeVodBtn.dataset && scopeVodBtn.dataset.vodBound !== '1') {
+      scopeVodBtn.dataset.vodBound = '1';
+      scopeVodBtn.addEventListener('click', () => this.setGuideScope('vod'));
+    }
+    const onlyPastBtn = document.getElementById('btn-vod-only-past');
+    if (onlyPastBtn && onlyPastBtn.dataset && onlyPastBtn.dataset.vodBound !== '1') {
+      onlyPastBtn.dataset.vodBound = '1';
+      onlyPastBtn.addEventListener('click', () => this.toggleVodOnlyPast());
+    }
+    const vodInput = document.getElementById('vod-search-input');
+    if (vodInput && vodInput.dataset && vodInput.dataset.vodBound !== '1') {
+      vodInput.dataset.vodBound = '1';
+      vodInput.addEventListener('input', (e) => {
+        this.vodSearchQuery = e && e.target ? e.target.value : '';
+        clearTimeout(this._vodSearchDebounceTimer);
+        this._vodSearchDebounceTimer = setTimeout(() => {
+          this._vodSearchDebounceTimer = null;
+          if (this.mode === 'GUIDE' && this.guideScope === 'vod') {
+            this.renderVodProgrammes();
+          }
+        }, 120);
+      });
+    }
+
+    const osdHeaderLine = document.querySelector('#fullscreen-osd .osd-header-line');
+    if (osdHeaderLine && !document.getElementById('osd-vod-badge')) {
+      const osdVod = document.createElement('span');
+      osdVod.id = 'osd-vod-badge';
+      osdVod.className = 'channel-vod-badge hidden';
+      osdVod.textContent = 'VOD 7d';
+      const osdVer = document.getElementById('osd-version-badge');
+      if (osdVer && osdVer.parentNode === osdHeaderLine) {
+        osdHeaderLine.insertBefore(osdVod, osdVer);
+      } else {
+        osdHeaderLine.appendChild(osdVod);
+      }
+    }
+  }
+
+  ensurePowerSaveDOM() {
+    if (typeof document === 'undefined' || !document.body) return;
+
+    if (!document.getElementById('sleep-warning-modal')) {
+      const modal = document.createElement('div');
+      modal.id = 'sleep-warning-modal';
+      modal.className = 'modal-backdrop hidden';
+      modal.setAttribute('aria-hidden', 'true');
+      modal.innerHTML =
+        '<div id="sleep-warning-card" class="modal-card sleep-warning-card">' +
+          '<div class="sleep-warning-badge">מצב חיסכון בחשמל</div>' +
+          '<h2 class="sleep-warning-title">המסך ייכבה בקרוב עקב חוסר פעילות</h2>' +
+          '<p class="sleep-warning-desc">המערכת עומדת לעבור למצב חיסכון בחשמל ולהפסיק את השידור כדי לחסוך באנרגיה ולמנוע צריבת מסך.</p>' +
+          '<div class="sleep-countdown-row">' +
+            '<span id="sleep-countdown-sec" class="sleep-countdown-sec">60</span>' +
+            '<span class="sleep-countdown-unit">שניות לכיבוי</span>' +
+          '</div>' +
+          '<div id="sleep-countdown-bar-track" class="sleep-countdown-bar-track" dir="ltr">' +
+            '<div id="sleep-countdown-bar" class="sleep-countdown-bar" style="width:100%;"></div>' +
+          '</div>' +
+          '<div class="sleep-warning-actions">' +
+            '<button id="btn-sleep-stay-awake" class="btn-tv-primary focusable" type="button">אני עדיין צופה — בטל כיבוי (OK)</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(modal);
+    }
+
+    if (!document.getElementById('power-save-screen')) {
+      const blk = document.createElement('div');
+      blk.id = 'power-save-screen';
+      blk.className = 'power-save-screen hidden';
+      blk.setAttribute('aria-hidden', 'true');
+      blk.innerHTML = '<div class="power-save-hint">מצב חיסכון בחשמל פעיל — לחץ על כל מקש לחזרה לצפייה</div>';
+      document.body.appendChild(blk);
+    }
+
+    const stayBtn = document.getElementById('btn-sleep-stay-awake');
+    if (stayBtn && stayBtn.dataset && stayBtn.dataset.sleepBound !== '1') {
+      stayBtn.dataset.sleepBound = '1';
+      stayBtn.addEventListener('click', (e) => {
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        this.cancelSleepWarning();
+      });
+    }
+
+    const warnModal = document.getElementById('sleep-warning-modal');
+    if (warnModal && warnModal.dataset && warnModal.dataset.sleepBound !== '1') {
+      warnModal.dataset.sleepBound = '1';
+      warnModal.addEventListener('click', (e) => {
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        this.cancelSleepWarning();
+      });
+    }
+
+    const blkScreen = document.getElementById('power-save-screen');
+    if (blkScreen && blkScreen.dataset && blkScreen.dataset.sleepBound !== '1') {
+      blkScreen.dataset.sleepBound = '1';
+      blkScreen.addEventListener('click', (e) => {
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        this.exitPowerSaveMode();
+      });
+    }
+  }
+
+  ensureVoiceDOM() {
+    if (typeof document === 'undefined') return;
+    const headerLeft = document.querySelector('#top-header .header-left');
+    if (headerLeft && !document.getElementById('btn-voice-command')) {
+      const btn = document.createElement('button');
+      btn.id = 'btn-voice-command';
+      btn.className = 'top-nav-btn top-nav-btn-voice focusable';
+      btn.setAttribute('data-action', 'voice-command');
+      btn.title = 'פקודה קולית (V)';
+      btn.innerHTML = '<span>🎤 פקודה קולית</span>';
+      const settingsBtn = document.getElementById('btn-open-settings');
+      if (settingsBtn && settingsBtn.parentNode === headerLeft) {
+        headerLeft.insertBefore(btn, settingsBtn);
+      } else {
+        headerLeft.appendChild(btn);
+      }
+    }
+    const voiceBtn = document.getElementById('btn-voice-command');
+    if (voiceBtn && voiceBtn.dataset && voiceBtn.dataset.voiceBound !== '1') {
+      voiceBtn.dataset.voiceBound = '1';
+      voiceBtn.addEventListener('click', () => this.startVoiceCommand());
+    }
+
+    if (document.body && !document.getElementById('voice-overlay')) {
+      const overlay = document.createElement('div');
+      overlay.id = 'voice-overlay';
+      overlay.className = 'modal-backdrop hidden';
+      overlay.setAttribute('aria-hidden', 'true');
+      overlay.innerHTML =
+        '<div class="modal-card voice-card">' +
+          '<div class="voice-header">' +
+            '<div id="voice-mic-ring" class="voice-mic-ring">🎤</div>' +
+            '<div class="voice-title-col">' +
+              '<h2 id="voice-status-text">מקשיב... אמור שם ערוץ, מספר או תוכנית</h2>' +
+              '<div id="voice-transcript-text" class="voice-transcript-text">דוגמה: "קשת 12", "ערוץ 11", "מסך מלא", "חדשות"</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="voice-actions">' +
+            '<button id="btn-voice-fallback-search" class="btn-tv-primary focusable hidden" type="button">פתח חיפוש מהיר (ערוצים / VOD)</button>' +
+            '<button id="btn-voice-cancel" class="btn-tv-secondary focusable" type="button">✕ ביטול (BACK)</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+    }
+
+    const cancelBtn = document.getElementById('btn-voice-cancel');
+    if (cancelBtn && cancelBtn.dataset && cancelBtn.dataset.voiceBound !== '1') {
+      cancelBtn.dataset.voiceBound = '1';
+      cancelBtn.addEventListener('click', () => this.closeVoiceOverlay());
+    }
+
+    const fallbackBtn = document.getElementById('btn-voice-fallback-search');
+    if (fallbackBtn && fallbackBtn.dataset && fallbackBtn.dataset.voiceBound !== '1') {
+      fallbackBtn.dataset.voiceBound = '1';
+      fallbackBtn.addEventListener('click', () => {
+        this.closeVoiceOverlay(true);
+        this.openGuideModal('vod');
+      });
+    }
+  }
+
+  ensureAppendDefaultBtnDOM() {
+    if (typeof document === 'undefined') return;
+    const actionsCol = document.querySelector('#settings-tab-sources .epg-actions-col');
+    if (actionsCol && !document.getElementById('btn-append-default-source')) {
+      const btn = document.createElement('button');
+      btn.id = 'btn-append-default-source';
+      btn.className = 'btn-tv-secondary focusable';
+      btn.type = 'button';
+      btn.setAttribute('data-action', 'append-default-source');
+      btn.textContent = '+ הוסף מקור ברירת מחדל (ללא מחיקה)';
+      const loadSampleBtn = document.getElementById('btn-load-sample');
+      if (loadSampleBtn && loadSampleBtn.parentNode === actionsCol) {
+        actionsCol.insertBefore(btn, loadSampleBtn.nextSibling);
+      } else {
+        actionsCol.appendChild(btn);
+      }
+    }
+    const appendBtn = document.getElementById('btn-append-default-source');
+    if (appendBtn && appendBtn.dataset && appendBtn.dataset.appendDefaultBound !== '1') {
+      appendBtn.dataset.appendDefaultBound = '1';
+      appendBtn.addEventListener('click', () => this.appendDefaultSource());
+    }
+  }
+
+  /* --------------------------------------------------------------------------
+     Smart Modal Focus Restoration (Iteration 7)
+     -------------------------------------------------------------------------- */
+
+  _saveFocusBeforeModal() {
+    if (this._savedFocusContext) return;
+    this._savedFocusContext = {
+      focusArea: this.focusArea || 'channels',
+      focusedEl: this.currentFocusedEl || null,
+      focusedHeaderIndex: typeof this.focusedHeaderIndex === 'number' ? this.focusedHeaderIndex : 0,
+      focusedTimelineIndex: typeof this.focusedTimelineIndex === 'number' ? this.focusedTimelineIndex : 0,
+      focusedChannelIndex: typeof this.focusedChannelIndex === 'number' ? this.focusedChannelIndex : 0
+    };
+  }
+
+  _restoreFocusAfterModal() {
+    const saved = this._savedFocusContext;
+    this._savedFocusContext = null;
+    if (!saved) {
+      this.focusArea = 'channels';
+      this.updateChannelFocusFast();
+      return;
+    }
+
+    if (saved.focusArea === 'header') {
+      const buttons = this.getHeaderButtons();
+      this.focusArea = 'header';
+      this.focusedHeaderIndex = Math.min(saved.focusedHeaderIndex || 0, Math.max(0, buttons.length - 1));
+      const target =
+        saved.focusedEl && typeof document !== 'undefined' && document.body && document.body.contains(saved.focusedEl)
+          ? saved.focusedEl
+          : buttons[this.focusedHeaderIndex];
+      if (target) {
+        const idx = buttons.indexOf(target);
+        if (idx !== -1) this.focusedHeaderIndex = idx;
+        this._focusedChannelEl = null;
+        this.setFocusedElementFast(target);
+        return;
+      }
+    } else if (saved.focusArea === 'timeline' && Array.isArray(this.timelineItemNodes) && this.timelineItemNodes.length > 0) {
+      this.focusArea = 'timeline';
+      this.focusedTimelineIndex = Math.min(saved.focusedTimelineIndex || 0, this.timelineItemNodes.length - 1);
+      this.updateTimelineFocusFast();
+      return;
+    }
+
+    this.focusArea = 'channels';
+    if (typeof saved.focusedChannelIndex === 'number' && saved.focusedChannelIndex >= 0 && saved.focusedChannelIndex < this.visibleChannels.length) {
+      this.focusedChannelIndex = saved.focusedChannelIndex;
+    }
+    this.updateChannelFocusFast();
+  }
+
+  /* --------------------------------------------------------------------------
+     Power-Saving Auto Screen-Off / Sleep Timer (Default 4h + 60s Warning)
+     -------------------------------------------------------------------------- */
+
+  noteUserActivity(force) {
+    const now = Date.now();
+    if (!force && this._lastActivityNoteMs && (now - this._lastActivityNoteMs) < 1000) {
+      return;
+    }
+    this._lastActivityNoteMs = now;
+    this._lastUserActivityMs = now;
+  }
+
+  _bindGlobalActivityListeners() {
+    if (typeof document === 'undefined' || this._activityListenersBound) return;
+    this._activityListenersBound = true;
+
+    const onActivity = () => this.noteUserActivity(false);
+    const onWakeOrCancelKey = (e) => {
+      this.noteUserActivity(false);
+      if (this.isPowerSaveMode) {
+        if (e && typeof e.preventDefault === 'function') e.preventDefault();
+        if (e && typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+        this.exitPowerSaveMode();
+        return;
+      }
+      if (this._sleepWarningActive) {
+        if (e && typeof e.preventDefault === 'function') e.preventDefault();
+        if (e && typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+        this.cancelSleepWarning();
+      }
+    };
+    const onWakeOrCancelClick = (e) => {
+      this.noteUserActivity(false);
+      if (this.isPowerSaveMode) {
+        if (e && typeof e.preventDefault === 'function') e.preventDefault();
+        if (e && typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+        this.exitPowerSaveMode();
+        return;
+      }
+      if (this._sleepWarningActive) {
+        if (e && typeof e.preventDefault === 'function') e.preventDefault();
+        if (e && typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+        this.cancelSleepWarning();
+      }
+    };
+
+    try {
+      window.addEventListener('keydown', onWakeOrCancelKey, true);
+      window.addEventListener('click', onWakeOrCancelClick, true);
+      document.addEventListener('mousemove', onActivity, { passive: true });
+      document.addEventListener('wheel', onActivity, { passive: true });
+      document.addEventListener('touchstart', onActivity, { passive: true });
+    } catch (e) {
+      document.addEventListener('mousemove', onActivity, false);
+      document.addEventListener('wheel', onActivity, false);
+      document.addEventListener('touchstart', onActivity, false);
+    }
+  }
+
+  _startSleepMonitor() {
+    clearInterval(this._sleepCheckInterval);
+    this._sleepCheckInterval = setInterval(() => this._checkIdleSleepTimer(), 30000);
+  }
+
+  _checkIdleSleepTimer() {
+    if (this.isPowerSaveMode || this._sleepWarningActive || this.isSafeMode()) return;
+    if (this.mode === 'DISCLAIMER') return;
+    const hours = Number(this.getUiPrefs().sleepTimeoutHours);
+    if (!hours || hours <= 0 || isNaN(hours)) return;
+    const idleMs = Date.now() - (this._lastUserActivityMs || Date.now());
+    if (idleMs >= hours * 3600000) {
+      this.triggerSleepWarning(60);
+    }
+  }
+
+  triggerSleepWarning(seconds) {
+    this.ensurePowerSaveDOM();
+    if (this.isPowerSaveMode) return;
+    const totalSec = typeof seconds === 'number' && seconds > 0 ? Math.max(1, Math.round(seconds)) : 60;
+    clearInterval(this._sleepWarningTimer);
+    this._sleepWarningTotalSec = totalSec;
+    this._sleepWarningRemainingSec = totalSec;
+    this._sleepWarningActive = true;
+    this._modeBeforeSleepWarning = this.mode;
+    this.cancelAutoFullscreen();
+    if (!this.isModalOpen()) {
+      this._saveFocusBeforeModal();
+    }
+
+    const modal = document.getElementById('sleep-warning-modal');
+    const secEl = document.getElementById('sleep-countdown-sec');
+    const barEl = document.getElementById('sleep-countdown-bar');
+    const stayBtn = document.getElementById('btn-sleep-stay-awake');
+
+    if (secEl) secEl.textContent = String(totalSec);
+    if (barEl) barEl.style.width = '100%';
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.setAttribute('aria-hidden', 'false');
+    }
+    this.updateVideoSurfacePosition();
+    if (stayBtn) {
+      this.setFocusedElementFast(stayBtn);
+      try {
+        stayBtn.focus();
+      } catch (e) {}
+    }
+
+    this._sleepWarningTimer = setInterval(() => {
+      if (!this._sleepWarningActive) {
+        clearInterval(this._sleepWarningTimer);
+        this._sleepWarningTimer = null;
+        return;
+      }
+      this._sleepWarningRemainingSec = Math.max(0, this._sleepWarningRemainingSec - 1);
+      const rem = this._sleepWarningRemainingSec;
+      const sEl = document.getElementById('sleep-countdown-sec');
+      const bEl = document.getElementById('sleep-countdown-bar');
+      if (sEl) sEl.textContent = String(rem);
+      if (bEl) {
+        const pct = Math.max(0, Math.min(100, Math.round((rem / Math.max(1, this._sleepWarningTotalSec)) * 100)));
+        bEl.style.width = pct + '%';
+      }
+      if (rem <= 0) {
+        clearInterval(this._sleepWarningTimer);
+        this._sleepWarningTimer = null;
+        this._sleepWarningActive = false;
+        const mEl = document.getElementById('sleep-warning-modal');
+        if (mEl) {
+          mEl.classList.add('hidden');
+          mEl.setAttribute('aria-hidden', 'true');
+        }
+        this.enterPowerSaveMode();
+      }
+    }, 1000);
+  }
+
+  cancelSleepWarning(silent) {
+    clearInterval(this._sleepWarningTimer);
+    this._sleepWarningTimer = null;
+    const wasActive = Boolean(this._sleepWarningActive);
+    this._sleepWarningActive = false;
+
+    const modal = document.getElementById('sleep-warning-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+    this.noteUserActivity(true);
+    if (wasActive && !this.isModalOpen()) {
+      this.updateVideoSurfacePosition();
+      if (this.mode === 'BROWSE') {
+        this._restoreFocusAfterModal();
+        if (this.focusArea === 'channels') {
+          this.scheduleAutoFullscreen();
+        }
+      }
+    }
+    if (wasActive && !silent) {
+      this.showToast('כיבוי המסך בוטל — ממשיכים לצפות ✓', true);
+    }
+  }
+
+  enterPowerSaveMode() {
+    this.ensurePowerSaveDOM();
+    clearInterval(this._sleepWarningTimer);
+    this._sleepWarningTimer = null;
+    this._sleepWarningActive = false;
+    this.cancelAutoFullscreen();
+    this.cancelPendingPreviewPlayback();
+
+    const warnModal = document.getElementById('sleep-warning-modal');
+    if (warnModal) {
+      warnModal.classList.add('hidden');
+      warnModal.setAttribute('aria-hidden', 'true');
+    }
+
+    this._channelBeforePowerSave =
+      this.selectedChannel ||
+      (Array.isArray(this.visibleChannels) && this.visibleChannels[this.focusedChannelIndex]) ||
+      null;
+    this._modeBeforePowerSave =
+      this._modeBeforeSleepWarning === 'FULLSCREEN' || this.mode === 'FULLSCREEN' ? 'FULLSCREEN' : 'BROWSE';
+
+    if (this.player && typeof this.player.stop === 'function') {
+      this.player.stop();
+    }
+
+    this.isPowerSaveMode = true;
+    const blkScreen = document.getElementById('power-save-screen');
+    if (blkScreen) {
+      blkScreen.classList.remove('hidden');
+      blkScreen.setAttribute('aria-hidden', 'false');
+    }
+
+    try {
+      if (typeof window !== 'undefined' && window.AndroidTvHost && typeof window.AndroidTvHost.setScreenSleepMode === 'function') {
+        window.AndroidTvHost.setScreenSleepMode(true);
+      }
+    } catch (e) {}
+
+    try {
+      if (
+        typeof window !== 'undefined' &&
+        window.webOS &&
+        window.webOS.service &&
+        typeof window.webOS.service.request === 'function'
+      ) {
+        window.webOS.service.request('luna://com.webos.service.tvpower', {
+          method: 'power/turnOffScreen',
+          parameters: { standbyMode: 'active' },
+          onSuccess: function () {},
+          onFailure: function () {}
+        });
+      }
+    } catch (e) {}
+  }
+
+  exitPowerSaveMode() {
+    if (!this.isPowerSaveMode) return;
+    this.isPowerSaveMode = false;
+
+    const blkScreen = document.getElementById('power-save-screen');
+    if (blkScreen) {
+      blkScreen.classList.add('hidden');
+      blkScreen.setAttribute('aria-hidden', 'true');
+    }
+
+    try {
+      if (typeof window !== 'undefined' && window.AndroidTvHost && typeof window.AndroidTvHost.setScreenSleepMode === 'function') {
+        window.AndroidTvHost.setScreenSleepMode(false);
+      }
+    } catch (e) {}
+
+    try {
+      if (
+        typeof window !== 'undefined' &&
+        window.webOS &&
+        window.webOS.service &&
+        typeof window.webOS.service.request === 'function'
+      ) {
+        window.webOS.service.request('luna://com.webos.service.tvpower', {
+          method: 'power/turnOnScreen',
+          parameters: {},
+          onSuccess: function () {},
+          onFailure: function () {}
+        });
+      }
+    } catch (e) {}
+
+    this.noteUserActivity(true);
+    const resumeCh =
+      this._channelBeforePowerSave ||
+      this.selectedChannel ||
+      (Array.isArray(this.visibleChannels) && this.visibleChannels[this.focusedChannelIndex]) ||
+      (Array.isArray(this.allChannels) && this.allChannels[0]) ||
+      null;
+
+    if (resumeCh) {
+      this.highlightChannel(resumeCh, true);
+      if (this._modeBeforePowerSave === 'FULLSCREEN') {
+        this.enterFullscreen();
+      } else if (this.mode === 'BROWSE') {
+        this.updateChannelFocusFast();
+        if (this.focusArea === 'channels') {
+          this.scheduleAutoFullscreen();
+        }
+      }
+    }
+    this.showToast('המסך חזר לפעילות ✓', true);
+  }
+
+  /* --------------------------------------------------------------------------
+     Direct 1-Press Voice Command Engine
+     -------------------------------------------------------------------------- */
+
+  _stopActiveSpeechRecognition() {
+    if (this._activeSpeechRecognition) {
+      try {
+        this._activeSpeechRecognition.onresult = null;
+        this._activeSpeechRecognition.onerror = null;
+        this._activeSpeechRecognition.onend = null;
+        this._activeSpeechRecognition.abort();
+      } catch (e) {}
+      this._activeSpeechRecognition = null;
+    }
+  }
+
+  startVoiceCommand() {
+    if (this.mode === 'DISCLAIMER') return;
+    this.ensureVoiceDOM();
+    this.cancelAutoFullscreen();
+    this.noteUserActivity(true);
+    this._stopActiveSpeechRecognition();
+
+    const voiceLang = (this.getUiPrefs && this.getUiPrefs().voiceLang) || 'he-IL';
+
+    // Priority a) Native Android TV Bridge
+    if (
+      typeof window !== 'undefined' &&
+      window.AndroidTvHost &&
+      typeof window.AndroidTvHost.startVoiceCommand === 'function'
+    ) {
+      this.showToast('מפעיל פקודה קולית...', true);
+      try {
+        window.AndroidTvHost.startVoiceCommand(voiceLang);
+        return;
+      } catch (e) {}
+    }
+
+    if (!this.isModalOpen()) {
+      this._saveFocusBeforeModal();
+    }
+    if (this.mode !== 'VOICE') {
+      this.previousModeBeforeModal = this.mode === 'FULLSCREEN' ? 'FULLSCREEN' : 'BROWSE';
+    }
+    this.mode = 'VOICE';
+
+    const overlay = document.getElementById('voice-overlay');
+    const statusEl = document.getElementById('voice-status-text');
+    const transcriptEl = document.getElementById('voice-transcript-text');
+    const micRing = document.getElementById('voice-mic-ring');
+    const fallbackBtn = document.getElementById('btn-voice-fallback-search');
+    const cancelBtn = document.getElementById('btn-voice-cancel');
+
+    const SpeechRec =
+      typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
+
+    // Priority b) Web Speech API
+    if (SpeechRec) {
+      if (statusEl) statusEl.textContent = 'מקשיב... אמור שם ערוץ, מספר או תוכנית';
+      if (transcriptEl) transcriptEl.textContent = 'מדבר כעת...';
+      if (micRing) micRing.classList.add('listening');
+      if (fallbackBtn) fallbackBtn.classList.add('hidden');
+      if (overlay) {
+        overlay.classList.remove('hidden');
+        overlay.setAttribute('aria-hidden', 'false');
+      }
+      this.updateVideoSurfacePosition();
+      if (cancelBtn) this.setFocusedElementFast(cancelBtn);
+
+      try {
+        const rec = new SpeechRec();
+        this._activeSpeechRecognition = rec;
+        rec.lang = voiceLang;
+        rec.interimResults = true;
+        rec.maxAlternatives = 3;
+        rec.continuous = false;
+
+        let handledFinal = false;
+        let lastInterim = '';
+
+        rec.onresult = (evt) => {
+          if (!evt || !evt.results) return;
+          let interim = '';
+          let finalText = '';
+          for (let i = evt.resultIndex || 0; i < evt.results.length; i++) {
+            const res = evt.results[i];
+            if (!res || !res[0]) continue;
+            const t = String(res[0].transcript || '').trim();
+            if (res.isFinal) {
+              finalText += (finalText ? ' ' : '') + t;
+            } else {
+              interim += (interim ? ' ' : '') + t;
+            }
+          }
+          if (interim) {
+            lastInterim = interim;
+            if (transcriptEl) transcriptEl.textContent = interim;
+          }
+          if (finalText && !handledFinal) {
+            handledFinal = true;
+            if (transcriptEl) transcriptEl.textContent = finalText;
+            this._stopActiveSpeechRecognition();
+            this.closeVoiceOverlay(true);
+            this.handleVoiceCommand(finalText);
+          }
+        };
+
+        rec.onerror = (evt) => {
+          const code = evt && evt.error ? evt.error : 'error';
+          this._stopActiveSpeechRecognition();
+          if (code === 'aborted') return;
+          this.onNativeVoiceError(code);
+        };
+
+        rec.onend = () => {
+          this._activeSpeechRecognition = null;
+          if (micRing) micRing.classList.remove('listening');
+          if (!handledFinal && this.mode === 'VOICE') {
+            if (lastInterim) {
+              handledFinal = true;
+              this.closeVoiceOverlay(true);
+              this.handleVoiceCommand(lastInterim);
+            } else {
+              this.closeVoiceOverlay();
+            }
+          }
+        };
+
+        rec.start();
+        return;
+      } catch (recErr) {
+        this._stopActiveSpeechRecognition();
+      }
+    }
+
+    // Priority c) Unsupported Speech API (e.g., LG webOS ThinQ OS-locked mic / TV browsers without Web Speech)
+    this.onNativeVoiceError('unsupported');
+  }
+
+  closeVoiceOverlay(skipFocusRestore) {
+    this._stopActiveSpeechRecognition();
+    const overlay = document.getElementById('voice-overlay');
+    const micRing = document.getElementById('voice-mic-ring');
+    if (micRing) micRing.classList.remove('listening');
+    if (overlay) {
+      overlay.classList.add('hidden');
+      overlay.setAttribute('aria-hidden', 'true');
+    }
+    if (this.mode === 'VOICE') {
+      if (this.previousModeBeforeModal === 'FULLSCREEN') {
+        this.mode = 'FULLSCREEN';
+      } else {
+        this.mode = 'BROWSE';
+      }
+      if (!skipFocusRestore) {
+        this.updateVideoSurfacePosition();
+        if (this.mode === 'BROWSE') {
+          this._restoreFocusAfterModal();
+          if (this.focusArea === 'channels') {
+            this.scheduleAutoFullscreen();
+          }
+        }
+      }
+    }
+  }
+
+  onNativeVoiceError(err) {
+    const code = err ? String(err) : 'unsupported';
+    if (code === 'cancelled' || code === 'canceled' || code === 'aborted') {
+      this.closeVoiceOverlay();
+      this.showToast('הפקודה הקולית בוטלה', true);
+      return;
+    }
+
+    this.ensureVoiceDOM();
+    if (!this.isModalOpen()) {
+      this._saveFocusBeforeModal();
+    }
+    if (this.mode !== 'VOICE') {
+      this.previousModeBeforeModal = this.mode === 'FULLSCREEN' ? 'FULLSCREEN' : 'BROWSE';
+    }
+    this.mode = 'VOICE';
+
+    const overlay = document.getElementById('voice-overlay');
+    const statusEl = document.getElementById('voice-status-text');
+    const transcriptEl = document.getElementById('voice-transcript-text');
+    const micRing = document.getElementById('voice-mic-ring');
+    const fallbackBtn = document.getElementById('btn-voice-fallback-search');
+
+    if (micRing) micRing.classList.remove('listening');
+    if (statusEl) {
+      statusEl.textContent =
+        code === 'no-speech'
+          ? 'לא זוהה דיבור — נסה שנית או פתח חיפוש'
+          : 'זיהוי קולי ישיר אינו זמין בגרסת מערכת זו';
+    }
+    if (transcriptEl) {
+      transcriptEl.textContent = this.isWebOSPlatform()
+        ? 'מיקרופון השלט ב-LG webOS שמור למערכת LG ThinQ AI בלבד. ניתן לעבור ישירות לחיפוש מהיר או ל-VOD.'
+        : 'שירות זיהוי הדיבור של הדפדפן או המכשיר אינו זמין כעת. השתמש בחיפוש המהיר לערוצים ול-VOD 7 ימים.';
+    }
+    if (fallbackBtn) fallbackBtn.classList.remove('hidden');
+    if (overlay) {
+      overlay.classList.remove('hidden');
+      overlay.setAttribute('aria-hidden', 'false');
+    }
+    this.updateVideoSurfacePosition();
+    if (fallbackBtn) {
+      this.setFocusedElementFast(fallbackBtn);
+    }
+    this.showToast('זיהוי קולי לא זמין במכשיר זה — נפתח קיצור חיפוש', true);
+  }
+
+  _normalizeVoiceText(text) {
+    if (!text) return '';
+    return String(text)
+      .toLowerCase()
+      .replace(/[\u0591-\u05C7]/g, '')
+      .replace(/["'״׳.,!?():;\-_/\\]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  _parseVoiceChannelNumber(normText) {
+    if (!normText) return NaN;
+    const stripped = normText
+      .replace(/^(?:עבור ל|תעביר ל|העבר ל|שים |פתח |תפתח |נגן |צפה ב|channel |ערוץ )+/g, '')
+      .replace(/^מספר\s+/, '')
+      .trim();
+    if (!stripped) return NaN;
+
+    if (/^\d{1,4}$/.test(stripped)) {
+      return parseInt(stripped, 10);
+    }
+
+    const hebrewNumMap = {
+      'אחד': 1, 'אחת': 1, 'שתיים': 2, 'שניים': 2, 'שתי': 2, 'שני': 2,
+      'שלוש': 3, 'שלושה': 3, 'ארבע': 4, 'ארבעה': 4, 'חמש': 5, 'חמישה': 5,
+      'שש': 6, 'שישה': 6, 'שבע': 7, 'שבעה': 7, 'שמונה': 8, 'תשע': 9, 'תשעה': 9,
+      'עשר': 10, 'עשרה': 10,
+      'אחת עשרה': 11, 'אחד עשר': 11, 'אחד עשרה': 11,
+      'שתים עשרה': 12, 'שתיים עשרה': 12, 'שנים עשר': 12, 'שניים עשר': 12,
+      'שלוש עשרה': 13, 'שלושה עשר': 13,
+      'ארבע עשרה': 14, 'ארבעה עשר': 14,
+      'חמש עשרה': 15, 'חמישה עשר': 15,
+      'שש עשרה': 16, 'שישה עשר': 16,
+      'שבע עשרה': 17, 'שבעה עשר': 17,
+      'שמונה עשרה': 18, 'שמונה עשר': 18,
+      'תשע עשרה': 19, 'תשעה עשר': 19,
+      'עשרים': 20
+    };
+    if (Object.prototype.hasOwnProperty.call(hebrewNumMap, stripped)) {
+      return hebrewNumMap[stripped];
+    }
+    return NaN;
+  }
+
+  _findVoiceChannelMatch(cleanQuery) {
+    if (!cleanQuery || !Array.isArray(this.allChannels) || this.allChannels.length === 0) return null;
+    const qTokens = cleanQuery.split(' ').filter(Boolean);
+    if (qTokens.length === 0) return null;
+
+    let bestCh = null;
+    let bestScore = 0;
+
+    for (let i = 0; i < this.allChannels.length; i++) {
+      const ch = this.allChannels[i];
+      if (!ch) continue;
+      const chNorm = this._normalizeVoiceText(ch.name || '');
+      const tvgNorm = this._normalizeVoiceText(ch.tvgName || '');
+      const candidates = [chNorm, tvgNorm].filter(Boolean);
+      let score = 0;
+
+      for (let c = 0; c < candidates.length; c++) {
+        const cand = candidates[c];
+        if (cand === cleanQuery) {
+          score = Math.max(score, 100);
+        } else if (cand.indexOf(cleanQuery) !== -1) {
+          score = Math.max(score, 82);
+        } else if (cleanQuery.indexOf(cand) !== -1 && cand.length >= 2) {
+          score = Math.max(score, 74);
+        } else {
+          let hits = 0;
+          for (let t = 0; t < qTokens.length; t++) {
+            if (cand.indexOf(qTokens[t]) !== -1) hits++;
+          }
+          if (hits > 0 && hits === qTokens.length) {
+            score = Math.max(score, 68 + hits * 4);
+          } else if (hits > 0 && qTokens.length > 1) {
+            score = Math.max(score, Math.round((hits / qTokens.length) * 55));
+          }
+        }
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestCh = ch;
+      }
+    }
+
+    return bestScore >= 50 ? bestCh : null;
+  }
+
+  handleVoiceCommand(transcript) {
+    this.closeVoiceOverlay(true);
+    const raw = String(transcript || '').trim();
+    if (!raw) return { action: 'empty' };
+
+    const norm = this._normalizeVoiceText(raw);
+    if (!norm) return { action: 'empty' };
+
+    // 1. Direct playback & navigation commands
+    if (norm === 'מסך מלא' || norm === 'fullscreen' || norm === 'full screen' || norm.indexOf('מסך מלא') !== -1) {
+      this.enterFullscreen();
+      this.showToast('פקודה קולית: מסך מלא ✓', true);
+      return { action: 'fullscreen' };
+    }
+    if (
+      norm === 'רשימה' ||
+      norm === 'יציאה' ||
+      norm === 'חזור' ||
+      norm === 'חזור לרשימה' ||
+      norm === 'exit' ||
+      norm === 'back'
+    ) {
+      if (this.isModalOpen()) {
+        this.closeModals();
+      } else if (this.mode === 'FULLSCREEN') {
+        this.exitFullscreen();
+      }
+      this.showToast('פקודה קולית: חזרה לרשימה ✓', true);
+      return { action: 'exit' };
+    }
+    if (norm === 'הגדרות' || norm === 'settings') {
+      this.openSettingsModal();
+      this.showToast('פקודה קולית: הגדרות ✓', true);
+      return { action: 'settings' };
+    }
+    if (
+      norm.indexOf('סטארט אובר') !== -1 ||
+      norm.indexOf('התחל מחדש') !== -1 ||
+      norm.indexOf('מההתחלה') !== -1 ||
+      norm.indexOf('start over') !== -1 ||
+      norm === 'startover'
+    ) {
+      this.onRedButton();
+      this.showToast('פקודה קולית: סטארט אובר ✓', true);
+      return { action: 'startover' };
+    }
+    if (
+      norm.indexOf('בטל השתקה') !== -1 ||
+      norm.indexOf('בטל שקט') !== -1 ||
+      norm.indexOf('הפעל קול') !== -1 ||
+      norm.indexOf('unmute') !== -1
+    ) {
+      if (this.player && this.player.video) {
+        this.player.video.muted = false;
+        if (typeof this.player.applyEffectiveVolume === 'function') {
+          this.player.applyEffectiveVolume();
+        }
+      }
+      this.showToast('פקודה קולית: השמע הופעל ✓', true);
+      return { action: 'unmute' };
+    }
+    if (norm === 'השתק' || norm === 'שקט' || norm === 'mute') {
+      if (this.player && this.player.video) {
+        this.player.video.muted = true;
+      }
+      this.showToast('פקודה קולית: השמע הושתק ✓', true);
+      return { action: 'mute' };
+    }
+    if (norm === 'עצור' || norm === 'stop') {
+      this.stopPlayback();
+      this.showToast('פקודה קולית: השידור נעצר ✓', true);
+      return { action: 'stop' };
+    }
+    if (norm === 'מדריך' || norm === 'guide') {
+      this.openGuideModal('channel');
+      this.showToast('פקודה קולית: מדריך תוכניות ✓', true);
+      return { action: 'guide' };
+    }
+    if (norm === 'vod' || norm === 'וי או די' || norm === 'וי או די 7 ימים') {
+      this.openGuideModal('vod');
+      this.showToast('פקודה קולית: VOD 7 ימים ✓', true);
+      return { action: 'vod' };
+    }
+
+    // 2. Channel number match (e.g. "ערוץ 12", "11", "שתים עשרה")
+    const parsedNum = this._parseVoiceChannelNumber(norm);
+    if (!isNaN(parsedNum) && parsedNum > 0) {
+      const exactNumCh = this.allChannels.find((c) => c.number === parsedNum);
+      if (exactNumCh) {
+        this.jumpToChannelNumber(parsedNum);
+        this.showToast('מעבר לערוץ ' + exactNumCh.number + ' • ' + exactNumCh.name, true);
+        return { action: 'channel-number', channel: exactNumCh };
+      }
+    }
+
+    // 3. Fuzzy channel name match
+    const cleanQuery = norm
+      .replace(/^(?:עבור ל|תעביר ל|העבר ל|שים |פתח |תפתח |נגן |צפה ב|חפש |ערוץ )+/g, '')
+      .trim() || norm;
+
+    const matchedCh = this._findVoiceChannelMatch(cleanQuery);
+    if (matchedCh) {
+      if (this.onlyFavorites && !this.favorites.has(matchedCh.id)) {
+        this.onlyFavorites = false;
+        this.applyChannelFilter();
+      }
+      const idx = this.visibleChannels.findIndex((c) => c.id === matchedCh.id);
+      if (idx !== -1) this.focusedChannelIndex = idx;
+      this.highlightChannel(matchedCh, true);
+      if (this.mode === 'FULLSCREEN') {
+        this.showOSD();
+      } else {
+        this.updateChannelFocusFast();
+      }
+      this.showToast('מעבר לערוץ: ' + matchedCh.name, true);
+      return { action: 'channel-name', channel: matchedCh };
+    }
+
+    if (!isNaN(parsedNum) && parsedNum > 0) {
+      this.showToast('ערוץ מספר ' + parsedNum + ' לא נמצא', true);
+      return { action: 'channel-not-found', number: parsedNum };
+    }
+
+    // 4. Live & 7-day VOD programme search
+    if (this.epg && typeof this.epg.searchAllVodProgrammes === 'function') {
+      const lookup = this._buildEpgChannelLookup();
+      const vodMatches = this.epg.searchAllVodProgrammes(cleanQuery, {
+        maxDays: 7,
+        pastOnly: false,
+        limit: 15,
+        channelMap: lookup.channelMap
+      });
+      if (Array.isArray(vodMatches) && vodMatches.length > 0) {
+        const liveMatch = vodMatches.find((item) => item && item.isLive && this._resolveChannelForEpgId(item.epgChannelId, lookup));
+        if (liveMatch) {
+          this.playVodItem(liveMatch);
+          return { action: 'vod-live', item: liveMatch };
+        }
+        if (vodMatches.length === 1) {
+          this.playVodItem(vodMatches[0]);
+          return { action: 'vod-single', item: vodMatches[0] };
+        }
+        this.openGuideModal('vod', cleanQuery);
+        this.showToast('נמצאו ' + vodMatches.length + ' תוצאות עבור "' + cleanQuery + '"', true);
+        return { action: 'vod-list', query: cleanQuery, count: vodMatches.length };
+      }
+    }
+
+    this.showToast('לא נמצא ערוץ או תוכנית עבור "' + raw + '"', true);
+    return { action: 'no-match', query: raw };
+  }
+
+  /* --------------------------------------------------------------------------
+     Non-Destructive Append Default Source
+     -------------------------------------------------------------------------- */
+
+  appendDefaultSource() {
+    if (!this.store) return null;
+    let res = null;
+    if (typeof this.store.appendDefaultSource === 'function') {
+      res = this.store.appendDefaultSource();
+    } else {
+      const defUrl = typeof DEFAULT_SAMPLE_M3U === 'string' ? DEFAULT_SAMPLE_M3U : 'https://iptv-org.github.io/iptv/countries/il.m3u';
+      const existing = this.store.sources.find((s) => s && s.url === defUrl);
+      if (existing) {
+        existing.enabled = true;
+        this.store.saveSources();
+        res = { added: false, reenabled: true, source: existing };
+      } else {
+        let newId = 'default-il';
+        if (this.store.sources.some((s) => s && s.id === newId)) {
+          newId = 'default-il-' + Date.now().toString(36);
+        }
+        const newSrc = { id: newId, name: 'ברירת מחדל — ערוצי ישראל', url: defUrl, enabled: true };
+        this.store.sources.push(newSrc);
+        this.store.saveSources();
+        res = { added: true, reenabled: false, source: newSrc };
+      }
+    }
+
+    this.renderSourcesManagerList();
+    this.refreshAllSources(false, { keepModalOpen: true });
+
+    if (res && res.added) {
+      this.showToast('מקור ברירת המחדל נוסף לרשימה ללא מחיקת מקורות קיימים ✓', true);
+    } else if (res && res.reenabled) {
+      this.showToast('מקור ברירת המחדל הופעל מחדש ללא מחיקת מקורות קיימים ✓', true);
+    } else {
+      this.showToast('מקור ברירת המחדל כבר קיים ופעיל ✓', true);
+    }
+    return res;
+  }
+
+  /* --------------------------------------------------------------------------
+     VOD & Catchup Channel Resolution Helpers
+     -------------------------------------------------------------------------- */
+
+  hasCatchupSupport(channel) {
+    return Boolean(channel && (channel.catchupType || channel.catchupSource));
+  }
+
+  _buildEpgChannelLookup() {
+    const byEpgId = Object.create(null);
+    const channelMap = Object.create(null);
+    const channels = Array.isArray(this.allChannels) ? this.allChannels : [];
+
+    const registerKey = (key, ch) => {
+      if (!key || typeof key !== 'string' || !ch) return;
+      const trimmed = key.trim();
+      if (!trimmed) return;
+      if (!byEpgId[trimmed]) byEpgId[trimmed] = ch;
+      const lower = trimmed.toLowerCase();
+      if (!byEpgId[lower]) byEpgId[lower] = ch;
+      if (this.epg && typeof this.epg.normalizeChannelKey === 'function') {
+        const norm = this.epg.normalizeChannelKey(trimmed);
+        if (norm && !byEpgId[norm]) byEpgId[norm] = ch;
+      }
+    };
+
+    for (let i = 0; i < channels.length; i++) {
+      const ch = channels[i];
+      if (!ch) continue;
+      registerKey(ch.epgId, ch);
+      registerKey(ch.id, ch);
+      registerKey(ch.uid, ch);
+      registerKey(ch.tvgName, ch);
+      registerKey(ch.rawName, ch);
+      registerKey(ch.name, ch);
+      if (this.epg && this.epg.channelAliasMap) {
+        const keys = [ch.epgId, ch.tvgName, ch.rawName, ch.name, ch.id];
+        for (let k = 0; k < keys.length; k++) {
+          const val = keys[k];
+          if (!val) continue;
+          const t = String(val).trim();
+          const l = t.toLowerCase();
+          const n = typeof this.epg.normalizeChannelKey === 'function' ? this.epg.normalizeChannelKey(t) : '';
+          const mappedId =
+            this.epg.channelAliasMap.get(t) ||
+            this.epg.channelAliasMap.get(l) ||
+            (n ? this.epg.channelAliasMap.get(n) : '');
+          if (mappedId) {
+            registerKey(mappedId, ch);
+            if (!channelMap[mappedId]) channelMap[mappedId] = ch.name;
+          }
+          if (this.epg.channelAliasCandidates) {
+            const cands =
+              this.epg.channelAliasCandidates.get(t) ||
+              this.epg.channelAliasCandidates.get(l) ||
+              (n ? this.epg.channelAliasCandidates.get(n) : null);
+            if (Array.isArray(cands)) {
+              for (let c = 0; c < cands.length; c++) {
+                registerKey(cands[c], ch);
+                if (!channelMap[cands[c]]) channelMap[cands[c]] = ch.name;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return { byEpgId: byEpgId, channelMap: channelMap };
+  }
+
+  _resolveChannelForEpgId(epgChannelId, lookupOpt) {
+    if (!epgChannelId) return null;
+    const lookup = lookupOpt || this._buildEpgChannelLookup();
+    const byId = lookup.byEpgId;
+    const key = String(epgChannelId).trim();
+    if (byId[key]) return byId[key];
+    const lower = key.toLowerCase();
+    if (byId[lower]) return byId[lower];
+    if (this.epg && typeof this.epg.normalizeChannelKey === 'function') {
+      const norm = this.epg.normalizeChannelKey(key);
+      if (norm && byId[norm]) return byId[norm];
+    }
+    return null;
+  }
+
+  _formatVodDayLabel(startMs) {
+    const now = new Date();
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
+    const d = new Date(startMs);
+    const targetMidnight = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
+    const diffDays = Math.round((todayMidnight - targetMidnight) / 86400000);
+    if (diffDays === 0) return 'היום';
+    if (diffDays === 1) return 'אתמול';
+    if (diffDays > 1 && diffDays <= 7) return 'לפני ' + diffDays + ' ימים';
+    if (diffDays < 0) return 'בהמשך';
+    const dd = ('0' + d.getDate()).slice(-2);
+    const mm = ('0' + (d.getMonth() + 1)).slice(-2);
+    return dd + '/' + mm;
+  }
+
+  playCatchup(channel, prog) {
+    if (!channel || !prog) return false;
+    if (this.onlyFavorites && !this.favorites.has(channel.id)) {
+      this.onlyFavorites = false;
+      this.applyChannelFilter();
+    }
+    const idx = this.visibleChannels.findIndex((c) => c.id === channel.id);
+    if (idx !== -1) {
+      this.focusedChannelIndex = idx;
+    }
+
+    const now = Date.now();
+    const startMs = typeof prog.startMs === 'number'
+      ? prog.startMs
+      : (typeof prog.start === 'number' ? prog.start : (prog.start ? new Date(prog.start).getTime() : now));
+    const stopMs = typeof prog.stopMs === 'number'
+      ? prog.stopMs
+      : (typeof prog.stop === 'number' ? prog.stop : (prog.stop ? new Date(prog.stop).getTime() : startMs + 3600000));
+
+    const normalizedProg = {
+      id: prog.id || (channel.id + '_' + startMs),
+      title: prog.title || 'שידור חי',
+      desc: prog.desc || '',
+      startMs: startMs,
+      stopMs: stopMs,
+      start: new Date(startMs),
+      stop: new Date(stopMs),
+      startStr: prog.startStr || (this.epg ? this.epg.formatTime(startMs) : ''),
+      stopStr: prog.stopStr || (this.epg ? this.epg.formatTime(stopMs) : ''),
+      status: stopMs <= now ? 'past' : (startMs <= now ? 'live' : 'upcoming')
+    };
+
+    if (normalizedProg.status === 'live') {
+      this.highlightChannel(channel, true);
+      this.enterFullscreen();
+      this.showToast('מעבר לשידור החי: ' + channel.name + ' — ' + normalizedProg.title, true);
+      return true;
+    }
+
+    if (this.hasCatchupSupport(channel)) {
+      this.startProgrammeCatchup(channel, normalizedProg);
+      this.showToast('מנגן VOD / סטארט אובר: ' + normalizedProg.title, true);
+      return true;
+    }
+
+    // Stream source does not provide catchup URLs -> tune smoothly to channel and inform user clearly
+    this.highlightChannel(channel, true);
+    this.enterFullscreen();
+    this.showToast('מקור הערוץ (' + channel.name + ') אינו מספק קישורי Catchup/VOD — מנגן שידור חי', true);
+    return false;
+  }
+
+  playVodItem(vodItem) {
+    if (!vodItem) return false;
+    const ch = vodItem.channel || this._resolveChannelForEpgId(vodItem.epgChannelId);
+    if (!ch) {
+      this.showToast('הערוץ של תוכנית זו אינו מופיע ברשימת הערוצים הפעילה', true);
+      return false;
+    }
+    if (this.mode === 'GUIDE' || this.isModalOpen()) {
+      this.closeModals();
+    }
+    return this.playCatchup(ch, vodItem);
+  }
+
   updateAutoOtaButtonUI() {
     if (typeof document === 'undefined') return;
     const btn = document.getElementById('btn-toggle-auto-ota');
@@ -2350,6 +3703,13 @@ class IPTVApp {
   destroy() {
     this.cancelAutoFullscreen();
     this.cancelPendingPreviewPlayback();
+    this._stopActiveSpeechRecognition();
+    clearInterval(this._sleepCheckInterval);
+    this._sleepCheckInterval = null;
+    clearInterval(this._sleepWarningTimer);
+    this._sleepWarningTimer = null;
+    clearTimeout(this._vodSearchDebounceTimer);
+    clearTimeout(this._pendingToastTimer);
     clearTimeout(this.previewTimer);
     clearTimeout(this._visibleEpgSyncTimer);
     clearTimeout(this._miniTimelineTimer);
@@ -2378,6 +3738,9 @@ class IPTVApp {
 
   openIssueModal() {
     this.cancelAutoFullscreen();
+    if (!this.isModalOpen()) {
+      this._saveFocusBeforeModal();
+    }
     this.ensureIssueReporterDOM();
     const modal = document.getElementById('issue-modal');
     if (!modal) return;
@@ -2552,6 +3915,27 @@ class IPTVApp {
         key === 'autoFullscreenSec';
       const targetVal = isInt ? parseInt(rawVal, 10) : rawVal;
       if (prefs[key] === targetVal) {
+        btn.classList.add('active-option');
+      } else {
+        btn.classList.remove('active-option');
+      }
+    }
+
+    const sleepBtns = appPanel.querySelectorAll('[data-sleep-hours]');
+    for (let i = 0; i < sleepBtns.length; i++) {
+      const btn = sleepBtns[i];
+      const hrs = parseInt(btn.dataset.sleepHours, 10);
+      if (!isNaN(hrs) && prefs.sleepTimeoutHours === hrs) {
+        btn.classList.add('active-option');
+      } else {
+        btn.classList.remove('active-option');
+      }
+    }
+
+    const voiceLangBtns = appPanel.querySelectorAll('[data-voice-lang]');
+    for (let i = 0; i < voiceLangBtns.length; i++) {
+      const btn = voiceLangBtns[i];
+      if (btn.dataset.voiceLang === prefs.voiceLang) {
         btn.classList.add('active-option');
       } else {
         btn.classList.remove('active-option');
@@ -2844,6 +4228,10 @@ class IPTVApp {
       this.scheduleAutoFullscreen();
     }
 
+    if (prev && prev.sleepTimeoutHours !== prefs.sleepTimeoutHours) {
+      this.noteUserActivity(true);
+    }
+
     this.renderAppearanceTab();
 
     if (!silent) {
@@ -2912,12 +4300,18 @@ class IPTVApp {
     window.app = this;
     try {
       this.ensureRuntimeState();
+      this.ensureVodHeaderBtnDOM();
+      this.ensurePowerSaveDOM();
+      this.ensureVoiceDOM();
+      this.ensureAppendDefaultBtnDOM();
       this.applyUiPrefs(true);
       this.loadFavorites();
       this.initPlayer();
       this.initRemote();
       this.initClock();
       this.bindDOMEvents();
+      this._bindGlobalActivityListeners();
+      this._startSleepMonitor();
       this.applyTheme(this.getTheme(), true);
 
       if (typeof OTACloudManager !== 'undefined') {
@@ -3312,7 +4706,8 @@ class IPTVApp {
      Multi-M3U Loading & Lineup Compilation
      -------------------------------------------------------------------------- */
 
-  refreshAllSources(silentBackground) {
+  refreshAllSources(silentBackground, opts) {
+    const keepModalOpen = Boolean(opts && opts.keepModalOpen);
     const statusText = document.getElementById('settings-status-text');
     if (!silentBackground) {
       if (statusText) statusText.textContent = 'מוריד וממזג רשימות ערוצים...';
@@ -3352,7 +4747,7 @@ class IPTVApp {
             ' מקורות M3U.';
         }
 
-        if (!silentBackground) {
+        if (!silentBackground && !keepModalOpen) {
           this.onlyFavorites = false;
           this.applyChannelFilter();
           const shouldFullscreen =
@@ -3368,7 +4763,7 @@ class IPTVApp {
           if (!this.isSafeMode()) {
             this.loadActiveEPGSources(false);
           }
-          // Silent background update: preserve current channel & focus index
+          // Silent/in-modal update: preserve current channel & focus index
           const curId = this.selectedChannel ? this.selectedChannel.id : null;
           this.applyChannelFilter();
           if (curId) {
@@ -3654,6 +5049,14 @@ class IPTVApp {
     if (epgMetrics.isEndingSoon) {
       epgFillEl.className = 'channel-mini-progress-fill ending-soon';
       epgRemEl.className = 'channel-mini-rem-badge ending-soon';
+    }
+
+    if (this.hasCatchupSupport(ch)) {
+      const vodBadge = document.createElement('span');
+      vodBadge.className = 'channel-vod-badge';
+      const days = typeof ch.catchupDays === 'number' && ch.catchupDays > 0 ? ch.catchupDays : 7;
+      vodBadge.textContent = 'VOD ' + days + 'd';
+      item.insertBefore(vodBadge, okPill);
     }
 
     if (isFav) {
@@ -4310,6 +5713,7 @@ class IPTVApp {
       num: document.getElementById('osd-channel-number'),
       name: document.getElementById('osd-channel-name'),
       cat: document.getElementById('osd-channel-category'),
+      vodBadge: document.getElementById('osd-vod-badge'),
       logo: document.getElementById('osd-channel-logo'),
       placeholder: document.getElementById('osd-logo-placeholder'),
       liveBadge: document.getElementById('osd-live-badge'),
@@ -4344,6 +5748,21 @@ class IPTVApp {
     this._setOsdText('num', els.num, channel.number);
     this._setOsdText('name', els.name, channel.name);
     this._setOsdText('cat', els.cat, channel.group || 'HD');
+
+    const vodBadgeEl = els.vodBadge || document.getElementById('osd-vod-badge');
+    if (vodBadgeEl) {
+      const hasVod = this.hasCatchupSupport(channel);
+      if (cache.hasVodBadge !== hasVod) {
+        cache.hasVodBadge = hasVod;
+        if (hasVod) {
+          const days = typeof channel.catchupDays === 'number' && channel.catchupDays > 0 ? channel.catchupDays : 7;
+          vodBadgeEl.textContent = 'VOD ' + days + 'd';
+          vodBadgeEl.classList.remove('hidden');
+        } else {
+          vodBadgeEl.classList.add('hidden');
+        }
+      }
+    }
 
     const osdLogo = els.logo;
     const osdPlaceholder = els.placeholder;
@@ -4632,7 +6051,9 @@ class IPTVApp {
       document.getElementById('btn-filter-favs'),
       document.getElementById('btn-toggle-favorite'),
       document.getElementById('btn-open-guide'),
+      document.getElementById('btn-open-vod'),
       document.getElementById('btn-search-trigger'),
+      document.getElementById('btn-voice-command'),
       document.getElementById('btn-open-settings')
     ].filter(Boolean);
   }
@@ -4863,8 +6284,8 @@ class IPTVApp {
       return;
     }
 
-    // 3. SETTINGS / SEARCH / OTA / ISSUE MODAL MODE
-    if (this.mode === 'SETTINGS' || this.mode === 'SEARCH' || this.mode === 'OTA' || this.mode === 'ISSUE') {
+    // 3. SETTINGS / SEARCH / OTA / ISSUE / VOICE MODAL MODE
+    if (this.mode === 'SETTINGS' || this.mode === 'SEARCH' || this.mode === 'OTA' || this.mode === 'ISSUE' || this.mode === 'VOICE') {
       this.navigateModal(direction);
       return;
     }
@@ -5038,8 +6459,32 @@ class IPTVApp {
       return;
     }
 
-    // 2. 7-DAY GUIDE MODAL MODE
+    // 2. 7-DAY GUIDE & GLOBAL VOD MODAL MODE
     if (this.mode === 'GUIDE') {
+      if (
+        this.currentFocusedEl &&
+        (
+          this.currentFocusedEl.id === 'btn-guide-scope-channel' ||
+          this.currentFocusedEl.id === 'btn-guide-scope-vod' ||
+          this.currentFocusedEl.id === 'btn-vod-only-past' ||
+          this.currentFocusedEl.id === 'vod-search-input' ||
+          this.currentFocusedEl.classList.contains('modal-close-btn')
+        )
+      ) {
+        if (this.currentFocusedEl.tagName === 'INPUT') {
+          this.currentFocusedEl.focus();
+        } else {
+          this.currentFocusedEl.click();
+        }
+        return;
+      }
+      if (this.guideScope === 'vod') {
+        const vodItem = Array.isArray(this.vodResults) ? this.vodResults[this.guideProgIndex] : null;
+        if (vodItem) {
+          this.playVodItem(vodItem);
+        }
+        return;
+      }
       const dayBucket = this.guideDays[this.guideDayIndex];
       if (dayBucket && dayBucket.programmes[this.guideProgIndex]) {
         const prog = dayBucket.programmes[this.guideProgIndex];
@@ -5056,8 +6501,8 @@ class IPTVApp {
       return;
     }
 
-    // 3. SETTINGS / SEARCH / OTA / ISSUE MODAL MODE
-    if (this.mode === 'SETTINGS' || this.mode === 'SEARCH' || this.mode === 'OTA' || this.mode === 'ISSUE') {
+    // 3. SETTINGS / SEARCH / OTA / ISSUE / VOICE MODAL MODE
+    if (this.mode === 'SETTINGS' || this.mode === 'SEARCH' || this.mode === 'OTA' || this.mode === 'ISSUE' || this.mode === 'VOICE') {
       if (this.currentFocusedEl) {
         if (this.currentFocusedEl.tagName === 'INPUT' || this.currentFocusedEl.tagName === 'TEXTAREA') {
           this.activeSettingsInputId = this.currentFocusedEl.id;
@@ -5108,6 +6553,16 @@ class IPTVApp {
   }
 
   handleBack() {
+    if (this.isPowerSaveMode) {
+      this.exitPowerSaveMode();
+      return;
+    }
+
+    if (this._sleepWarningActive) {
+      this.cancelSleepWarning();
+      return;
+    }
+
     if (this.mode === 'DISCLAIMER') {
       if (this._disclaimerFromSettings) {
         this.closeDisclaimerModal();
@@ -5116,6 +6571,32 @@ class IPTVApp {
         if (acceptBtn) this.setFocusedElementFast(acceptBtn);
       }
       return;
+    }
+
+    if (this.mode === 'VOICE') {
+      this.closeVoiceOverlay();
+      return;
+    }
+
+    // Cleaner Back escape from Search / VOD inputs: blur input first before closing modal
+    if (typeof document !== 'undefined' && document.activeElement) {
+      const actEl = document.activeElement;
+      if (this.mode === 'GUIDE' && actEl.id === 'vod-search-input') {
+        actEl.blur();
+        if (this.guideProgNodes && this.guideProgNodes[0]) {
+          this.guideProgIndex = 0;
+          this.updateGuideProgrammeFocus();
+        } else {
+          this.setFocusedElementFast(actEl);
+        }
+        return;
+      }
+      if (this.mode === 'SEARCH' && actEl.id === 'search-query-input') {
+        actEl.blur();
+        const firstResult = document.querySelector('#search-results-list .focusable') || document.querySelector('#search-keyboard .kb-key');
+        if (firstResult) this.setFocusedElementFast(firstResult);
+        return;
+      }
     }
 
     if (this.isModalOpen()) {
@@ -5338,6 +6819,7 @@ class IPTVApp {
           '<div class="jump-preview-info">' +
             '<div id="jump-channel-name" class="jump-channel-name">שם הערוץ</div>' +
             '<div id="jump-channel-epg" class="jump-channel-epg">כעת: שידור ישיר</div>' +
+            '<div id="numeric-zap-preview" class="numeric-zap-preview hidden"></div>' +
           '</div>' +
         '</div>';
     }
@@ -5347,11 +6829,16 @@ class IPTVApp {
     const epgEl = document.getElementById('jump-channel-epg');
     const logoImg = document.getElementById('jump-channel-logo');
     const monogramEl = document.getElementById('jump-channel-monogram');
+    const zapPreviewEl = document.getElementById('numeric-zap-preview');
 
     if (textEl) textEl.textContent = digits;
 
     const targetNum = parseInt(digits, 10);
     const matchedCh = !isNaN(targetNum) ? this.allChannels.find((c) => c.number === targetNum) : null;
+    const prefixStr = String(digits || '').trim();
+    const prefixMatches = prefixStr
+      ? this.allChannels.filter((c) => String(c.number).indexOf(prefixStr) === 0 && (!matchedCh || c.id !== matchedCh.id)).slice(0, 3)
+      : [];
 
     if (matchedCh) {
       if (nameEl) {
@@ -5369,6 +6856,14 @@ class IPTVApp {
         } else {
           epgEl.textContent = matchedCh.group || 'שידור חי';
         }
+      }
+      if (zapPreviewEl) {
+        let previewText = 'יעבור לערוץ #' + matchedCh.number + ' • ' + matchedCh.name;
+        if (prefixMatches.length > 0) {
+          previewText += '  |  עוד: ' + prefixMatches.map((m) => m.number + ' ' + m.name).join(' • ');
+        }
+        zapPreviewEl.textContent = previewText;
+        zapPreviewEl.classList.remove('hidden');
       }
       if (logoImg && monogramEl) {
         monogramEl.textContent = this.getChannelMonogram(matchedCh);
@@ -5390,11 +6885,19 @@ class IPTVApp {
       }
     } else {
       if (nameEl) {
-        nameEl.textContent = 'אין ערוץ במספר ' + digits;
-        nameEl.classList.add('not-found');
+        nameEl.textContent = prefixMatches.length > 0 ? (prefixMatches[0].number + ' • ' + prefixMatches[0].name) : ('אין ערוץ במספר ' + digits);
+        nameEl.classList.toggle('not-found', prefixMatches.length === 0);
       }
       if (epgEl) {
-        epgEl.textContent = 'המשך להקליד ספרות...';
+        epgEl.textContent = prefixMatches.length > 0 ? 'המשך להקליד למעבר...' : 'המשך להקליד ספרות...';
+      }
+      if (zapPreviewEl) {
+        if (prefixMatches.length > 0) {
+          zapPreviewEl.textContent = 'התאמות: ' + prefixMatches.map((m) => '#' + m.number + ' ' + m.name).join(' • ');
+        } else {
+          zapPreviewEl.textContent = 'אין ערוץ תואם למספר ' + digits;
+        }
+        zapPreviewEl.classList.remove('hidden');
       }
       if (logoImg && monogramEl) {
         logoImg.classList.add('hidden');
@@ -5578,32 +7081,299 @@ class IPTVApp {
      Bounded to 7 Days Back + Today, with Fast Day-by-Day Zapping (◀ / ▶)
      -------------------------------------------------------------------------- */
 
-  openGuideModal(channelOverride) {
-    const ch = channelOverride || this.previewedChannel || this.selectedChannel || this.visibleChannels[0];
-    if (!ch) return;
+  openGuideModal(channelOrScope, vodInitialQuery) {
+    this.ensureVodHeaderBtnDOM();
+    const isVodMode = channelOrScope === 'vod';
+    const ch =
+      (!isVodMode && channelOrScope && typeof channelOrScope === 'object' ? channelOrScope : null) ||
+      this.previewedChannel ||
+      this.selectedChannel ||
+      this.visibleChannels[0] ||
+      this.allChannels[0] ||
+      null;
+    if (!isVodMode && !ch) return;
 
     this.cancelAutoFullscreen();
-    this.previousModeBeforeModal = this.mode === 'FULLSCREEN' ? 'FULLSCREEN' : 'BROWSE';
-    this.mode = 'GUIDE';
-    this.guideChannel = ch;
-    this.guideDays = this.epg.getChannelGuideByDays(ch);
-    this.guideDayIndex = 0; // Start on Today
-
-    const titleEl = document.getElementById('guide-modal-title');
-    if (titleEl) {
-      titleEl.textContent = 'מדריך תוכניות (7 ימים): ערוץ ' + ch.number + ' - ' + ch.name;
+    if (!this.isModalOpen()) {
+      this._saveFocusBeforeModal();
+      this.previousModeBeforeModal = this.mode === 'FULLSCREEN' ? 'FULLSCREEN' : 'BROWSE';
     }
+    this.mode = 'GUIDE';
+    if (ch) this.guideChannel = ch;
+    this.guideDayIndex = 0;
 
     const osd = document.getElementById('fullscreen-osd');
     if (osd) osd.classList.add('hidden');
     const pauseBadge = document.getElementById('video-pause-indicator');
     if (pauseBadge) pauseBadge.classList.add('hidden');
 
-    document.getElementById('guide-modal').classList.remove('hidden');
+    const guideModal = document.getElementById('guide-modal');
+    if (guideModal) {
+      guideModal.classList.remove('hidden');
+      guideModal.setAttribute('aria-hidden', 'false');
+    }
     this.updateVideoSurfacePosition();
 
+    this.setGuideScope(isVodMode ? 'vod' : 'channel', vodInitialQuery);
+  }
+
+  setGuideScope(scope, vodInitialQuery) {
+    this.ensureVodHeaderBtnDOM();
+    this.guideScope = scope === 'vod' ? 'vod' : 'channel';
+
+    const scopeChBtn = document.getElementById('btn-guide-scope-channel');
+    const scopeVodBtn = document.getElementById('btn-guide-scope-vod');
+    const daysBar = document.getElementById('guide-days-bar');
+    const vodSearchBar = document.getElementById('vod-search-bar');
+    const vodInput = document.getElementById('vod-search-input');
+    const titleEl = document.getElementById('guide-modal-title');
+    const subtitleEl = document.getElementById('guide-modal-subtitle');
+
+    if (scopeChBtn) scopeChBtn.classList.toggle('active', this.guideScope === 'channel');
+    if (scopeVodBtn) scopeVodBtn.classList.toggle('active', this.guideScope === 'vod');
+
+    if (this.guideScope === 'vod') {
+      if (daysBar) daysBar.classList.add('hidden');
+      if (vodSearchBar) vodSearchBar.classList.remove('hidden');
+      if (titleEl) titleEl.textContent = 'VOD גלובלי — כל הערוצים (7 ימים)';
+      if (subtitleEl) subtitleEl.textContent = 'חפש תוכנית מ-7 הימים האחרונים בכל הערוצים ולחץ OK לצפייה';
+      if (typeof vodInitialQuery === 'string') {
+        this.vodSearchQuery = vodInitialQuery;
+        if (vodInput) vodInput.value = vodInitialQuery;
+      } else if (vodInput) {
+        this.vodSearchQuery = vodInput.value || '';
+      }
+      this._syncVodOnlyPastBtn();
+      this.renderVodProgrammes();
+      if (this.guideProgNodes.length > 0 && typeof vodInitialQuery === 'string' && vodInitialQuery.trim()) {
+        this.guideProgIndex = 0;
+        this.updateGuideProgrammeFocus();
+      } else if (vodInput) {
+        this.setFocusedElementFast(vodInput);
+      } else if (scopeVodBtn) {
+        this.setFocusedElementFast(scopeVodBtn);
+      }
+      return;
+    }
+
+    if (daysBar) daysBar.classList.remove('hidden');
+    if (vodSearchBar) vodSearchBar.classList.add('hidden');
+
+    const ch = this.guideChannel || this.previewedChannel || this.selectedChannel || this.visibleChannels[0];
+    this.guideChannel = ch;
+    if (ch) {
+      this.guideDays = this.epg.getChannelGuideByDays(ch);
+      if (titleEl) {
+        titleEl.textContent = 'מדריך תוכניות (7 ימים): ערוץ ' + ch.number + ' - ' + ch.name;
+      }
+    } else {
+      this.guideDays = [];
+    }
+    if (subtitleEl) {
+      subtitleEl.textContent = 'בחר יום בחצים ◀ ▶ ובחר תוכנית לסטארט אובר';
+    }
     this.renderGuideDayTabs();
     this.renderGuideDayProgrammes();
+  }
+
+  _syncVodOnlyPastBtn() {
+    const btn = document.getElementById('btn-vod-only-past');
+    if (!btn) return;
+    btn.classList.toggle('active', Boolean(this.vodOnlyPast));
+    btn.textContent = this.vodOnlyPast ? 'רק שידורים מוקלטים ✓' : 'רק שידורים מוקלטים';
+  }
+
+  toggleVodOnlyPast() {
+    this.vodOnlyPast = !this.vodOnlyPast;
+    this._syncVodOnlyPastBtn();
+    if (this.mode === 'GUIDE' && this.guideScope === 'vod') {
+      this.renderVodProgrammes();
+    }
+  }
+
+  renderVodProgrammes() {
+    const listEl = document.getElementById('guide-programmes-list');
+    if (!listEl) return;
+    listEl.innerHTML = '';
+    this.guideProgNodes = [];
+    this.vodResults = [];
+
+    const query = String(this.vodSearchQuery || '').trim();
+    const lookup = this._buildEpgChannelLookup();
+    let results = [];
+
+    if (this.epg) {
+      const opts = {
+        maxDays: 7,
+        pastOnly: Boolean(this.vodOnlyPast),
+        limit: 80,
+        channelMap: lookup.channelMap
+      };
+      if (query && typeof this.epg.searchAllVodProgrammes === 'function') {
+        results = this.epg.searchAllVodProgrammes(query, opts) || [];
+      } else if (!query && typeof this.epg.getRecentVodProgrammes === 'function') {
+        results = this.epg.getRecentVodProgrammes(opts) || [];
+      } else if (typeof this.epg.searchAllVodProgrammes === 'function') {
+        results = this.epg.searchAllVodProgrammes(query, opts) || [];
+      }
+    }
+
+    // Graceful offline / empty-XMLTV fallback when query is empty
+    if (results.length === 0 && !query && this.epg && (!this.epg.programmesByChannel || this.epg.programmesByChannel.size === 0)) {
+      const now = Date.now();
+      const chPool = (this.visibleChannels.length > 0 ? this.visibleChannels : this.allChannels).slice(0, 12);
+      for (let i = 0; i < chPool.length; i++) {
+        const ch = chPool[i];
+        const progs = this.epg.getChannelProgrammes(ch) || [];
+        for (let pIdx = progs.length - 1; pIdx >= 0; pIdx--) {
+          const p = progs[pIdx];
+          if (!p || p.startMs > now) continue;
+          if (this.vodOnlyPast && p.stopMs > now) continue;
+          results.push({
+            epgChannelId: ch.epgId || ch.id,
+            channel: ch,
+            title: p.title,
+            desc: p.desc || '',
+            start: p.startMs,
+            stop: p.stopMs,
+            isLive: p.startMs <= now && p.stopMs > now,
+            isPast: p.stopMs <= now,
+            durationMin: Math.max(1, Math.round((p.stopMs - p.startMs) / 60000)),
+            score: 1
+          });
+          if (results.length >= 60) break;
+        }
+        if (results.length >= 60) break;
+      }
+      results.sort((a, b) => (b.start || 0) - (a.start || 0));
+    }
+
+    const mappedResults = [];
+    for (let i = 0; i < results.length; i++) {
+      const item = results[i];
+      if (!item) continue;
+      const ch = item.channel || this._resolveChannelForEpgId(item.epgChannelId, lookup);
+      const startMs = typeof item.startMs === 'number'
+        ? item.startMs
+        : (typeof item.start === 'number' ? item.start : (item.start ? new Date(item.start).getTime() : 0));
+      const stopMs = typeof item.stopMs === 'number'
+        ? item.stopMs
+        : (typeof item.stop === 'number' ? item.stop : (item.stop ? new Date(item.stop).getTime() : startMs + 3600000));
+      mappedResults.push({
+        epgChannelId: item.epgChannelId || (ch ? (ch.epgId || ch.id) : ''),
+        channel: ch || null,
+        channelName: ch ? ch.name : (item.channelName || lookup.channelMap[item.epgChannelId] || item.epgChannelId || 'ערוץ'),
+        channelNumber: ch ? ch.number : '',
+        title: item.title || 'שידור חי',
+        desc: item.desc || '',
+        startMs: startMs,
+        stopMs: stopMs,
+        startStr: this.epg ? this.epg.formatTime(startMs) : '',
+        stopStr: this.epg ? this.epg.formatTime(stopMs) : '',
+        dayLabel: this._formatVodDayLabel(startMs),
+        durationMin: item.durationMin || Math.max(1, Math.round((stopMs - startMs) / 60000)),
+        isLive: Boolean(item.isLive),
+        isPast: Boolean(item.isPast)
+      });
+    }
+
+    this.vodResults = mappedResults;
+    this.guideProgIndex = 0;
+    listEl.scrollTop = 0;
+
+    if (mappedResults.length === 0) {
+      listEl.innerHTML =
+        '<div class="empty-state-card">' +
+          '<div class="empty-state-icon">🎬</div>' +
+          '<div class="empty-state-title">' + (query ? 'לא נמצאו תוכניות תואמות ב-7 הימים האחרונים' : 'אין תוכניות VOD להצגה כעת') + '</div>' +
+          '<div class="empty-state-desc">' + (query ? 'נסה מילת חיפוש אחרת או בטל את הסינון "רק שידורים מוקלטים".' : 'טען לוח שידורים (EPG) או הקלד שם תוכנית בחיפוש למעלה.') + '</div>' +
+        '</div>';
+      const statusEl = document.getElementById('guide-detail-status');
+      const titleEl = document.getElementById('guide-detail-title');
+      const timeEl = document.getElementById('guide-detail-time');
+      const descEl = document.getElementById('guide-detail-desc');
+      if (statusEl) {
+        statusEl.textContent = 'VOD גלובלי — 7 ימים';
+        statusEl.className = 'guide-status-badge status-future';
+      }
+      if (titleEl) titleEl.textContent = query ? ('אין תוצאות עבור "' + query + '"') : 'אין תוכניות זמינות';
+      if (timeEl) timeEl.textContent = '--:-- - --:--';
+      if (descEl) descEl.textContent = 'ניתן לחפש לפי שם תוכנית, תיאור או שם ערוץ מ-7 הימים האחרונים.';
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    for (let i = 0; i < mappedResults.length; i++) {
+      const r = mappedResults[i];
+      const row = document.createElement('div');
+      row.className = 'vod-result-card focusable' + (r.isLive ? ' is-live' : ' is-past');
+      const chBadgeLabel = (r.channelNumber ? ('#' + r.channelNumber + ' ') : '') + r.channelName;
+      const typePillHtml = r.isLive
+        ? '<span class="vod-type-pill is-live">● שידור חי</span>'
+        : (r.isPast
+          ? '<span class="vod-type-pill is-vod">VOD • הקלטה</span>'
+          : '<span class="vod-type-pill">בהמשך</span>');
+
+      row.innerHTML =
+        '<div class="vod-result-main">' +
+          '<div class="vod-result-meta">' +
+            '<span class="vod-channel-badge"></span>' +
+            '<span class="vod-day-badge"></span>' +
+          '</div>' +
+          '<div class="vod-result-title"></div>' +
+        '</div>' +
+        '<div class="vod-result-actions">' +
+          typePillHtml +
+          '<span class="vod-play-cta">▶ צפה</span>' +
+        '</div>';
+
+      const chBadgeEl = row.querySelector('.vod-channel-badge');
+      const dayBadgeEl = row.querySelector('.vod-day-badge');
+      const titleNode = row.querySelector('.vod-result-title');
+      if (chBadgeEl) chBadgeEl.textContent = chBadgeLabel;
+      if (dayBadgeEl) dayBadgeEl.textContent = r.dayLabel + ' • ' + r.startStr + '-' + r.stopStr + ' (' + r.durationMin + ' דק׳)';
+      if (titleNode) titleNode.textContent = r.title;
+
+      row.addEventListener('click', () => {
+        this.guideProgIndex = i;
+        this.updateGuideProgrammeFocus();
+        this.playVodItem(r);
+      });
+
+      this.guideProgNodes.push(row);
+      fragment.appendChild(row);
+    }
+
+    listEl.appendChild(fragment);
+    this._updateVodDetailCard(mappedResults[0]);
+  }
+
+  _updateVodDetailCard(vodItem) {
+    if (!vodItem) return;
+    const statusEl = document.getElementById('guide-detail-status');
+    const titleEl = document.getElementById('guide-detail-title');
+    const timeEl = document.getElementById('guide-detail-time');
+    const descEl = document.getElementById('guide-detail-desc');
+    const hasCatchup = vodItem.channel ? this.hasCatchupSupport(vodItem.channel) : false;
+
+    if (statusEl) {
+      if (vodItem.isLive) {
+        statusEl.textContent = '● משודר כעת בשידור חי (לחץ OK לצפייה)';
+        statusEl.className = 'guide-status-badge status-live';
+      } else if (hasCatchup) {
+        statusEl.textContent = 'VOD זמין לצפייה חוזרת (לחץ OK להפעלה)';
+        statusEl.className = 'guide-status-badge status-past';
+      } else {
+        statusEl.textContent = 'שידור מוקלט (' + vodItem.channelName + ' — מעבר לערוץ ב-OK)';
+        statusEl.className = 'guide-status-badge status-past';
+      }
+    }
+    if (titleEl) titleEl.textContent = vodItem.title;
+    if (timeEl) {
+      const chPrefix = (vodItem.channelNumber ? ('ערוץ ' + vodItem.channelNumber + ' • ') : '') + vodItem.channelName;
+      timeEl.textContent = chPrefix + ' | ' + vodItem.dayLabel + ' ' + vodItem.startStr + ' - ' + vodItem.stopStr;
+    }
+    if (descEl) descEl.textContent = vodItem.desc || 'שידור מתוך מדריך 7 הימים האחרונים.';
   }
 
   renderGuideDayTabs() {
@@ -5732,6 +7502,12 @@ class IPTVApp {
       this.scrollContainerFast(listEl, target);
     }
 
+    if (this.guideScope === 'vod') {
+      const vodItem = Array.isArray(this.vodResults) ? this.vodResults[this.guideProgIndex] : null;
+      this._updateVodDetailCard(vodItem);
+      return;
+    }
+
     const dayBucket = this.guideDays[this.guideDayIndex];
     const prog = dayBucket && dayBucket.programmes ? dayBucket.programmes[this.guideProgIndex] : null;
     if (prog) {
@@ -5759,15 +7535,85 @@ class IPTVApp {
   }
 
   navigateGuideModal(direction) {
+    const curEl = this.currentFocusedEl;
+    const scopeChBtn = document.getElementById('btn-guide-scope-channel');
+    const scopeVodBtn = document.getElementById('btn-guide-scope-vod');
+    const vodInput = document.getElementById('vod-search-input');
+    const onlyPastBtn = document.getElementById('btn-vod-only-past');
+    const closeBtn = document.querySelector('#guide-modal .modal-close-btn');
+
+    if (curEl === closeBtn) {
+      if (direction === 'down') {
+        const target = this.guideScope === 'vod' ? (scopeVodBtn || scopeChBtn) : (scopeChBtn || scopeVodBtn);
+        if (target) this.setFocusedElementFast(target);
+      }
+      return;
+    }
+
+    if (curEl === scopeChBtn || curEl === scopeVodBtn) {
+      if (direction === 'left' && scopeVodBtn && curEl !== scopeVodBtn) {
+        this.setFocusedElementFast(scopeVodBtn);
+        return;
+      }
+      if (direction === 'right' && scopeChBtn && curEl !== scopeChBtn) {
+        this.setFocusedElementFast(scopeChBtn);
+        return;
+      }
+      if (direction === 'up' && closeBtn) {
+        this.setFocusedElementFast(closeBtn);
+        return;
+      }
+      if (direction === 'down') {
+        if (this.guideScope === 'vod' && vodInput) {
+          this.setFocusedElementFast(vodInput);
+          return;
+        }
+        if (this.guideProgNodes.length > 0) {
+          this.updateGuideProgrammeFocus();
+          return;
+        }
+      }
+      return;
+    }
+
+    if (this.guideScope === 'vod' && (curEl === vodInput || curEl === onlyPastBtn)) {
+      if (direction === 'left' && onlyPastBtn && curEl !== onlyPastBtn) {
+        this.setFocusedElementFast(onlyPastBtn);
+        return;
+      }
+      if (direction === 'right' && vodInput && curEl !== vodInput) {
+        this.setFocusedElementFast(vodInput);
+        return;
+      }
+      if (direction === 'up') {
+        if (scopeVodBtn || scopeChBtn) this.setFocusedElementFast(scopeVodBtn || scopeChBtn);
+        return;
+      }
+      if (direction === 'down' && this.guideProgNodes.length > 0) {
+        this.guideProgIndex = Math.min(this.guideProgIndex || 0, this.guideProgNodes.length - 1);
+        this.updateGuideProgrammeFocus();
+        return;
+      }
+      return;
+    }
+
     if (direction === 'down') {
       if (this.guideProgNodes.length === 0) return;
       this.guideProgIndex = (this.guideProgIndex + 1) % this.guideProgNodes.length;
       this.updateGuideProgrammeFocus();
     } else if (direction === 'up') {
-      if (this.guideProgNodes.length === 0) return;
-      this.guideProgIndex = (this.guideProgIndex - 1 + this.guideProgNodes.length) % this.guideProgNodes.length;
+      if (this.guideProgIndex <= 0 || this.guideProgNodes.length === 0) {
+        if (this.guideScope === 'vod' && vodInput) {
+          this.setFocusedElementFast(vodInput);
+        } else if (scopeChBtn || scopeVodBtn) {
+          this.setFocusedElementFast(scopeChBtn || scopeVodBtn);
+        }
+        return;
+      }
+      this.guideProgIndex = this.guideProgIndex - 1;
       this.updateGuideProgrammeFocus();
     } else if (direction === 'left') {
+      if (this.guideScope === 'vod') return;
       // In RTL, Left moves to older day (Today -> Yesterday -> 2 days ago ... up to 7 days)
       if (this.guideDayIndex < this.guideDays.length - 1) {
         this.guideDayIndex++;
@@ -5775,6 +7621,7 @@ class IPTVApp {
         this.renderGuideDayProgrammes();
       }
     } else if (direction === 'right') {
+      if (this.guideScope === 'vod') return;
       // In RTL, Right moves toward Today
       if (this.guideDayIndex > 0) {
         this.guideDayIndex--;
@@ -5795,16 +7642,22 @@ class IPTVApp {
       this.mode === 'GUIDE' ||
       this.mode === 'OTA' ||
       this.mode === 'ISSUE' ||
-      this.mode === 'DISCLAIMER'
+      this.mode === 'DISCLAIMER' ||
+      this.mode === 'VOICE' ||
+      Boolean(this._sleepWarningActive)
     );
   }
 
   openSettingsModal() {
     this.cancelAutoFullscreen();
-    this.previousModeBeforeModal = 'BROWSE';
+    if (!this.isModalOpen()) {
+      this._saveFocusBeforeModal();
+      this.previousModeBeforeModal = 'BROWSE';
+    }
     this.mode = 'SETTINGS';
     this.activeSettingsInputId = 'm3u-url-input';
     this.ensureUiCustomizationDOM();
+    this.ensureAppendDefaultBtnDOM();
     this.switchSettingsTab('sources');
 
     const savedEpg = localStorage.getItem(STORAGE_KEYS.EPG_URL);
@@ -5863,6 +7716,7 @@ class IPTVApp {
     } else if (tabName === 'av') {
       this.renderAvTab();
     } else if (tabName === 'sources') {
+      this.ensureAppendDefaultBtnDOM();
       this.renderSourcesManagerList();
     } else if (tabName === 'about') {
       this.ensureDisclaimerDOM();
@@ -6086,7 +7940,10 @@ class IPTVApp {
 
   openSearchModal() {
     this.cancelAutoFullscreen();
-    this.previousModeBeforeModal = 'BROWSE';
+    if (!this.isModalOpen()) {
+      this._saveFocusBeforeModal();
+      this.previousModeBeforeModal = 'BROWSE';
+    }
     this.mode = 'SEARCH';
     document.getElementById('search-modal').classList.remove('hidden');
     this.updateVideoSurfacePosition();
@@ -6103,25 +7960,34 @@ class IPTVApp {
       }
       return;
     }
+    if (this._sleepWarningActive) {
+      this.cancelSleepWarning(true);
+    }
+    this._stopActiveSpeechRecognition();
     if (this.otaManager) {
       this.otaManager.stopCloudSyncPolling();
     }
     const modals = document.querySelectorAll('.modal-backdrop');
     for (let i = 0; i < modals.length; i++) {
       modals[i].classList.add('hidden');
+      if (modals[i].id === 'voice-overlay' || modals[i].id === 'sleep-warning-modal') {
+        modals[i].setAttribute('aria-hidden', 'true');
+      }
     }
     if (this.previousModeBeforeModal === 'FULLSCREEN') {
+      this._savedFocusContext = null;
       this.mode = 'FULLSCREEN';
       this.cancelAutoFullscreen();
       this.updateVideoSurfacePosition();
       this.updateStreamStatsOverlay();
     } else {
       this.mode = 'BROWSE';
-      this.focusArea = 'channels';
       this.updateStreamStatsOverlay();
       this.updateVideoSurfacePosition(true);
-      this.updateChannelFocusFast();
-      this.scheduleAutoFullscreen();
+      this._restoreFocusAfterModal();
+      if (this.focusArea === 'channels') {
+        this.scheduleAutoFullscreen();
+      }
     }
   }
 
@@ -6675,6 +8541,10 @@ class IPTVApp {
 
     this.ensureThemeControlsDOM();
     this.ensureUiCustomizationDOM();
+    this.ensureVodHeaderBtnDOM();
+    this.ensurePowerSaveDOM();
+    this.ensureVoiceDOM();
+    this.ensureAppendDefaultBtnDOM();
     this.renderAppearanceTab();
     this.renderAvTab();
 
@@ -6988,12 +8858,41 @@ class IPTVApp {
     const toast = document.getElementById('toast');
     const msgEl = document.getElementById('toast-message');
     if (!toast || !msgEl) return;
-    msgEl.textContent = message;
+
+    const now = Date.now();
+    const text = message == null ? '' : String(message);
+    if (!text) return;
+
+    // Iteration 10: Deduplicate identical rapid toasts and protect critical alerts from rapid non-critical overlap
+    if (this._lastToastMsg === text && (now - (this._lastToastTime || 0)) < 1200 && !toast.classList.contains('hidden')) {
+      clearTimeout(this.toastTimer);
+      this.toastTimer = setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 3000);
+      return;
+    }
+    if (!isCritical && this._lastToastCritical && (now - (this._lastToastTime || 0)) < 1500 && !toast.classList.contains('hidden')) {
+      clearTimeout(this._pendingToastTimer);
+      this._pendingToastTimer = setTimeout(() => {
+        this._pendingToastTimer = null;
+        this.showToast(text, false);
+      }, 1500);
+      return;
+    }
+
+    clearTimeout(this._pendingToastTimer);
+    this._pendingToastTimer = null;
+    this._lastToastMsg = text;
+    this._lastToastTime = now;
+    this._lastToastCritical = Boolean(isCritical);
+
+    msgEl.textContent = text;
     toast.classList.remove('hidden');
 
     clearTimeout(this.toastTimer);
     this.toastTimer = setTimeout(() => {
       toast.classList.add('hidden');
+      this._lastToastCritical = false;
     }, 3000);
   }
 }
