@@ -12,6 +12,10 @@ const NORM_PARENS_RE = /\([^)]*\)/g;
 const NORM_NOISE_RE = /\b(?:1080p|720p|576p|480p|4k|uhd|fhd|hd|sd|hevc|h265|h264|israel|il|tv|channel|ch)\b/gi;
 const NORM_HE_CH_RE = /ערוץ/g;
 const NORM_STRIP_RE = /[^a-z0-9\u0590-\u05fe]+/g;
+const VOD_NIQQUD_RE = /[\u0591-\u05C7]/g;
+const VOD_QUOTES_RE = /["'\u05F3\u05F4\u2018\u2019\u201C\u201D׳״]/g;
+const VOD_SEP_RE = /[^a-z0-9\u0590-\u05fe\s]+/g;
+const VOD_WS_RE = /\s+/g;
 const CDATA_RE = /<!\[CDATA\[([\s\S]*?)\]\]>/g;
 const XML_ENTITY_RE = /&(?:(quot|apos|lt|gt|amp|#39)|#(\d+)|#x([0-9a-fA-F]+));/g;
 const XML_ENTITY_MAP = {
@@ -111,11 +115,15 @@ const CHANNEL_SYNONYMS = {
 class EPGService {
   constructor() {
     this.programmesByChannel = new Map();
+    this.programmes = this.programmesByChannel;
     this.channelAliasMap = new Map(); // normalizedKey -> xmltvChannelId
     this.channelAliasCandidates = new Map(); // aliasKey -> Array of xmltvChannelIds
     this.dayBucketsCache = new Map();
-    this._channelMatchCache = new Map();
+    this._channelMatchCache = new Map(); // Bounded LRU (max 512 entries)
     this._normCache = new Map();
+    this._formatTimeCache = new Map(); // Pre-formatted HH:MM cache keyed by minute bucket
+    this._nowNextCache = new Map(); // 15-second memoized getNowNext cache
+    this._epgCacheEpoch = 0;
     this._syntheticScheduleCache = new Map(); // Bounded LRU (max 5 channels) for 7-day guide modal only
     this._lastParseHasLiveCoverage = false;
     this.epgUrl = '';
@@ -123,6 +131,9 @@ class EPGService {
     this.isLoading = false;
     this.lastUpdatedMs = 0;
     this.MAX_PAST_DAYS = 7;
+    this.MAX_PARSE_PAST_DAYS = 8;
+    this.MAX_PARSE_FUTURE_DAYS = 4;
+    this.MAX_ALIAS_CACHE_SIZE = 512;
     this.DAY_MS = 86400000;
     this.EPG_CACHE_KEY = 'zenplay_iptv_epg_cache_v491';
     this.TTL_STORAGE_KEY = 'zenplay_iptv_cache_ttl_hours';
@@ -133,6 +144,30 @@ class EPGService {
       'epg-il.xml'
     ];
     this.DEFAULT_LIVE_EPG_URL = this.DEFAULT_LIVE_EPG_URLS[0];
+  }
+
+  _ensureRuntimeCaches() {
+    if (!this.programmesByChannel) this.programmesByChannel = new Map();
+    if (!this.programmes) this.programmes = this.programmesByChannel;
+    if (!this.channelAliasMap) this.channelAliasMap = new Map();
+    if (!this.channelAliasCandidates) this.channelAliasCandidates = new Map();
+    if (!this.dayBucketsCache) this.dayBucketsCache = new Map();
+    if (!this._channelMatchCache) this._channelMatchCache = new Map();
+    if (!this._normCache) this._normCache = new Map();
+    if (!this._formatTimeCache) this._formatTimeCache = new Map();
+    if (!this._nowNextCache) this._nowNextCache = new Map();
+    if (typeof this._epgCacheEpoch !== 'number') this._epgCacheEpoch = 0;
+    if (typeof this.MAX_PARSE_PAST_DAYS !== 'number') this.MAX_PARSE_PAST_DAYS = 8;
+    if (typeof this.MAX_PARSE_FUTURE_DAYS !== 'number') this.MAX_PARSE_FUTURE_DAYS = 4;
+    if (typeof this.MAX_ALIAS_CACHE_SIZE !== 'number') this.MAX_ALIAS_CACHE_SIZE = 512;
+  }
+
+  _invalidateQueryCaches() {
+    this._ensureRuntimeCaches();
+    this._epgCacheEpoch++;
+    this._nowNextCache.clear();
+    this._channelMatchCache.clear();
+    this.dayBucketsCache.clear();
   }
 
   getCacheTtlHours() {
@@ -298,12 +333,12 @@ class EPGService {
       // Load into memory regardless of expiration, but trigger immediate background refresh if expired.
       this.lastUpdatedMs = isExpired ? 0 : (data.updatedAt || 0);
 
+      this._ensureRuntimeCaches();
       this.programmesByChannel.clear();
+      this.programmes = this.programmesByChannel;
       this.channelAliasMap.clear();
-      if (!this.channelAliasCandidates) this.channelAliasCandidates = new Map();
       this.channelAliasCandidates.clear();
-      if (this.dayBucketsCache) this.dayBucketsCache.clear();
-      if (this._channelMatchCache) this._channelMatchCache.clear();
+      this._invalidateQueryCaches();
 
       let latestStopMs = 0;
       for (let i = 0; i < data.entries.length; i++) {
@@ -436,13 +471,15 @@ class EPGService {
 
   clearCache() {
     try {
+      this._ensureRuntimeCaches();
       localStorage.removeItem(this.EPG_CACHE_KEY);
       this.programmesByChannel.clear();
+      this.programmes = this.programmesByChannel;
       this.channelAliasMap.clear();
       if (this.channelAliasCandidates) this.channelAliasCandidates.clear();
-      this.dayBucketsCache.clear();
-      if (this._channelMatchCache) this._channelMatchCache.clear();
+      this._invalidateQueryCaches();
       if (this._normCache) this._normCache.clear();
+      if (this._formatTimeCache) this._formatTimeCache.clear();
       if (this._syntheticScheduleCache) this._syntheticScheduleCache.clear();
       this.lastUpdatedMs = 0;
     } catch (e) {}
@@ -1101,15 +1138,18 @@ class EPGService {
   }
 
   _xmltvStreamBegin(appendMode) {
+    this._ensureRuntimeCaches();
     const now = Date.now();
+    const pastDays = typeof this.MAX_PARSE_PAST_DAYS === 'number' ? this.MAX_PARSE_PAST_DAYS : 8;
+    const futureDays = typeof this.MAX_PARSE_FUTURE_DAYS === 'number' ? this.MAX_PARSE_FUTURE_DAYS : 4;
     return {
       xml: null,
       xmlLen: 0,
       buffer: '',
       blocksInChunk: 0,
       append: Boolean(appendMode),
-      minAllowedTime: now - (this.MAX_PAST_DAYS * this.DAY_MS),
-      maxAllowedTime: now + (7 * this.DAY_MS),
+      minAllowedTime: now - (pastDays * this.DAY_MS),
+      maxAllowedTime: now + (futureDays * this.DAY_MS),
       hasFilter: Boolean(this.targetChannelKeys && this.targetChannelKeys.size > 0),
       matchedChannelIds: new Set(),
       progs: new Map(),
@@ -1251,10 +1291,12 @@ class EPGService {
 
     let pos = 0;
     const len = buf.length;
+    let nextCh = buf.indexOf('<channel', pos);
+    let nextPr = buf.indexOf('<programme', pos);
 
     while (pos < len) {
-      const nextCh = buf.indexOf('<channel', pos);
-      const nextPr = buf.indexOf('<programme', pos);
+      if (nextCh !== -1 && nextCh < pos) nextCh = buf.indexOf('<channel', pos);
+      if (nextPr !== -1 && nextPr < pos) nextPr = buf.indexOf('<programme', pos);
 
       if (nextCh === -1 && nextPr === -1) {
         if (!isFinal) {
@@ -1337,13 +1379,16 @@ class EPGService {
   }
 
   _xmltvBegin(xmlString, appendMode) {
+    this._ensureRuntimeCaches();
     const now = Date.now();
+    const pastDays = typeof this.MAX_PARSE_PAST_DAYS === 'number' ? this.MAX_PARSE_PAST_DAYS : 8;
+    const futureDays = typeof this.MAX_PARSE_FUTURE_DAYS === 'number' ? this.MAX_PARSE_FUTURE_DAYS : 4;
     return {
       xml: xmlString,
       xmlLen: xmlString.length,
       append: Boolean(appendMode),
-      minAllowedTime: now - (this.MAX_PAST_DAYS * this.DAY_MS),
-      maxAllowedTime: now + (7 * this.DAY_MS),
+      minAllowedTime: now - (pastDays * this.DAY_MS),
+      maxAllowedTime: now + (futureDays * this.DAY_MS),
       hasFilter: Boolean(this.targetChannelKeys && this.targetChannelKeys.size > 0),
       matchedChannelIds: new Set(),
       progs: new Map(),
@@ -1558,6 +1603,7 @@ class EPGService {
   _xmltvFinish(ctx) {
     ctx.xml = null; // Promptly release large temporary XML string reference
     try {
+      this._ensureRuntimeCaches();
       this._lastParseHasLiveCoverage = false;
       if (ctx.progs.size === 0 && ctx.aliasMap.size === 0) {
         return false;
@@ -1570,6 +1616,7 @@ class EPGService {
 
       if (!ctx.append) {
         this.programmesByChannel.clear();
+        this.programmes = this.programmesByChannel;
         this.channelAliasMap.clear();
         this.channelAliasCandidates.clear();
       } else {
@@ -1579,12 +1626,28 @@ class EPGService {
       const nowMs = Date.now();
       const minStopMs = nowMs - 3600000;
       const maxStartMs = nowMs + 6 * 3600000;
+      const pastDays = typeof this.MAX_PARSE_PAST_DAYS === 'number' ? this.MAX_PARSE_PAST_DAYS : 8;
+      const futureDays = typeof this.MAX_PARSE_FUTURE_DAYS === 'number' ? this.MAX_PARSE_FUTURE_DAYS : 4;
+      const pruneMinMs = nowMs - (pastDays * this.DAY_MS);
+      const pruneMaxMs = nowMs + (futureDays * this.DAY_MS);
       let parsedHasLive = false;
 
       ctx.progs.forEach((list, chKey) => {
         const existing = ctx.append ? this.programmesByChannel.get(chKey) : null;
-        const merged = existing && existing.length > 0 ? existing.concat(list) : list;
-        this.programmesByChannel.set(chKey, this._sortDedupeProgrammes(merged));
+        let merged = existing && existing.length > 0 ? existing.concat(list) : list;
+        if (ctx.append && merged.length > 0) {
+          const pruned = [];
+          for (let i = 0; i < merged.length; i++) {
+            const p = merged[i];
+            if (p && p.startMs >= pruneMinMs && p.startMs <= pruneMaxMs) {
+              pruned.push(p);
+            }
+          }
+          merged = pruned;
+        }
+        if (merged.length > 0) {
+          this.programmesByChannel.set(chKey, this._sortDedupeProgrammes(merged));
+        }
         if (!parsedHasLive) {
           for (let i = 0; i < list.length; i++) {
             const p = list[i];
@@ -1609,8 +1672,7 @@ class EPGService {
         });
       }
 
-      if (this.dayBucketsCache) this.dayBucketsCache.clear();
-      if (this._channelMatchCache) this._channelMatchCache.clear();
+      this._invalidateQueryCaches();
       this._purgeSyntheticChannels();
       return ctx.accepted > 0;
     } catch (e) {
@@ -1670,19 +1732,44 @@ class EPGService {
     return isNaN(ms) ? new Date() : new Date(ms);
   }
 
+  _getChannelMatchLru(cacheKey) {
+    if (!cacheKey || !this._channelMatchCache || !this._channelMatchCache.has(cacheKey)) {
+      return undefined;
+    }
+    const val = this._channelMatchCache.get(cacheKey);
+    // Refresh MRU order
+    this._channelMatchCache.delete(cacheKey);
+    this._channelMatchCache.set(cacheKey, val);
+    return val;
+  }
+
+  _setChannelMatchLru(cacheKey, targetId) {
+    if (!cacheKey) return;
+    this._ensureRuntimeCaches();
+    const maxEntries = typeof this.MAX_ALIAS_CACHE_SIZE === 'number' ? this.MAX_ALIAS_CACHE_SIZE : 512;
+    if (this._channelMatchCache.has(cacheKey)) {
+      this._channelMatchCache.delete(cacheKey);
+    } else if (this._channelMatchCache.size >= maxEntries) {
+      const oldestKey = this._channelMatchCache.keys().next().value;
+      if (oldestKey !== undefined) {
+        this._channelMatchCache.delete(oldestKey);
+      }
+    }
+    this._channelMatchCache.set(cacheKey, targetId);
+  }
+
   /**
    * Resolves a channel object to its XMLTV programme list by inspecting all candidate XMLTV IDs
    * across exact IDs, display-names, and normalized/synonym keys, preferring live coverage.
    */
   findXmlProgrammesForChannel(channel) {
     if (!channel || this.programmesByChannel.size === 0) return null;
-    if (!this._channelMatchCache) this._channelMatchCache = new Map();
-    if (!this.channelAliasCandidates) this.channelAliasCandidates = new Map();
+    this._ensureRuntimeCaches();
 
     const nowMs = Date.now();
     const cacheKey = channel.id || channel.uid || '';
-    if (cacheKey && this._channelMatchCache.has(cacheKey)) {
-      const cachedTarget = this._channelMatchCache.get(cacheKey);
+    const cachedTarget = cacheKey ? this._getChannelMatchLru(cacheKey) : undefined;
+    if (cachedTarget !== undefined) {
       if (!cachedTarget) return null;
       const cachedList = this.programmesByChannel.get(cachedTarget) || null;
       if (cachedList && cachedList.length > 0) {
@@ -1813,7 +1900,7 @@ class EPGService {
       }
     }
 
-    if (cacheKey) this._channelMatchCache.set(cacheKey, bestId);
+    if (cacheKey) this._setChannelMatchLru(cacheKey, bestId);
     return bestList;
   }
 
@@ -1858,22 +1945,75 @@ class EPGService {
     return this._getCachedSyntheticSevenDaySchedule(channel);
   }
 
-  findCurrentProgrammeIndex(list, nowMs) {
-    if (!list || list.length === 0) return -1;
+  /**
+   * O(log P) binary search over sorted programme arrays for the programme covering targetMs.
+   */
+  findProgrammeIndexAt(list, targetMs) {
+    if (!list || list.length === 0 || typeof targetMs !== 'number' || !isFinite(targetMs)) return -1;
     let lo = 0;
     let hi = list.length - 1;
     while (lo <= hi) {
       const mid = (lo + hi) >>> 1;
       const p = list[mid];
-      if (nowMs < p.startMs) {
+      const pStart = typeof p.startMs === 'number' ? p.startMs : p.start;
+      const pStop = typeof p.stopMs === 'number' ? p.stopMs : p.stop;
+      if (targetMs < pStart) {
         hi = mid - 1;
-      } else if (nowMs >= p.stopMs) {
+      } else if (targetMs >= pStop) {
         lo = mid + 1;
       } else {
         return mid;
       }
     }
     return -1;
+  }
+
+  _findLowerBoundStartMs(list, targetStartMs) {
+    if (!list || list.length === 0) return 0;
+    let lo = 0;
+    let hi = list.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      const p = list[mid];
+      const pStart = typeof p.startMs === 'number' ? p.startMs : p.start;
+      if (pStart < targetStartMs) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    return lo;
+  }
+
+  findCurrentProgrammeIndex(list, nowMs) {
+    return this.findProgrammeIndexAt(list, nowMs);
+  }
+
+  /**
+   * O(log P) lookup for the current live programme of a channel.
+   */
+  getCurrentProgramme(channel, nowMs) {
+    if (!channel) return null;
+    const refMs = typeof nowMs === 'number' && isFinite(nowMs) ? nowMs : Date.now();
+    const xmlList = this.findXmlProgrammesForChannel(channel);
+    if (xmlList && xmlList.length > 0) {
+      const idx = this.findProgrammeIndexAt(xmlList, refMs);
+      if (idx !== -1) {
+        const cur = xmlList[idx];
+        return {
+          id: cur.id,
+          title: cur.title,
+          desc: cur.desc || 'שידור ישיר בערוץ.',
+          startMs: cur.startMs,
+          stopMs: cur.stopMs,
+          startStr: this.formatTimeCached(cur.startMs),
+          stopStr: this.formatTimeCached(cur.stopMs),
+          status: 'live'
+        };
+      }
+    }
+    const nn = this.computeSyntheticNowNext(channel, refMs);
+    return nn ? nn.current : null;
   }
 
   _getSyntheticScheduleParams(channel) {
@@ -1928,8 +2068,8 @@ class EPGService {
         id: prev.id,
         title: prev.title,
         desc: prev.desc,
-        startStr: this.formatTime(prev.startMs),
-        stopStr: this.formatTime(prev.stopMs),
+        startStr: this.formatTimeCached(prev.startMs),
+        stopStr: this.formatTimeCached(prev.stopMs),
         startMs: prev.startMs,
         stopMs: prev.stopMs
       },
@@ -1941,8 +2081,8 @@ class EPGService {
         stop: new Date(cur.stopMs),
         startMs: cur.startMs,
         stopMs: cur.stopMs,
-        startStr: this.formatTime(cur.startMs),
-        stopStr: this.formatTime(cur.stopMs),
+        startStr: this.formatTimeCached(cur.startMs),
+        stopStr: this.formatTimeCached(cur.stopMs),
         progressPercent: progress,
         remainingMin: remainingMin,
         status: 'live'
@@ -1951,8 +2091,8 @@ class EPGService {
         id: next.id,
         title: next.title,
         desc: next.desc,
-        startStr: this.formatTime(next.startMs),
-        stopStr: this.formatTime(next.stopMs),
+        startStr: this.formatTimeCached(next.startMs),
+        stopStr: this.formatTimeCached(next.stopMs),
         startMs: next.startMs,
         stopMs: next.stopMs
       }
@@ -1983,8 +2123,8 @@ class EPGService {
         stop: new Date(p.stopMs),
         startMs: p.startMs,
         stopMs: p.stopMs,
-        startStr: this.formatTime(p.startMs),
-        stopStr: this.formatTime(p.stopMs),
+        startStr: this.formatTimeCached(p.startMs),
+        stopStr: this.formatTimeCached(p.stopMs),
         status: status,
         canStartOver: status === 'past' || status === 'live'
       });
@@ -1993,15 +2133,26 @@ class EPGService {
   }
 
   /**
-   * Returns Previous, Current & Next programme for fast rendering without allocating 7-day synthetic schedules.
+   * Returns Previous, Current & Next programme using O(log P) binary search + 15-second memoization cache
+   * keyed by channel + 15s bucket (automatically invalidated on EPG reload).
    */
-  getNowNext(channel) {
+  getNowNext(channel, nowMsOpt) {
     if (!channel) return null;
-    const nowMs = Date.now();
-    const xmlList = this.findXmlProgrammesForChannel(channel);
+    this._ensureRuntimeCaches();
+    const nowMs = typeof nowMsOpt === 'number' && isFinite(nowMsOpt) ? nowMsOpt : Date.now();
+    const chKey = (channel.id || channel.uid || '') + '|' + (channel.epgId || '') + '|' + (channel.name || '');
+    const bucket15s = Math.floor(nowMs / 15000);
+    const memoKey = chKey + '|' + bucket15s + '|' + this._epgCacheEpoch;
 
+    const cached = this._nowNextCache.get(memoKey);
+    if (cached && cached.current && nowMs >= cached.current.startMs && nowMs < cached.current.stopMs) {
+      return cached;
+    }
+
+    let result = null;
+    const xmlList = this.findXmlProgrammesForChannel(channel);
     if (xmlList && xmlList.length > 0) {
-      const currentIdx = this.findCurrentProgrammeIndex(xmlList, nowMs);
+      const currentIdx = this.findProgrammeIndexAt(xmlList, nowMs);
 
       if (currentIdx !== -1) {
         const prev = currentIdx > 0 ? xmlList[currentIdx - 1] : null;
@@ -2012,14 +2163,14 @@ class EPGService {
         const progress = Math.min(100, Math.round((elapsed / totalDuration) * 100));
         const remainingMin = Math.max(1, Math.ceil((current.stopMs - nowMs) / 60000));
 
-        return {
+        result = {
           previous: prev
             ? {
                 id: prev.id,
                 title: prev.title,
                 desc: prev.desc,
-                startStr: this.formatTime(prev.startMs),
-                stopStr: this.formatTime(prev.stopMs),
+                startStr: this.formatTimeCached(prev.startMs),
+                stopStr: this.formatTimeCached(prev.stopMs),
                 startMs: prev.startMs,
                 stopMs: prev.stopMs
               }
@@ -2032,8 +2183,8 @@ class EPGService {
             stop: current.stop || new Date(current.stopMs),
             startMs: current.startMs,
             stopMs: current.stopMs,
-            startStr: this.formatTime(current.startMs),
-            stopStr: this.formatTime(current.stopMs),
+            startStr: this.formatTimeCached(current.startMs),
+            stopStr: this.formatTimeCached(current.stopMs),
             progressPercent: progress,
             remainingMin: remainingMin,
             status: 'live'
@@ -2043,8 +2194,8 @@ class EPGService {
                 id: next.id,
                 title: next.title,
                 desc: next.desc,
-                startStr: this.formatTime(next.startMs),
-                stopStr: this.formatTime(next.stopMs),
+                startStr: this.formatTimeCached(next.startMs),
+                stopStr: this.formatTimeCached(next.stopMs),
                 startMs: next.startMs,
                 stopMs: next.stopMs
               }
@@ -2053,7 +2204,15 @@ class EPGService {
       }
     }
 
-    return this.computeSyntheticNowNext(channel, nowMs);
+    if (!result) {
+      result = this.computeSyntheticNowNext(channel, nowMs);
+    }
+
+    if (this._nowNextCache.size >= 512) {
+      this._nowNextCache.clear();
+    }
+    this._nowNextCache.set(memoKey, result);
+    return result;
   }
 
   _formatAdjacentItem(p) {
@@ -2064,8 +2223,8 @@ class EPGService {
       desc: p.desc,
       startMs: p.startMs,
       stopMs: p.stopMs,
-      startStr: this.formatTime(p.startMs),
-      stopStr: this.formatTime(p.stopMs)
+      startStr: this.formatTimeCached(p.startMs),
+      stopStr: this.formatTimeCached(p.stopMs)
     };
   }
 
@@ -2079,11 +2238,12 @@ class EPGService {
 
     const refMs = typeof afterMs === 'number' && isFinite(afterMs) ? afterMs : Date.now();
     let target = null;
-    const idx = this.findCurrentProgrammeIndex(list, refMs + 1000);
+    const idx = this.findProgrammeIndexAt(list, refMs + 1000);
     if (idx !== -1) {
       target = list[idx];
     } else {
-      for (let i = 0; i < list.length; i++) {
+      const startScan = this._findLowerBoundStartMs(list, refMs - 5000);
+      for (let i = startScan; i < list.length; i++) {
         if (list[i].startMs >= refMs - 5000 && (!list[i].stopMs || list[i].stopMs > refMs)) {
           target = list[i];
           break;
@@ -2101,8 +2261,8 @@ class EPGService {
       stop: target.stop || new Date(target.stopMs),
       startMs: target.startMs,
       stopMs: target.stopMs,
-      startStr: this.formatTime(target.startMs),
-      stopStr: this.formatTime(target.stopMs),
+      startStr: this.formatTimeCached(target.startMs),
+      stopStr: this.formatTimeCached(target.stopMs),
       status: target.stopMs <= Date.now() ? 'past' : 'live'
     };
   }
@@ -2132,7 +2292,7 @@ class EPGService {
     }
 
     if (idx === -1 && !isNaN(targetStartMs)) {
-      idx = this.findCurrentProgrammeIndex(list, targetStartMs + 1000);
+      idx = this.findProgrammeIndexAt(list, targetStartMs + 1000);
     }
 
     if (idx === -1) return null;
@@ -2152,7 +2312,7 @@ class EPGService {
     if (!channel) return [];
     const nowMs = Date.now();
     const xmlList = this.findXmlProgrammesForChannel(channel);
-    const currentIdx = xmlList && xmlList.length > 0 ? this.findCurrentProgrammeIndex(xmlList, nowMs) : -1;
+    const currentIdx = xmlList && xmlList.length > 0 ? this.findProgrammeIndexAt(xmlList, nowMs) : -1;
 
     if (currentIdx === -1) {
       return this.computeSyntheticMiniTimeline(channel, nowMs);
@@ -2176,8 +2336,8 @@ class EPGService {
         stop: p.stop || new Date(p.stopMs),
         startMs: p.startMs,
         stopMs: p.stopMs,
-        startStr: this.formatTime(p.startMs),
-        stopStr: this.formatTime(p.stopMs),
+        startStr: this.formatTimeCached(p.startMs),
+        stopStr: this.formatTimeCached(p.stopMs),
         status: status,
         canStartOver: status === 'past' || status === 'live'
       });
@@ -2213,9 +2373,11 @@ class EPGService {
       else if (offset === 1) label = 'אתמול (' + shortDate + ')';
 
       const dayProgs = [];
-      for (let i = 0; i < list.length; i++) {
+      const startIdx = this._findLowerBoundStartMs(list, dayStartMs);
+      for (let i = startIdx; i < list.length; i++) {
         const p = list[i];
-        if (p.startMs >= dayStartMs && p.startMs < dayEndMs) {
+        if (p.startMs >= dayEndMs) break;
+        if (p.startMs >= dayStartMs) {
           let status = 'upcoming';
           if (p.stopMs <= nowMs) status = 'past';
           else if (p.startMs <= nowMs && p.stopMs > nowMs) status = 'live';
@@ -2228,8 +2390,8 @@ class EPGService {
             stop: p.stop || new Date(p.stopMs),
             startMs: p.startMs,
             stopMs: p.stopMs,
-            startStr: this.formatTime(p.startMs),
-            stopStr: this.formatTime(p.stopMs),
+            startStr: this.formatTimeCached(p.startMs),
+            stopStr: this.formatTimeCached(p.stopMs),
             status: status,
             canStartOver: status === 'past' || status === 'live'
           });
@@ -2416,12 +2578,235 @@ class EPGService {
     return this.computeSyntheticNowNext(channel, nowMs);
   }
 
-  formatTime(dateOrMs) {
+  /**
+   * Pre-formatted HH:MM time-string cache keyed by minute epoch bucket
+   * to eliminate repeated Date formatting allocations across EPG/Guide rendering.
+   */
+  formatTimeCached(dateOrMs) {
     if (!dateOrMs && dateOrMs !== 0) return '';
-    const date = typeof dateOrMs === 'number' ? new Date(dateOrMs) : dateOrMs;
+    const ms = typeof dateOrMs === 'number'
+      ? dateOrMs
+      : (dateOrMs && typeof dateOrMs.getTime === 'function' ? dateOrMs.getTime() : NaN);
+    if (!isFinite(ms)) return '';
+    this._ensureRuntimeCaches();
+    const minBucket = Math.floor(ms / 60000);
+    const cached = this._formatTimeCache.get(minBucket);
+    if (cached !== undefined) return cached;
+
+    const date = new Date(ms);
     const h = ('0' + date.getHours()).slice(-2);
     const m = ('0' + date.getMinutes()).slice(-2);
-    return h + ':' + m;
+    const formatted = h + ':' + m;
+    if (this._formatTimeCache.size >= 4096) {
+      this._formatTimeCache.clear();
+    }
+    this._formatTimeCache.set(minBucket, formatted);
+    return formatted;
+  }
+
+  formatTime(dateOrMs) {
+    return this.formatTimeCached(dateOrMs);
+  }
+
+  /**
+   * Normalizes Hebrew/English text for VOD & Voice search:
+   * strips niqqud (\u0591-\u05C7), quotes/geresh, punctuation separators, and lowercases.
+   */
+  normalizeSearchText(str) {
+    if (!str || typeof str !== 'string') return '';
+    return str
+      .replace(VOD_NIQQUD_RE, '')
+      .replace(VOD_QUOTES_RE, '')
+      .replace(VOD_SEP_RE, ' ')
+      .replace(VOD_WS_RE, ' ')
+      .trim()
+      .toLowerCase();
+  }
+
+  _getVodSourceMap() {
+    this._ensureRuntimeCaches();
+    if (this.programmesByChannel && this.programmesByChannel.size > 0) {
+      return this.programmesByChannel;
+    }
+    return this.programmes || this.programmesByChannel;
+  }
+
+  _forEachProgrammeList(fn) {
+    const src = this._getVodSourceMap();
+    if (!src) return;
+    if (typeof src.forEach === 'function') {
+      src.forEach((list, chKey) => {
+        if (!chKey || (typeof chKey === 'string' && chKey.indexOf('gen_') === 0) || !Array.isArray(list)) return;
+        fn(list, chKey);
+      });
+    } else if (typeof src === 'object') {
+      const keys = Object.keys(src);
+      for (let i = 0; i < keys.length; i++) {
+        const chKey = keys[i];
+        const list = src[chKey];
+        if (!chKey || chKey.indexOf('gen_') === 0 || !Array.isArray(list)) continue;
+        fn(list, chKey);
+      }
+    }
+  }
+
+  _resolveChannelMapName(channelMap, chKey, normCache) {
+    if (!channelMap || !chKey) return '';
+    if (normCache && normCache[chKey] !== undefined) return normCache[chKey];
+    let entry = null;
+    if (typeof channelMap.get === 'function') {
+      entry = channelMap.get(chKey) || null;
+    } else if (typeof channelMap === 'object') {
+      entry = channelMap[chKey] || null;
+    }
+    const rawName = typeof entry === 'string'
+      ? entry
+      : (entry && typeof entry === 'object' ? (entry.name || entry.tvgName || '') : '');
+    const norm = rawName ? this.normalizeSearchText(rawName) : '';
+    if (normCache) normCache[chKey] = norm;
+    return norm;
+  }
+
+  _buildVodResultItem(chKey, p, pStart, pStop, now, score) {
+    return {
+      epgChannelId: chKey,
+      id: p.id || (chKey + '_' + pStart),
+      title: p.title,
+      desc: p.desc || '',
+      start: pStart,
+      stop: pStop,
+      startMs: pStart,
+      stopMs: pStop,
+      startStr: this.formatTimeCached(pStart),
+      stopStr: this.formatTimeCached(pStop),
+      isLive: pStart <= now && pStop > now,
+      isPast: pStop <= now,
+      durationMin: Math.max(1, Math.round((pStop - pStart) / 60000)),
+      score: score
+    };
+  }
+
+  /**
+   * Returns recent live + past catchup programmes (sorted start desc) across all channels
+   * so the Global 7-Day VOD browser populates immediately when search query is empty.
+   */
+  getRecentVodProgrammes(options) {
+    const opts = options && typeof options === 'object' ? options : {};
+    const maxDays = typeof opts.maxDays === 'number' && opts.maxDays > 0 ? opts.maxDays : 7;
+    const limit = typeof opts.limit === 'number' && opts.limit > 0 ? opts.limit : 80;
+    const now = typeof opts.now === 'number' && isFinite(opts.now) ? opts.now : Date.now();
+    const minMs = now - (maxDays * this.DAY_MS);
+    const results = [];
+
+    this._forEachProgrammeList((list, chKey) => {
+      for (let i = 0; i < list.length; i++) {
+        const p = list[i];
+        if (!p || !p.title) continue;
+        const pStart = typeof p.startMs === 'number' ? p.startMs : p.start;
+        const pStop = typeof p.stopMs === 'number' ? p.stopMs : p.stop;
+        if (typeof pStart !== 'number' || typeof pStop !== 'number') continue;
+        if (pStop < minMs || pStart > now) continue;
+        if (opts.pastOnly && pStart > now) continue;
+        results.push(this._buildVodResultItem(chKey, p, pStart, pStop, now, 0));
+      }
+    });
+
+    results.sort((a, b) => b.start - a.start);
+    return results.length > limit ? results.slice(0, limit) : results;
+  }
+
+  /**
+   * Global 7-Day VOD & Live Programme Search across ALL loaded XMLTV channels.
+   * Uses lazily-cached niqqud-stripped _normTitle / _normDesc per programme for instant search.
+   */
+  searchAllVodProgrammes(query, options) {
+    const opts = options && typeof options === 'object' ? options : {};
+    const normQuery = this.normalizeSearchText(typeof query === 'string' ? query : '');
+    if (!normQuery) {
+      return this.getRecentVodProgrammes(opts);
+    }
+
+    const maxDays = typeof opts.maxDays === 'number' && opts.maxDays > 0 ? opts.maxDays : 7;
+    const pastOnly = Boolean(opts.pastOnly);
+    const limit = typeof opts.limit === 'number' && opts.limit > 0 ? opts.limit : 80;
+    const channelMap = opts.channelMap || null;
+    const now = typeof opts.now === 'number' && isFinite(opts.now) ? opts.now : Date.now();
+    const minMs = now - (maxDays * this.DAY_MS);
+    const maxMs = now + (4 * 3600000);
+
+    const tokens = normQuery.split(' ');
+    const tokenCount = tokens.length;
+    const chNormCache = channelMap ? Object.create(null) : null;
+    const results = [];
+
+    this._forEachProgrammeList((list, chKey) => {
+      const normChName = channelMap ? this._resolveChannelMapName(channelMap, chKey, chNormCache) : '';
+
+      for (let i = 0; i < list.length; i++) {
+        const p = list[i];
+        if (!p || !p.title) continue;
+        const pStart = typeof p.startMs === 'number' ? p.startMs : p.start;
+        const pStop = typeof p.stopMs === 'number' ? p.stopMs : p.stop;
+        if (typeof pStart !== 'number' || typeof pStop !== 'number') continue;
+        if (pStop < minMs || pStart > maxMs) continue;
+        if (pastOnly && pStart > now) continue;
+
+        if (p._normTitle === undefined) {
+          p._normTitle = this.normalizeSearchText(p.title);
+        }
+        if (p._normDesc === undefined) {
+          p._normDesc = p.desc ? this.normalizeSearchText(p.desc) : '';
+        }
+
+        const normTitle = p._normTitle;
+        const normDesc = p._normDesc;
+        let score = 0;
+        let titleHits = 0;
+        let allMatched = true;
+
+        for (let t = 0; t < tokenCount; t++) {
+          const tok = tokens[t];
+          if (!tok) continue;
+          let matchedTok = false;
+          if (normTitle.indexOf(tok) !== -1) {
+            score += 30;
+            titleHits++;
+            matchedTok = true;
+          }
+          if (normChName && normChName.indexOf(tok) !== -1) {
+            score += 15;
+            matchedTok = true;
+          }
+          if (normDesc && normDesc.indexOf(tok) !== -1) {
+            score += 10;
+            matchedTok = true;
+          }
+          if (!matchedTok) {
+            allMatched = false;
+            break;
+          }
+        }
+
+        if (!allMatched || score === 0) continue;
+
+        if (normTitle.indexOf(normQuery) !== -1) {
+          score += 100;
+          if (normTitle.indexOf(normQuery) === 0) {
+            score += 35;
+          }
+        } else if (titleHits === tokenCount && tokenCount > 1) {
+          score += 25;
+        }
+
+        results.push(this._buildVodResultItem(chKey, p, pStart, pStop, now, score));
+      }
+    });
+
+    results.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return b.start - a.start;
+    });
+    return results.length > limit ? results.slice(0, limit) : results;
   }
 }
 

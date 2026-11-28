@@ -1,17 +1,20 @@
 /**
  * Multi-M3U Lineup Store, Custom Channel Numbering & Instant-Boot Cache Engine
  * Optimized for LG webOS 4.64 & 5.0+
- * - Supports multiple M3U playlist sources merged into one unified channel list
- * - Supports per-channel visibility selection (enabled/disabled) & custom channel numbers
- * - Caches compiled channel list in localStorage for < 20ms instant cold boot
- * - Supports 1-click sync from the PC / Mobile Web Studio (manager.html / sync-server.js)
+ * - O(1) channelById, channelByNumber, and favoritesMap lookup indices
+ * - Debounced/coalesced localStorage persistence scheduler with flushPendingSaves()
+ * - Compact cache serialization stripping empty/transient fields
+ * - Non-destructive appendDefaultSource() preserving all existing user sources
  */
 const LINEUP_KEYS = {
   SOURCES: 'zenplay_iptv_sources_v2',
   OVERRIDES: 'zenplay_iptv_channel_overrides_v2',
   CACHED_LINEUP: 'zenplay_iptv_cached_lineup_v2',
   PC_SYNC_HOST: 'zenplay_iptv_pc_sync_host',
-  LEGACY_M3U: 'zenplay_iptv_m3u_url'
+  LEGACY_M3U: 'zenplay_iptv_m3u_url',
+  FAVORITES: 'zenplay_iptv_favorites',
+  LAST_CHANNEL: 'zenplay_iptv_last_channel',
+  RECENT_CHANNELS: 'zenplay_iptv_recent_channels_v1'
 };
 
 const DEFAULT_SAMPLE_M3U = 'https://iptv-org.github.io/iptv/countries/il.m3u';
@@ -24,14 +27,253 @@ class LineupStore {
     this.rawChannels = []; // All parsed channels from all enabled sources
     this.compiledChannels = []; // Filtered (enabled) & sorted by customNumber
     this.discoveredEpgUrls = [];
+    this.channelById = Object.create(null);
+    this.channelByNumber = Object.create(null);
+    this.favoritesMap = Object.create(null);
+    this.recentChannelIds = [];
+    this._pendingSaves = Object.create(null);
+    this._saveTimer = null;
+    this._saveDebounceMs = 350;
+    this._lifecycleFlushBound = false;
     this._heCollator = (typeof Intl !== 'undefined' && typeof Intl.Collator === 'function')
       ? new Intl.Collator('he')
       : null;
 
+    this._bindLifecycleFlush();
     this.loadConfig();
   }
 
+  _ensureStoreState() {
+    if (!Array.isArray(this.sources)) this.sources = [];
+    if (!this.overrides || typeof this.overrides !== 'object') this.overrides = {};
+    if (!Array.isArray(this.rawChannels)) this.rawChannels = [];
+    if (!Array.isArray(this.compiledChannels)) this.compiledChannels = [];
+    if (!Array.isArray(this.discoveredEpgUrls)) this.discoveredEpgUrls = [];
+    if (!this.channelById || typeof this.channelById !== 'object') this.channelById = Object.create(null);
+    if (!this.channelByNumber || typeof this.channelByNumber !== 'object') this.channelByNumber = Object.create(null);
+    if (!this.favoritesMap || typeof this.favoritesMap !== 'object') this.favoritesMap = Object.create(null);
+    if (!Array.isArray(this.recentChannelIds)) this.recentChannelIds = [];
+    if (!this._pendingSaves || typeof this._pendingSaves !== 'object') this._pendingSaves = Object.create(null);
+    if (typeof this._saveDebounceMs !== 'number') this._saveDebounceMs = 350;
+  }
+
+  _bindLifecycleFlush() {
+    if (this._lifecycleFlushBound || typeof window === 'undefined' || typeof window.addEventListener !== 'function') {
+      return;
+    }
+    this._lifecycleFlushBound = true;
+    const flushFn = () => this.flushPendingSaves();
+    try {
+      window.addEventListener('pagehide', flushFn);
+      window.addEventListener('beforeunload', flushFn);
+      if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'hidden') {
+            this.flushPendingSaves();
+          }
+        });
+      }
+    } catch (e) {}
+  }
+
+  /**
+   * Queues a coalesced localStorage write to minimize synchronous JSON/storage stalls during rapid zapping.
+   */
+  schedulePendingSave(storageKey, valueOrGetter, delayMs) {
+    this._ensureStoreState();
+    if (!storageKey) return;
+    this._pendingSaves[storageKey] = valueOrGetter;
+    if (!this._saveTimer) {
+      const wait = typeof delayMs === 'number' && delayMs >= 0 ? delayMs : this._saveDebounceMs;
+      this._saveTimer = setTimeout(() => {
+        this.flushPendingSaves();
+      }, wait);
+    }
+  }
+
+  /**
+   * Synchronously flushes all queued localStorage writes (for immediate sync, exit, or test assertions).
+   */
+  flushPendingSaves() {
+    this._ensureStoreState();
+    if (this._saveTimer) {
+      clearTimeout(this._saveTimer);
+      this._saveTimer = null;
+    }
+    const keys = Object.keys(this._pendingSaves);
+    if (keys.length === 0) return 0;
+
+    let flushed = 0;
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      const entry = this._pendingSaves[key];
+      delete this._pendingSaves[key];
+      try {
+        const val = typeof entry === 'function' ? entry() : entry;
+        if (val === undefined) continue;
+        const serialized = typeof val === 'string' ? val : JSON.stringify(val);
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(key, serialized);
+          flushed++;
+        }
+      } catch (e) {}
+    }
+    return flushed;
+  }
+
+  /**
+   * Rebuilds O(1) channelById and channelByNumber lookup indices from compiledChannels.
+   */
+  rebuildChannelIndices() {
+    this._ensureStoreState();
+    const byId = Object.create(null);
+    const byNum = Object.create(null);
+    const list = this.compiledChannels;
+    for (let i = 0; i < list.length; i++) {
+      const ch = list[i];
+      if (!ch) continue;
+      if (ch.id !== undefined && ch.id !== null && ch.id !== '') {
+        byId[String(ch.id)] = ch;
+      }
+      if (ch.uid !== undefined && ch.uid !== null && ch.uid !== '') {
+        byId[String(ch.uid)] = ch;
+      }
+      if (typeof ch.number === 'number' && ch.number > 0) {
+        const numKey = String(ch.number);
+        if (!byNum[numKey]) {
+          byNum[numKey] = ch;
+        }
+      }
+    }
+    this.channelById = byId;
+    this.channelByNumber = byNum;
+  }
+
+  getChannelById(id) {
+    if (id === undefined || id === null || id === '') return null;
+    this._ensureStoreState();
+    return this.channelById[String(id)] || null;
+  }
+
+  getChannelByNumber(num) {
+    if (num === undefined || num === null || num === '') return null;
+    this._ensureStoreState();
+    return this.channelByNumber[String(num)] || null;
+  }
+
+  setChannels(channels, skipCacheSave) {
+    this._ensureStoreState();
+    this.rawChannels = Array.isArray(channels) ? channels : [];
+    return this.recompileLineup(Boolean(skipCacheSave));
+  }
+
+  loadFavorites() {
+    this._ensureStoreState();
+    const map = Object.create(null);
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem(LINEUP_KEYS.FAVORITES);
+        if (raw) {
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) {
+            for (let i = 0; i < arr.length; i++) {
+              if (arr[i] !== undefined && arr[i] !== null && arr[i] !== '') {
+                map[String(arr[i])] = true;
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {}
+    this.favoritesMap = map;
+    return map;
+  }
+
+  syncFavorites(favIdsOrSet, immediate) {
+    this._ensureStoreState();
+    const map = Object.create(null);
+    if (favIdsOrSet && typeof favIdsOrSet.forEach === 'function') {
+      favIdsOrSet.forEach((id) => {
+        if (id !== undefined && id !== null && id !== '') {
+          map[String(id)] = true;
+        }
+      });
+    } else if (Array.isArray(favIdsOrSet)) {
+      for (let i = 0; i < favIdsOrSet.length; i++) {
+        const id = favIdsOrSet[i];
+        if (id !== undefined && id !== null && id !== '') {
+          map[String(id)] = true;
+        }
+      }
+    }
+    this.favoritesMap = map;
+    this._persistFavorites(Boolean(immediate));
+    return map;
+  }
+
+  _persistFavorites(immediate) {
+    const buildFavJson = () => JSON.stringify(Object.keys(this.favoritesMap));
+    if (immediate) {
+      if (this._pendingSaves) delete this._pendingSaves[LINEUP_KEYS.FAVORITES];
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(LINEUP_KEYS.FAVORITES, buildFavJson());
+        }
+      } catch (e) {}
+    } else {
+      this.schedulePendingSave(LINEUP_KEYS.FAVORITES, buildFavJson, this._saveDebounceMs);
+    }
+  }
+
+  isFavorite(channelId) {
+    if (channelId === undefined || channelId === null || channelId === '') return false;
+    this._ensureStoreState();
+    return this.favoritesMap[String(channelId)] === true;
+  }
+
+  setFavorite(channelId, enabled, immediate) {
+    if (channelId === undefined || channelId === null || channelId === '') return false;
+    this._ensureStoreState();
+    const key = String(channelId);
+    if (enabled) {
+      this.favoritesMap[key] = true;
+    } else {
+      delete this.favoritesMap[key];
+    }
+    this._persistFavorites(Boolean(immediate));
+    return Boolean(enabled);
+  }
+
+  toggleFavorite(channelId, immediate) {
+    const next = !this.isFavorite(channelId);
+    return this.setFavorite(channelId, next, immediate);
+  }
+
+  getFavoriteIds() {
+    this._ensureStoreState();
+    return Object.keys(this.favoritesMap);
+  }
+
+  recordRecentChannel(channelOrId) {
+    this._ensureStoreState();
+    const chId = typeof channelOrId === 'string'
+      ? channelOrId
+      : (channelOrId && (channelOrId.id || channelOrId.uid) ? String(channelOrId.id || channelOrId.uid) : '');
+    if (!chId) return;
+
+    const nextRecent = [chId];
+    for (let i = 0; i < this.recentChannelIds.length && nextRecent.length < 25; i++) {
+      if (this.recentChannelIds[i] !== chId) {
+        nextRecent.push(this.recentChannelIds[i]);
+      }
+    }
+    this.recentChannelIds = nextRecent;
+    this.schedulePendingSave(LINEUP_KEYS.LAST_CHANNEL, chId, this._saveDebounceMs);
+    this.schedulePendingSave(LINEUP_KEYS.RECENT_CHANNELS, () => JSON.stringify(this.recentChannelIds), this._saveDebounceMs);
+  }
+
   loadConfig() {
+    this._ensureStoreState();
     try {
       const savedSources = localStorage.getItem(LINEUP_KEYS.SOURCES);
       if (savedSources) {
@@ -58,6 +300,14 @@ class LineupStore {
       if (savedOverrides) {
         this.overrides = JSON.parse(savedOverrides) || {};
       }
+
+      const savedRecent = localStorage.getItem(LINEUP_KEYS.RECENT_CHANNELS);
+      if (savedRecent) {
+        const recentArr = JSON.parse(savedRecent);
+        if (Array.isArray(recentArr)) {
+          this.recentChannelIds = recentArr;
+        }
+      }
     } catch (e) {
       console.warn('LineupStore loadConfig warning:', e);
       this.sources = [
@@ -65,9 +315,20 @@ class LineupStore {
       ];
       this.overrides = {};
     }
+    this.loadFavorites();
   }
 
-  saveSources() {
+  saveSources(defer) {
+    this._ensureStoreState();
+    if (defer === true) {
+      this.schedulePendingSave(LINEUP_KEYS.SOURCES, () => JSON.stringify(this.sources), this._saveDebounceMs);
+      if (this.sources.length > 0 && this.sources[0].url) {
+        this.schedulePendingSave(LINEUP_KEYS.LEGACY_M3U, this.sources[0].url, this._saveDebounceMs);
+      }
+      return;
+    }
+    delete this._pendingSaves[LINEUP_KEYS.SOURCES];
+    delete this._pendingSaves[LINEUP_KEYS.LEGACY_M3U];
     try {
       localStorage.setItem(LINEUP_KEYS.SOURCES, JSON.stringify(this.sources));
       if (this.sources.length > 0 && this.sources[0].url) {
@@ -76,16 +337,64 @@ class LineupStore {
     } catch (e) {}
   }
 
-  saveOverrides() {
+  saveOverrides(defer) {
+    this._ensureStoreState();
+    if (defer === true) {
+      this.schedulePendingSave(LINEUP_KEYS.OVERRIDES, () => JSON.stringify(this.overrides), this._saveDebounceMs);
+      return;
+    }
+    delete this._pendingSaves[LINEUP_KEYS.OVERRIDES];
     try {
       localStorage.setItem(LINEUP_KEYS.OVERRIDES, JSON.stringify(this.overrides));
     } catch (e) {}
   }
 
   /**
+   * Non-destructive addition of the built-in Israeli default playlist source.
+   * Preserves all existing user sources and overrides.
+   */
+  appendDefaultSource() {
+    this._ensureStoreState();
+    const defaultUrl = DEFAULT_SAMPLE_M3U;
+
+    for (let i = 0; i < this.sources.length; i++) {
+      const existing = this.sources[i];
+      if (!existing) continue;
+      if (existing.url === defaultUrl || this.normalizeM3uInput(existing.url) === defaultUrl) {
+        existing.enabled = true;
+        this.saveSources();
+        return { added: false, reenabled: true, source: existing };
+      }
+    }
+
+    const usedIds = Object.create(null);
+    for (let i = 0; i < this.sources.length; i++) {
+      if (this.sources[i] && this.sources[i].id) {
+        usedIds[String(this.sources[i].id)] = true;
+      }
+    }
+    let uniqueId = 'default-il';
+    let suffix = 2;
+    while (usedIds[uniqueId]) {
+      uniqueId = 'default-il-' + suffix++;
+    }
+
+    const newSource = {
+      id: uniqueId,
+      name: 'ברירת מחדל — ערוצי ישראל',
+      url: defaultUrl,
+      enabled: true
+    };
+    this.sources.push(newSource);
+    this.saveSources();
+    return { added: true, reenabled: false, source: newSource };
+  }
+
+  /**
    * Instant-Boot Cache: Returns cached compiled lineup in < 5ms so UI renders before network finishes!
    */
   loadCachedLineup() {
+    this._ensureStoreState();
     try {
       const raw = localStorage.getItem(LINEUP_KEYS.CACHED_LINEUP);
       if (!raw) return null;
@@ -95,7 +404,7 @@ class LineupStore {
       this.discoveredEpgUrls = Array.isArray(data.discoveredEpgUrls) ? data.discoveredEpgUrls : [];
       this.lastCacheTimestamp = data.updatedAt || 0;
 
-      // Compact v2 format: stores only rawChannels (omitting empty fields) and compiles in-memory
+      // Compact v2 format: stores only rawChannels (omitting empty/transient fields) and compiles in-memory
       if (Array.isArray(data.rawChannels) && data.rawChannels.length > 0 && !Array.isArray(data.compiledChannels)) {
         this.rawChannels = data.rawChannels.map((c, idx) => {
           const seqFallback = idx + 1;
@@ -141,6 +450,7 @@ class LineupStore {
             this.compiledChannels[i].number = i + 1;
           }
         }
+        this.rebuildChannelIndices();
         return this.compiledChannels;
       }
     } catch (e) {}
@@ -156,52 +466,93 @@ class LineupStore {
   }
 
   clearLineupCache() {
+    this._ensureStoreState();
+    delete this._pendingSaves[LINEUP_KEYS.CACHED_LINEUP];
     try {
       localStorage.removeItem(LINEUP_KEYS.CACHED_LINEUP);
       this.lastCacheTimestamp = 0;
     } catch (e) {}
   }
 
+  /**
+   * Strips empty, default, duplicate, and transient runtime fields before JSON.stringify
+   * to minimize localStorage footprint and serialization time.
+   */
   compactChannelForCache(ch) {
     const out = {
-      uid: ch.uid,
-      sourceId: ch.sourceId,
+      uid: ch.uid || ch.id,
       number: ch.number,
       name: ch.name,
       url: ch.url
     };
-    if (ch.sourceName) out.sourceName = ch.sourceName;
+    const srcId = typeof ch.sourceId === 'string' ? ch.sourceId.trim() : '';
+    if (srcId && srcId !== 'src_default') out.sourceId = srcId;
+    const srcName = typeof ch.sourceName === 'string' ? ch.sourceName.trim() : '';
+    if (srcName) out.sourceName = srcName;
     if (ch.originalNumber && ch.originalNumber !== ch.number) out.originalNumber = ch.originalNumber;
     if (ch.defaultSeqNumber && ch.defaultSeqNumber !== ch.number) out.defaultSeqNumber = ch.defaultSeqNumber;
-    if (ch.tvgName && ch.tvgName !== ch.name) out.tvgName = ch.tvgName;
-    if (ch.logo) out.logo = ch.logo;
-    if (ch.group && ch.group !== 'טלוויזיה חיה') out.group = ch.group;
-    if (ch.epgId) out.epgId = ch.epgId;
-    if (ch.catchupType) out.catchupType = ch.catchupType;
-    if (ch.catchupSource) out.catchupSource = ch.catchupSource;
-    if (typeof ch.catchupDays === 'number' && ch.catchupDays !== 7) out.catchupDays = ch.catchupDays;
+    const tvgName = typeof ch.tvgName === 'string' ? ch.tvgName.trim() : '';
+    if (tvgName && tvgName !== ch.name) out.tvgName = tvgName;
+    const logo = typeof ch.logo === 'string' ? ch.logo.trim() : '';
+    if (logo) out.logo = logo;
+    const group = typeof ch.group === 'string' ? ch.group.trim() : '';
+    if (group && group !== 'טלוויזיה חיה') out.group = group;
+    const epgId = typeof ch.epgId === 'string' ? ch.epgId.trim() : '';
+    if (epgId) out.epgId = epgId;
+    const catchupType = typeof ch.catchupType === 'string' ? ch.catchupType.trim() : '';
+    if (catchupType) out.catchupType = catchupType;
+    const catchupSource = typeof ch.catchupSource === 'string' ? ch.catchupSource.trim() : '';
+    if (catchupSource) out.catchupSource = catchupSource;
+    if (typeof ch.catchupDays === 'number' && ch.catchupDays !== 7 && ch.catchupDays > 0) {
+      out.catchupDays = ch.catchupDays;
+    }
     return out;
   }
 
-  saveCachedLineup() {
+  _buildCompactCachePayloadJson(cap) {
+    const sliceLen = Math.min(this.rawChannels.length, cap);
+    const compactRaw = [];
+    for (let i = 0; i < sliceLen; i++) {
+      const rawCh = this.rawChannels[i];
+      if (!rawCh || !rawCh.url) continue;
+      compactRaw.push(this.compactChannelForCache(rawCh));
+    }
+    const payload = {
+      v: 2,
+      updatedAt: this.lastCacheTimestamp,
+      rawChannels: compactRaw
+    };
+    if (this.discoveredEpgUrls && this.discoveredEpgUrls.length > 0) {
+      payload.discoveredEpgUrls = this.discoveredEpgUrls;
+    }
+    return JSON.stringify(payload);
+  }
+
+  saveCachedLineup(defer) {
+    this._ensureStoreState();
+    this.rebuildChannelIndices();
     this.lastCacheTimestamp = Date.now();
+
+    if (defer === true) {
+      this.schedulePendingSave(LINEUP_KEYS.CACHED_LINEUP, () => {
+        const caps = [1500, 800, 400];
+        for (let c = 0; c < caps.length; c++) {
+          try {
+            return this._buildCompactCachePayloadJson(caps[c]);
+          } catch (e) {}
+        }
+        return undefined;
+      }, this._saveDebounceMs);
+      return;
+    }
+
+    delete this._pendingSaves[LINEUP_KEYS.CACHED_LINEUP];
     // Store single compacted rawChannels copy (avoids 2x duplication) with graceful quota fallback
     const caps = [1500, 800, 400];
     for (let c = 0; c < caps.length; c++) {
       const cap = caps[c];
       try {
-        const sliceLen = Math.min(this.rawChannels.length, cap);
-        const compactRaw = new Array(sliceLen);
-        for (let i = 0; i < sliceLen; i++) {
-          compactRaw[i] = this.compactChannelForCache(this.rawChannels[i]);
-        }
-        const payload = {
-          v: 2,
-          updatedAt: this.lastCacheTimestamp,
-          discoveredEpgUrls: this.discoveredEpgUrls || [],
-          rawChannels: compactRaw
-        };
-        localStorage.setItem(LINEUP_KEYS.CACHED_LINEUP, JSON.stringify(payload));
+        localStorage.setItem(LINEUP_KEYS.CACHED_LINEUP, this._buildCompactCachePayloadJson(cap));
         return;
       } catch (e) {
         if (c === caps.length - 1) {
@@ -354,8 +705,8 @@ class LineupStore {
       this.overrides[uid] = entry;
     }
 
-    this.saveOverrides();
-    this.recompileLineup();
+    this.saveOverrides(true);
+    this.recompileLineup(false, true);
   }
 
   /**
@@ -378,8 +729,8 @@ class LineupStore {
         }
       }
     }
-    this.saveOverrides();
-    this.recompileLineup();
+    this.saveOverrides(true);
+    this.recompileLineup(false, true);
   }
 
   shouldUseAndroidProxy(url) {
@@ -505,19 +856,23 @@ class LineupStore {
 
   /**
    * Applies channel selection (enabled/disabled) and custom channel numbers,
-   * producing a single unified, sorted channel lineup.
+   * producing a single unified, sorted channel lineup and rebuilding O(1) lookup indices.
    */
-  recompileLineup(skipCacheSave) {
+  recompileLineup(skipCacheSave, deferCacheSave) {
+    this._ensureStoreState();
     const visible = [];
     const overrides = this.overrides;
     for (let i = 0; i < this.rawChannels.length; i++) {
       const raw = this.rawChannels[i];
-      const ov = overrides[raw.uid];
+      if (!raw) continue;
+      const uid = raw.uid || raw.id || ((raw.sourceId || 'src') + '_' + (i + 1));
+      raw.uid = uid;
+      const ov = overrides[uid];
       const isEnabled = ov && typeof ov.enabled === 'boolean' ? ov.enabled : true;
 
       const assignedNum = (ov && typeof ov.customNumber === 'number' && ov.customNumber > 0)
         ? ov.customNumber
-        : (raw.defaultSeqNumber || raw.originalNumber || (i + 1));
+        : (raw.defaultSeqNumber || raw.originalNumber || raw.number || (i + 1));
 
       raw.enabled = isEnabled;
       raw.number = assignedNum;
@@ -528,22 +883,22 @@ class LineupStore {
 
       if (isEnabled) {
         visible.push({
-          id: raw.uid,
-          uid: raw.uid,
-          sourceId: raw.sourceId,
-          sourceName: raw.sourceName,
+          id: uid,
+          uid: uid,
+          sourceId: raw.sourceId || 'src_default',
+          sourceName: raw.sourceName || '',
           number: assignedNum,
-          originalNumber: raw.originalNumber,
+          originalNumber: raw.originalNumber || assignedNum,
           name: customName || raw.name,
           rawName: raw.name,
           tvgName: raw.tvgName || raw.name,
-          logo: raw.logo,
-          group: raw.group,
-          epgId: raw.epgId,
-          url: raw.url,
-          catchupType: raw.catchupType,
-          catchupSource: raw.catchupSource,
-          catchupDays: raw.catchupDays
+          logo: raw.logo || '',
+          group: raw.group || 'טלוויזיה חיה',
+          epgId: raw.epgId || '',
+          url: raw.url || '',
+          catchupType: raw.catchupType || '',
+          catchupSource: raw.catchupSource || '',
+          catchupDays: typeof raw.catchupDays === 'number' ? raw.catchupDays : 7
         });
       }
     }
@@ -556,8 +911,9 @@ class LineupStore {
     });
 
     this.compiledChannels = visible;
+    this.rebuildChannelIndices();
     if (!skipCacheSave) {
-      this.saveCachedLineup();
+      this.saveCachedLineup(Boolean(deferCacheSave));
     }
     return this.compiledChannels;
   }
@@ -584,6 +940,7 @@ class LineupStore {
       this.rawChannels = configData.rawChannels;
       this.recompileLineup();
     }
+    this.flushPendingSaves();
 
     return {
       sourcesCount: this.sources.length,

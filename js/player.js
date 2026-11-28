@@ -125,6 +125,10 @@ class VideoPlayer {
     this.watchdogInterval = null;
     this.lastWatchdogTime = -1;
     this.stallTicks = 0;
+    this._stallRecoveryAttempts = 0;
+    this._lastStallRecoveryMs = 0;
+    this._lastPreconnectOrigin = '';
+    this._preconnectLinkEl = null;
 
     // AV Audio & Quality Engine runtime state
     this._avPrefs = null;
@@ -142,10 +146,11 @@ class VideoPlayer {
     this._compressorNode = null;
     this._makeupGainNode = null;
     this._analyserNode = null;
-    this._analyserFloatBuf = null;
+    this._analyserFloatBuf = typeof Float32Array === 'function' ? new Float32Array(512) : null;
     this._analyserByteBuf = null;
     this._webAudioGraphReady = false;
     this._loudnessSampleTimer = null;
+    this._isPowerSaveMode = false;
     this._currentRmsGain = 1.0;
     this._lastSampledDb = null;
     this._lastLoudnessPersistMs = 0;
@@ -164,6 +169,21 @@ class VideoPlayer {
     }
     if (!this._loudnessData) {
       this._loudnessData = this.loadLoudnessData();
+    }
+    if (!this._analyserFloatBuf && typeof Float32Array === 'function') {
+      this._analyserFloatBuf = new Float32Array(512);
+    }
+    if (typeof this._isPowerSaveMode !== 'boolean') {
+      this._isPowerSaveMode = false;
+    }
+    if (typeof this._stallRecoveryAttempts !== 'number') {
+      this._stallRecoveryAttempts = 0;
+    }
+    if (typeof this._lastStallRecoveryMs !== 'number') {
+      this._lastStallRecoveryMs = 0;
+    }
+    if (typeof this._lastPreconnectOrigin !== 'string') {
+      this._lastPreconnectOrigin = '';
     }
     if (typeof this._zapFadeFactor !== 'number' || !isFinite(this._zapFadeFactor)) {
       this._zapFadeFactor = 1.0;
@@ -659,6 +679,23 @@ class VideoPlayer {
     return hasPromise ? Promise.resolve(false) : false;
   }
 
+  _isPowerSaveActive() {
+    if (this._isPowerSaveMode) return true;
+    if (typeof window !== 'undefined' && window.app && window.app.isPowerSaveMode) return true;
+    if (typeof document !== 'undefined' && document.hidden) return true;
+    return false;
+  }
+
+  setPowerSaveMode(active) {
+    this._ensureAvRuntimeState();
+    this._isPowerSaveMode = Boolean(active);
+    if (this._isPowerSaveMode) {
+      this._stopLoudnessSampler();
+    } else {
+      this._syncLoudnessSamplerState();
+    }
+  }
+
   _stopLoudnessSampler() {
     if (this._loudnessSampleTimer) {
       clearInterval(this._loudnessSampleTimer);
@@ -676,8 +713,11 @@ class VideoPlayer {
       this.hls &&
       !this._isNativePlayback &&
       !this._isCleaningUp &&
+      !this._isPowerSaveActive() &&
       this.video &&
       !this.video.paused &&
+      !this.video.muted &&
+      this.video.volume > 0 &&
       !this.userPaused &&
       this._avPrefs.audioNormMode !== 'off'
     );
@@ -704,9 +744,11 @@ class VideoPlayer {
       !this.hls ||
       this._isNativePlayback ||
       this._isCleaningUp ||
+      this._isPowerSaveActive() ||
       this._avPrefs.audioNormMode === 'off' ||
-      (this.video && (this.video.paused || this.userPaused))
+      (this.video && (this.video.paused || this.video.muted || this.video.volume === 0 || this.userPaused))
     ) {
+      this._stopLoudnessSampler();
       return null;
     }
 
@@ -800,6 +842,21 @@ class VideoPlayer {
     }
   }
 
+  isTvPlatform() {
+    if (typeof window === 'undefined') return false;
+    try {
+      if (window.__IPTV_IS_TV === true || window.__IPTV_IS_WEBOS === true) return true;
+      if (typeof document !== 'undefined' && document.documentElement && document.documentElement.classList) {
+        if (document.documentElement.classList.contains('tv-platform')) return true;
+      }
+      if (this.isAndroidTvWebView()) return true;
+      const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+      return Boolean(window.webOS || window.webOSSystem || window.PalmSystem) || /Web0S|webOS|LG NetCast/i.test(ua);
+    } catch (e) {
+      return false;
+    }
+  }
+
   loadBufferMode() {
     try {
       if (typeof localStorage !== 'undefined') {
@@ -817,6 +874,7 @@ class VideoPlayer {
     const prof = this.getBufferProfile();
     const av = this._avPrefs;
     const isAndroidTv = this.isAndroidTvWebView();
+    const isTv = this.isTvPlatform();
 
     let maxBufferLength = prof.maxBufferLength;
     let maxMaxBufferLength = prof.maxMaxBufferLength;
@@ -828,11 +886,20 @@ class VideoPlayer {
       maxMaxBufferLength = Math.min(prof.maxMaxBufferLength, 35);
       backBufferLength = Math.min(prof.backBufferLength, 10);
       maxBufferSize = 20 * 1000 * 1000;
-    } else if (isAndroidTv) {
+    } else if (av.memorySaverMode !== 'off' && isAndroidTv) {
       maxBufferLength = Math.min(prof.maxBufferLength, 24);
       maxMaxBufferLength = Math.min(prof.maxMaxBufferLength, 45);
       backBufferLength = Math.min(prof.backBufferLength, 15);
       maxBufferSize = 30 * 1000 * 1000;
+    } else if (av.memorySaverMode !== 'off' && isTv) {
+      maxBufferLength = Math.min(prof.maxBufferLength, 32);
+      maxMaxBufferLength = Math.min(prof.maxMaxBufferLength, 60);
+      backBufferLength = Math.min(prof.backBufferLength, 20);
+      maxBufferSize = 40 * 1000 * 1000;
+    }
+
+    if (isCatchup && (av.memorySaverMode !== 'off' || isTv)) {
+      backBufferLength = Math.min(backBufferLength, 15);
     }
 
     const isLowLatency = av.streamLatencyMode === 'low';
@@ -1090,6 +1157,7 @@ class VideoPlayer {
     this.video.addEventListener('playing', () => {
       this.retryCount = 0;
       this._mediaRecoveryAttempts = 0;
+      this._stallRecoveryAttempts = 0;
       this.stallTicks = 0;
       this.userPaused = false;
       this._isPlaying = true;
@@ -1099,14 +1167,26 @@ class VideoPlayer {
     });
 
     this.video.addEventListener('timeupdate', () => {
-      if (this.video && this.video.currentTime > 0 && !this.video.paused && !this._isPlaying) {
-        this.retryCount = 0;
-        this._mediaRecoveryAttempts = 0;
-        this.stallTicks = 0;
-        this.userPaused = false;
-        this._isPlaying = true;
+      if (this.video && this.video.currentTime > 0 && !this.video.paused) {
+        this._stallRecoveryAttempts = 0;
+        if (!this._isPlaying) {
+          this.retryCount = 0;
+          this._mediaRecoveryAttempts = 0;
+          this.stallTicks = 0;
+          this.userPaused = false;
+          this._isPlaying = true;
+          this._syncLoudnessSamplerState();
+          this.triggerState('playing');
+        }
+      }
+    });
+
+    this.video.addEventListener('volumechange', () => {
+      if (!this.video) return;
+      if (this.video.muted || this.video.volume === 0) {
+        this._stopLoudnessSampler();
+      } else {
         this._syncLoudnessSamplerState();
-        this.triggerState('playing');
       }
     });
 
@@ -1229,13 +1309,12 @@ class VideoPlayer {
   /**
    * Periodic loop (every 2s):
    * 1. Adjusts Progressive Quality Ramp-Up (Smart ABR) based on accumulated buffer
-   * 2. Gently heals genuine TS timestamp discontinuities only if playback has been completely
-   *    stationary for >= 6 seconds despite buffered video ahead.
+   * 2. Fast stall-recovery watchdog: currentTime nudge -> recoverMediaError with exponential backoff -> clean reload
    */
   startWatchdogAndQualityRamp() {
     clearInterval(this.watchdogInterval);
     this.watchdogInterval = setInterval(() => {
-      if (!this.video || !this.currentChannel || this.userPaused) {
+      if (!this.video || !this.currentChannel || this.userPaused || this._isPowerSaveActive()) {
         this.stallTicks = 0;
         this._stopLoudnessSampler();
         return;
@@ -1266,6 +1345,7 @@ class VideoPlayer {
         this.stallTicks++;
       } else {
         this.stallTicks = 0;
+        this._stallRecoveryAttempts = 0;
       }
       this.lastWatchdogTime = ct;
 
@@ -1284,20 +1364,46 @@ class VideoPlayer {
         }
       }
 
-      if (this.stallTicks >= 3) {
-        this.nudgeIfBufferedAhead();
+      if (this.stallTicks === 2) {
+        this.nudgeIfBufferedAhead(true);
+      } else if (this.stallTicks >= 3) {
+        const nudged = this.nudgeIfBufferedAhead(true);
         if (this.hls) {
-          try {
-            this.hls.startLoad();
-          } catch (e) {}
+          const now = Date.now();
+          const attempt = this._stallRecoveryAttempts || 0;
+          const backoffMs = Math.min(12000, 1500 * Math.pow(2, attempt));
+          if (!nudged && now - (this._lastStallRecoveryMs || 0) >= backoffMs) {
+            this._lastStallRecoveryMs = now;
+            if (attempt < 2) {
+              this._stallRecoveryAttempts = attempt + 1;
+              try {
+                if (attempt === 1 && typeof this.hls.swapAudioCodec === 'function') {
+                  this.hls.swapAudioCodec();
+                }
+                this.hls.recoverMediaError();
+                this.hls.startLoad();
+              } catch (e) {}
+            } else {
+              this._stallRecoveryAttempts = 0;
+              const activeUrl = (this._currentUrl || (this.currentChannel && this.currentChannel.url) || '').trim();
+              if (activeUrl && !this._isNativePlayback) {
+                this.cleanUp();
+                this.playHls(activeUrl, false);
+              }
+            }
+          } else {
+            try {
+              this.hls.startLoad();
+            } catch (e) {}
+          }
         }
         this.stallTicks = 0;
       }
     }, 2000);
   }
 
-  nudgeIfBufferedAhead() {
-    if (!this.video || this.userPaused) return;
+  nudgeIfBufferedAhead(allowIntraRangeNudge) {
+    if (!this.video || this.userPaused) return false;
     try {
       const buffered = this.video.buffered;
       const cur = this.video.currentTime || 0;
@@ -1305,18 +1411,26 @@ class VideoPlayer {
         for (let i = 0; i < buffered.length; i++) {
           const start = buffered.start(i);
           const end = buffered.end(i);
-          // Only jump if there is an actual unbuffered hole directly ahead of currentTime
+          // Jump over an unbuffered hole directly ahead of currentTime
           if (start > cur + 0.1 && start - cur < 4.5 && end > start + 0.5) {
             this.video.currentTime = start + 0.15;
             this.video.muted = false;
             this.applyEffectiveVolume();
             const p = this.video.play();
             if (p && typeof p.catch === 'function') p.catch(() => {});
-            return;
+            return true;
+          }
+          // Skip a corrupt/stalled keyframe inside an active buffered range
+          if (allowIntraRangeNudge && cur >= start - 0.1 && end - cur >= 0.75) {
+            this.video.currentTime = cur + 0.25;
+            const p2 = this.video.play();
+            if (p2 && typeof p2.catch === 'function') p2.catch(() => {});
+            return true;
           }
         }
       }
     } catch (e) {}
+    return false;
   }
 
   triggerState(state) {
@@ -1368,6 +1482,38 @@ class VideoPlayer {
     }
   }
 
+  /**
+   * Injects/reuses a single lightweight <link rel="preconnect"> hint for the active stream origin
+   * to shave TCP/TLS handshake latency across channel switches without accumulating DOM nodes.
+   */
+  preconnectStreamOrigin(streamUrl) {
+    if (typeof document === 'undefined' || !document.head || !streamUrl || typeof streamUrl !== 'string') {
+      return '';
+    }
+    const m = streamUrl.match(/^(https?:\/\/[^\/?#]+)/i);
+    if (!m || !m[1]) return '';
+    const origin = m[1];
+    if (origin.indexOf('appassets.androidplatform.net') !== -1) return '';
+    if (this._lastPreconnectOrigin === origin) return origin;
+    this._lastPreconnectOrigin = origin;
+
+    try {
+      let link = this._preconnectLinkEl || document.getElementById('zenplay-stream-preconnect');
+      if (!link) {
+        link = document.createElement('link');
+        link.id = 'zenplay-stream-preconnect';
+        link.rel = 'preconnect';
+        link.crossOrigin = 'anonymous';
+        document.head.appendChild(link);
+      }
+      this._preconnectLinkEl = link;
+      if (link.href !== origin) {
+        link.href = origin;
+      }
+    } catch (e) {}
+    return origin;
+  }
+
   play(channel, customStreamUrl) {
     if (!channel || !channel.url) return;
     this._ensureAvRuntimeState();
@@ -1386,6 +1532,8 @@ class VideoPlayer {
     this.userPaused = false;
     this.retryCount = 0;
     this._mediaRecoveryAttempts = 0;
+    this._stallRecoveryAttempts = 0;
+    this._lastStallRecoveryMs = 0;
     this.stallTicks = 0;
     this.lastWatchdogTime = -1;
 
@@ -1402,6 +1550,7 @@ class VideoPlayer {
 
     const url = (customStreamUrl || channel.url).trim();
     this._currentUrl = url;
+    this.preconnectStreamOrigin(url);
     const isHls = url.indexOf('.m3u8') !== -1 || url.indexOf('m3u8') !== -1;
     const isCatchup = Boolean(customStreamUrl && this.currentProgramme) || url.indexOf('utc=') !== -1;
     const hasHlsLib = typeof window !== 'undefined' && Boolean(window.Hls && window.Hls.isSupported());
@@ -1616,8 +1765,9 @@ class VideoPlayer {
         if (!data.fatal) {
           if (data.details === window.Hls.ErrorDetails.BUFFER_STALLED_ERROR) {
             this.updateProgressiveQualityByBuffer();
+            this.nudgeIfBufferedAhead(true);
           } else if (data.details === window.Hls.ErrorDetails.BUFFER_SEEK_OVER_HOLE) {
-            this.nudgeIfBufferedAhead();
+            this.nudgeIfBufferedAhead(false);
           } else if (
             data.details === window.Hls.ErrorDetails.AUDIO_TRACK_LOAD_ERROR ||
             data.details === window.Hls.ErrorDetails.AUDIO_TRACK_LOAD_TIMEOUT
@@ -1636,7 +1786,7 @@ class VideoPlayer {
         if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
           if (this.retryCount < this.maxRetries && this.hls) {
             const attempt = this.retryCount++;
-            const delay = attempt === 0 ? 0 : attempt * 600;
+            const delay = attempt === 0 ? 0 : Math.min(4800, 600 * Math.pow(2, attempt - 1));
             clearTimeout(this._networkRetryTimer);
             if (delay === 0) {
               this.hls.startLoad();
@@ -1650,7 +1800,8 @@ class VideoPlayer {
         } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
           const now = Date.now();
           if (this.hls && this._mediaRecoveryAttempts < 2) {
-            if (now - this.lastMediaRecoveryMs < 1500) {
+            const mediaBackoffMs = 1500 * Math.pow(2, this._mediaRecoveryAttempts);
+            if (now - this.lastMediaRecoveryMs < mediaBackoffMs) {
               // Recovery was just triggered; avoid tearing down HLS prematurely
               return;
             }
