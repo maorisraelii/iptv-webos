@@ -2,7 +2,7 @@
   <img src="https://files.catbox.moe/f4jrx8.png" alt="IPTV Live TV App Icon" width="128" height="128" />
 </div>
 
-<h1 align="center">📺 Live TV for LG webOS, Android TV &amp; Web Browser (v5.5.0)</h1>
+<h1 align="center">📺 Live TV for LG webOS, Android TV &amp; Web Browser (v5.6.0)</h1>
 
 <p align="center">
   <strong>Smart, ultra-fast, native-feeling Live TV &amp; 7-Day Catch-Up IPTV player built for LG webOS Smart TVs (webOS 4.0 – webOS 24+), Android TV / Google TV, and Laptop/Desktop Web Browsers — featuring Classic &amp; Apple Liquid Glass themes, Web Audio Volume Normalization, Picture Calibration, Automatic Background OTA Updates, and an Android One-Click webOS Installer Wizard.</strong>
@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-5.5.0%20Unified-0284c7?style=for-the-badge" alt="Version 5.5.0" />
+  <img src="https://img.shields.io/badge/Version-5.6.0%20Unified-0284c7?style=for-the-badge" alt="Version 5.6.0" />
   <img src="https://img.shields.io/badge/Web%20App-GitHub%20Pages%20Live-0ea5e9?style=for-the-badge&logo=googlechrome" alt="Web App Live" />
   <img src="https://img.shields.io/badge/Platform-LG%20webOS%20TV-a50034?style=for-the-badge&logo=lg" alt="LG webOS" />
   <img src="https://img.shields.io/badge/Platform-Android%20TV%20%2F%20Google%20TV-16a34a?style=for-the-badge&logo=android" alt="Android TV" />
@@ -28,9 +28,9 @@
   <img src="https://img.shields.io/badge/Language-RTL%20Hebrew%20%2F%20All%20Feeds-0284c7?style=for-the-badge" alt="RTL Hebrew" />
 </p>
 
-> ✨ **Unified Release (`v5.5.0`):** Classic Broadcast and **Apple Liquid Glass (60fps webOS & Android TV engine)** are built into one unified app with **Automatic Silent Background OTA Updates**, **Audio Normalization**, **Picture Calibration**, **35+ UI/Remote settings**, **Auto-Fullscreen**, and **2-Step Fullscreen Back**. Primary Downloader Code: **`2606856`** (legacy code **`2087324`** also points to the same unified `v5.5.0` build).
+> ✨ **Unified Release (`v5.6.0`):** Classic Broadcast and **Apple Liquid Glass (60fps webOS & Android TV engine)** are built into one unified app with **Global 7-Day VOD Discovery**, **4h Power-Save Sleep Timer**, **1-Press Voice Commands**, **Non-Destructive Default Source Append**, and **40 Engine & UI/UX Optimizations**. Primary Downloader Code: **`2606856`** (legacy code **`2087324`** also points to the same unified `v5.6.0` build).
 >
-> ✨ **גרסה מאוחדת (`v5.5.0`):** ממשק **Classic Broadcast** ו-**Apple Liquid Glass (מנוע 60fps ל-webOS ו-Android TV)** משולבים בגרסה אחת עם **עדכוני OTA אוטומטיים ברקע**, **נרמול שמע**, **כיול תמונה**, **35+ הגדרות עיצוב ושלט**, **מסך מלא אוטומטי** ו-**חזור דו-שלבי (OSD ← רשימה)**. קוד Downloader ראשי: **`2606856`** (גם הקוד הקודם **`2087324`** מפנה לאותה גרסה מאוחדת).
+> ✨ **גרסה מאוחדת (`v5.6.0`):** ממשק **Classic Broadcast** ו-**Apple Liquid Glass (מנוע 60fps ל-webOS ו-Android TV)** משולבים בגרסה אחת עם **דפדפן VOD 7 ימים גלובלי**, **טיימר כיבוי מסך לחיסכון בחשמל (4 שעות)**, **פקודות קוליות בלחיצה אחת**, **הוספת מקור ברירת מחדל ללא מחיקה** ו-**40 שדרוגי ביצועים וממשק**. קוד Downloader ראשי: **`2606856`** (גם הקוד הקודם **`2087324`** מפנה לאותה גרסה מאוחדת).
 
 > ⚖️ **Legal Notice / הבהרה משפטית:** This application is neutral IPTV/M3U media player software only — it does **not** host, provide, sell, distribute, or curate any streams or copyrighted media. Users must supply their own playlists/EPG URLs and bear 100% sole legal responsibility. ([Read full English Disclaimer](#-legal-disclaimer--terms-of-use) • [לקריאת ההצהרה המשפטית המלאה בעברית](#-הצהרה-משפטית-ותנאי-שימוש))
 
@@ -78,21 +78,29 @@
 
 ---
 
-### 🚀 What's New in v5.5.0
+### 🚀 What's New in v5.6.0
 
-1. **Built-In Legal Disclaimer (First Launch + Settings → About)**:
-   - Displays a mandatory first-launch Legal Disclaimer &amp; Terms of Use modal (`#disclaimer-modal`) before playback/browse and adds a permanent **Legal Notice &amp; Terms** card in **Settings → About** (`הגדרות ← אודות`) to review the full disclaimer anytime.
-2. **Real-Time Israeli EPG Multi-Source Freshness Fallback &amp; Multi-Alias Matching Fix (`js/epg.js`)**:
-   - Upgraded default EPG loading to a prioritized multi-source list (`DEFAULT_LIVE_EPG_URLS`: GitHub `raw.githubusercontent.com` → GitHub Pages → Gist → local fallback) with automatic live-coverage verification (`hasLiveCoverage()`), automatically falling back whenever a cached or upstream feed has expired schedules.
-   - Upgraded channel alias resolution (`channelAliasCandidates`) to evaluate all matching XMLTV channel IDs and prioritize IDs carrying live/fresh programmes instead of letting stale sibling IDs overwrite active schedules.
-3. **Automatic Background OTA Updates with Changelog-Only Modal (`js/qr-ota.js`, **Settings → About**)**:
-   - Automatic background OTA updates are enabled by default (toggleable anytime in **Settings → About**): new web bundles apply seamlessly without extra confirmation prompts and present a clean **Changelog-only popup** (`מה חדש בגרסה ✓` + single **Continue Watching (`OK`)** button), deferring cleanly until after first-launch Legal Disclaimer acceptance.
-4. **Browse Auto-Fullscreen Timer (`autoFullscreenSec`)**:
-   - Automatically enters Fullscreen when idling on a focused channel in Browse mode after a configurable delay (`0 / 5 / 8 / 12 / 20s`, default **`8s`**) inside **Settings → Appearance → Navigation &amp; Remote**, cancelling automatically when opening modals, focusing the top bar/timeline, or in Safe Mode.
-5. **2-Step Fullscreen Back (`backHidesOsdFirst`)**:
-   - In Fullscreen mode, pressing **BACK / ESC** for the first time cleanly dismisses the Info Bar (OSD) while keeping video fullscreen; pressing **BACK / ESC** a second time returns to the Browse channel list (toggleable back to 1-step exit in **Settings → Appearance → Navigation &amp; Remote**).
-6. **Clickable Programme Title + UI/Theme Polish**:
-   - Clicking the current programme title in the Browse channel details card now opens the 7-Day Program Guide directly, alongside refined modal spacing, focus polish, and visual balance across both **Classic Broadcast** and **Apple Liquid Glass**.
+1. **Global 7-Day VOD Discovery (`#btn-open-vod`, `js/epg.js`, `js/app.js`)**:
+   - Added a dedicated **`🎬 VOD 7 ימים`** top-bar button and 2-mode Guide switcher (**Current Channel** vs **Global 7-Day VOD** across all channels) with instant Hebrew niqqud-stripped search (`searchAllVodProgrammes`), a **"Recorded Only"** filter, live/VOD badges, and 1-click Catch-Up playback (with graceful live fallback + notice when a stream source lacks catch-up URLs).
+2. **Power-Saving Auto Sleep Timer & `#000000` Blackout (`sleepTimeoutHours: 4`)**:
+   - Configurable inactivity timer (`0 / 1 / 2 / 3 / 4 [default] / 6 / 8` hours in **Settings → Appearance**) that presents a 60-second visual countdown modal (`#sleep-warning-modal`, cancelled by any key/click), then stops playback, pauses audio RMS metering, turns off Android TV `FLAG_KEEP_SCREEN_ON` (and requests webOS `turnOffScreen`), and switches to a pure `#000000` blackout screen — waking cleanly on any key press.
+3. **Direct 1-Press Voice Command Engine (`#btn-voice-command`, `V`, Android TV `KEYCODE_SEARCH`)**:
+   - Supports channel numbers (including Hebrew number words), fuzzy channel names, 7-day EPG/VOD programme search, and remote actions (`fullscreen`, `exit`, `settings`, `start over`, `mute`/`unmute`, `guide`, `vod`).
+   - *Hardware Remote Note:* On LG webOS and some Android TV remotes, the dedicated hardware Assistant/Mic key is OS-locked to LG ThinQ AI or Google Assistant and cannot be intercepted by apps; on Android TV, pressing the **Search** key or on-screen **🎤 פקודה קולית** (`V` on keyboard) launches Android `RecognizerIntent` or Web Speech directly, with an instant Quick-Search fallback overlay on TV browsers without Speech APIs.
+4. **Non-Destructive Default Source Append (`#btn-append-default-source`)**:
+   - Added **`+ הוסף מקור ברירת מחדל (ללא מחיקה)`** in **Settings → Sources** to append or re-enable the default Israeli channel feed while preserving 100% of existing user playlists.
+5. **20 Core Engine Optimizations + 20 UI/UX Polish Improvements**:
+   - Single-pass M3U scanning, O(1) channel/favorites maps, coalesced `localStorage` persistence, binary-search EPG & 15s memoized Now/Next, pre-allocated Web Audio `Float32Array`, fast HLS stall recovery, and 20 Classic + Apple Liquid Glass TV focus, badge, scrim & scroll-padding refinements.
+
+<details>
+<summary><strong>📜 Previous Release Notes (v5.5.0)</strong></summary>
+
+1. **Built-In Legal Disclaimer (First Launch + Settings → About)**: Mandatory first-launch Legal Disclaimer modal (`#disclaimer-modal`) and persistent **Legal Notice &amp; Terms** card in **Settings → About**.
+2. **Real-Time Israeli EPG Multi-Source Freshness Fallback &amp; Multi-Alias Matching (`js/epg.js`)**: Prioritized `DEFAULT_LIVE_EPG_URLS` with `hasLiveCoverage()` fallback and live-sibling alias selection.
+3. **Automatic Background OTA Updates with Changelog-Only Modal (`js/qr-ota.js`)**: Silent background OTA enabled by default with Changelog-only popup deferred behind first-launch Disclaimer.
+4. **Browse Auto-Fullscreen Timer (`autoFullscreenSec: 8s`) &amp; 2-Step Fullscreen Back (`backHidesOsdFirst`)**.
+
+</details>
 
 ---
 
@@ -129,11 +137,11 @@ Compatible with NVIDIA Shield TV, Chromecast with Google TV, Xiaomi Mi Box / TV 
 2. Enable **"Install unknown apps"** for **Downloader**:
    - Open TV **Settings → Apps → Security &amp; restrictions** (or **Special app access → Install unknown apps**) and turn ON permission for **Downloader**.
 3. Open **Downloader** and enter the Downloader numeric code:
-   - **Unified Release (v5.5.0 — Classic + Apple Liquid Glass Themes built in):**
+   - **Unified Release (v5.6.0 — Classic + Apple Liquid Glass Themes built in):**
      ```text
      2606856
      ```
-   *(Resolves via `https://aftv.news/2606856`. Legacy code `2087324` now also points to the unified `v5.5.0` release.)*
+   *(Resolves via `https://aftv.news/2606856`. Legacy code `2087324` now also points to the unified `v5.6.0` release.)*
 4. Press **Go** — Downloader automatically fetches `IPTV-Live-AndroidTV.apk`. When prompted, select **Install**, then **Open**.
 
 #### Method B (Wi-Fi Transfer from Phone via Send Files to TV)
@@ -176,7 +184,7 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 
 1. Install **Developer Mode** on your LG TV from the LG Apps Store and turn ON **Dev Mode Status** + **Key Server**.
 2. Download the latest `.ipk` from GitHub Releases:
-   👉 **[Download `com.iptv.livetv_5.5.0_all.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/com.iptv.livetv_5.5.0_all.ipk)** / **[`IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-webOS.ipk)**
+   👉 **[Download `com.iptv.livetv_5.6.0_all.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/com.iptv.livetv_5.6.0_all.ipk)** / **[`IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-webOS.ipk)**
 3. Open **webOS Dev Manager**, connect to your TV, click **Install App**, and select the downloaded `.ipk`.
 
 ---
@@ -195,21 +203,29 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 
 ---
 
-### 🚀 מה חדש בגרסה v5.5.0?
+### 🚀 מה חדש בגרסה v5.6.0?
 
-1. **הצהרה משפטית מובנית בהפעלה הראשונה ובלשונית אודות (`index.html`, `js/app.js`)**:
-   - מסך הצהרה משפטית ותנאי שימוש (`#disclaimer-modal`) בהפעלה הראשונה (לפני השימוש השוטף), לצד כרטיסיית מידע משפטי קבועה תחת **הגדרות ← אודות** עם אפשרות לצפות בהצהרה המלאה בכל רגע.
-2. **תיקון אמינות לוח שידורים ישראלי (EPG) ונתיבי גיבוי אוטומטיים (`js/epg.js`)**:
-   - מעבר לרשימת מקורות מתעדפת (`DEFAULT_LIVE_EPG_URLS`: מאגר GitHub הראשי ← GitHub Pages ← Gist ← מקומי) עם בדיקת עדכניות (`hasLiveCoverage()`), כך שאם מקור אחד פג תוקף המערכת עוברת אוטומטית למקור עדכני.
-   - שדרוג מנגנון התאמת הערוצים (`channelAliasCandidates`) לבחירת מזהה הערוץ בעל השידורים העדכניים והחיים ביותר, במקום דריסה על-ידי מזהה כפול לא פעיל.
-3. **עדכוני OTA אוטומטיים ברקע + חלון שינויים בלבד (`js/qr-ota.js`)**:
-   - עדכונים אוטומטיים ברקע מופעלים כברירת מחדל (ניתנים להפעלה/כיבוי תחת **הגדרות ← אודות**): גרסאות חדשות מוחלות אוטומטית ללא חלון אישור מיותר ומציגות חלון **שינויים וחידושים בלבד** (`מה חדש בגרסה ✓` עם כפתור **המשך לצפייה (`OK`)**), תוך המתנה נקייה לאחר אישור ההצהרה המשפטית בהפעלה ראשונה.
-4. **טיימר כניסה אוטומטית למסך מלא (`autoFullscreenSec`)**:
-   - עמידה ללא תזוזה על ערוץ ברשימת הערוצים מעבירה אוטומטית למסך מלא לאחר זמן לבחירה (**`0 / 5 / 8 / 12 / 20` שניות**, ברירת מחדל **`8` שניות**) תחת **הגדרות ← עיצוב וממשק ← ניווט ושלט רחוק**, ומתבטלת אוטומטית בפתיחת חלונות, במעבר לסרגל העליון/סטריפ התוכניות או ב-Safe Mode.
-5. **כפתור חזור דו-שלבי במסך מלא (`backHidesOsdFirst`)**:
-   - במסך מלא, לחיצה ראשונה על **`BACK` / `ESC`** מסתירה את פס המידע (OSD) ומשאירה את הווידאו במסך מלא; לחיצה שנייה מחזירה לרשימת הערוצים (ניתן לשנות חזרה ליציאה בלחיצה אחת בהגדרות).
-6. **פתיחת מדריך 7 ימים בלחיצה על שם התוכנית + ליטוש ממשק**:
-   - לחיצה על שם התוכנית הנוכחית בכרטיס פרטי הערוץ פותחת ישירות את מדריך 7 הימים, לצד ליטוש עיצובי ומרווחים בשתי ערכות הנושא (**Classic** ו-**Apple Liquid Glass**).
+1. **דפדפן VOD 7 ימים גלובלי (`🎬 VOD 7 ימים`, `js/epg.js`, `js/app.js`)**:
+   - כפתור ייעודי בסרגל העליון ומצב גלובלי במדריך התוכניות (**הערוץ הנוכחי** מול **VOD כל הערוצים — 7 ימים**) עם חיפוש מיידי ללא ניקוד בעברית, סינון **"רק שידורים מוקלטים"**, תגיות חי/VOD וניגון בלחיצה אחת (כולל הודעת מעבר לשידור חי אם המקור אינו מספק קישורי Catch-Up).
+2. **מצב חיסכון בחשמל אוטומטי וכיבוי מסך (`sleepTimeoutHours: 4`)**:
+   - טיימר חוסר פעילות לבחירה (`0 / 1 / 2 / 3 / 4 [ברירת מחדל] / 6 / 8` שעות תחת **הגדרות ← עיצוב וממשק**), המציג חלון אזהרה ל-60 שניות עם פס התקדמות (מתבטל בכל מקש/קליק), עוצר את הנגן ומדידת ה-RMS, משחרר `FLAG_KEEP_SCREEN_ON` ב-Android TV / מנסה כיבוי מסך ב-webOS ועובר למסך `#000000` — וחוזר לערוץ הקודם בכל מקש.
+3. **מנוע פקודות קוליות בלחיצה אחת (`🎤 פקודה קולית`, מקש `V`, ומקש חיפוש ב-Android TV)**:
+   - זיהוי מספרי ערוצים (כולל מילים בעברית), התאמת שמות ערוצים, חיפוש תוכניות ב-VOD 7 ימים ופקודות ניווט (`מסך מלא`, `רשימה`, `הגדרות`, `סטארט אובר`, `השתק`/`בטל השתקה`, `מדריך`, `VOD`).
+   - *הערה כנה על מגבלות חומרה:* בשלטי LG webOS ובחלק משלטי Android TV, כפתור המיקרופון הפיזי שמור ברמת מערכת ההפעלה ל-LG ThinQ AI / Google Assistant ואינו מועבר לאפליקציות; ב-Android TV נתמך מקש ה-**Search** לצד כפתור **`🎤 פקודה קולית`** (ומקש `V`) המפעילים `RecognizerIntent` או Web Speech, ובדפדפנים ללא תמיכת דיבור נפתח קיצור ישיר לחיפוש המהיר.
+4. **הוספת מקור ברירת מחדל ללא מחיקה (`#btn-append-default-source`)**:
+   - כפתור **`+ הוסף מקור ברירת מחדל (ללא מחיקה)`** תחת **הגדרות ← מקורות** שמוסיף או מפעיל מחדש את ערוצי ברירת המחדל בלי למחוק רשימות פרטיות קיימות.
+5. **20 אופטימיזציות ליבה ו-20 ליטושי עיצוב ו-UX**:
+   - סריקת M3U במעבר יחיד, אינדקסי `O(1)` לערוצים ומועדפים, איחוד כתיבות ל-`localStorage`, חיפוש בינארי ב-EPG ומטמון Now/Next, באפר `Float32Array` קבוע לשמע, התאוששות HLS מהירה, ו-20 שיפורי פוקוס, תגיות, מרווחים וקריאות ב-**Classic** וב-**Apple Liquid Glass**.
+
+<details>
+<summary><strong>📜 חידושים מגרסה קודמת (v5.5.0)</strong></summary>
+
+1. **הצהרה משפטית מובנית בהפעלה הראשונה ובלשונית אודות (`#disclaimer-modal`)**.
+2. **גיבוי מקורות לוח שידורים ישראלי חי (`DEFAULT_LIVE_EPG_URLS` + `hasLiveCoverage()`) וטיפול בכינויים כפולים (`channelAliasCandidates`)**.
+3. **עדכוני OTA אוטומטיים שקטים ברקע + חלון שינויים בלבד (`js/qr-ota.js`)**.
+4. **כניסה אוטומטית למסך מלא (`autoFullscreenSec: 8s`) וכפתור חזור דו-שלבי (`backHidesOsdFirst`)**.
+
+</details>
 
 ---
 
@@ -245,7 +261,7 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 2. אפשר הרשאת התקנת אפליקציות חיצוניות עבור Downloader בטלוויזיה:
    - היכנס ל**הגדרות (Settings) ← אפליקציות (Apps) ← אבטחה והגבלות / גישה מיוחדת (Security &amp; restrictions / Special app access) ← התקנת אפליקציות לא ידועות (Install unknown apps)** והדלק את ההרשאה ל-**Downloader**.
 3. פתח את אפליקציית **Downloader** והקלד בשורת החיפוש/כתובת את **קוד ה-Downloader המספרי**:
-   - **גרסה מאוחדת (v5.5.0 — כולל עיצוב קלאסי + Apple Liquid Glass בהגדרות):**
+   - **גרסה מאוחדת (v5.6.0 — כולל עיצוב קלאסי + Apple Liquid Glass בהגדרות):**
      ```text
      2606856
      ```
@@ -294,7 +310,7 @@ No PC, no CLI, no IP typing, and no manual file transfers! Install directly from
 
 1. התקן **Developer Mode** מחנות LG בטלוויזיה, התחבר לחשבון LG, והפעל **Dev Mode Status** + **Key Server**.
 2. הורד את קובץ ההתקנה העדכני:
-   👉 **[הורד `com.iptv.livetv_5.5.0_all.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/com.iptv.livetv_5.5.0_all.ipk)** / **[`IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-webOS.ipk)**
+   👉 **[הורד `com.iptv.livetv_5.6.0_all.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/com.iptv.livetv_5.6.0_all.ipk)** / **[`IPTV-Live-webOS.ipk`](https://github.com/maorisraelii/iptv-webos/releases/latest/download/IPTV-Live-webOS.ipk)**
 3. התקן בעזרת **webOS Dev Manager** (לחיצה על **Install App** ובחירת קובץ ה-`.ipk`).
 
 ---

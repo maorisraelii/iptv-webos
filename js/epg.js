@@ -2706,7 +2706,7 @@ class EPGService {
         const pStop = typeof p.stopMs === 'number' ? p.stopMs : p.stop;
         if (typeof pStart !== 'number' || typeof pStop !== 'number') continue;
         if (pStop < minMs || pStart > now) continue;
-        if (opts.pastOnly && pStart > now) continue;
+        if (opts.pastOnly && pStop > now) continue;
         results.push(this._buildVodResultItem(chKey, p, pStart, pStop, now, 0));
       }
     });
@@ -2749,7 +2749,7 @@ class EPGService {
         const pStop = typeof p.stopMs === 'number' ? p.stopMs : p.stop;
         if (typeof pStart !== 'number' || typeof pStop !== 'number') continue;
         if (pStop < minMs || pStart > maxMs) continue;
-        if (pastOnly && pStart > now) continue;
+        if (pastOnly && pStop > now) continue;
 
         if (p._normTitle === undefined) {
           p._normTitle = this.normalizeSearchText(p.title);

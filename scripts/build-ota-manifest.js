@@ -380,7 +380,7 @@ const otaRuntimeWrapper = `
       if (headerLeft && !document.getElementById('btn-open-vod')) {
         var vodBtn = document.createElement('button');
         vodBtn.id = 'btn-open-vod';
-        vodBtn.className = 'top-nav-btn focusable';
+        vodBtn.className = 'top-nav-btn top-nav-btn-vod focusable';
         vodBtn.setAttribute('data-action', 'open-vod');
         vodBtn.innerHTML = '<span>🎬 VOD 7 ימים</span>';
         if (btnGuide && btnGuide.parentNode === headerLeft) {
@@ -402,8 +402,9 @@ const otaRuntimeWrapper = `
       if (headerLeft && !document.getElementById('btn-voice-command')) {
         var voiceBtn = document.createElement('button');
         voiceBtn.id = 'btn-voice-command';
-        voiceBtn.className = 'top-nav-btn focusable';
+        voiceBtn.className = 'top-nav-btn top-nav-btn-voice focusable';
         voiceBtn.setAttribute('data-action', 'voice-command');
+        voiceBtn.title = 'פקודה קולית (V)';
         voiceBtn.innerHTML = '<span>🎤 פקודה קולית</span>';
         var btnSettings = document.getElementById('btn-open-settings');
         if (btnSettings && btnSettings.parentNode === headerLeft) {
@@ -422,15 +423,15 @@ const otaRuntimeWrapper = `
         }
       }
 
-      var guideCard = document.querySelector('#guide-modal .modal-card');
+      var guideCard = document.querySelector('#guide-modal .modal-guide-card') || document.querySelector('#guide-modal .modal-card');
       var daysBar = document.getElementById('guide-days-bar');
       if (guideCard && !document.getElementById('guide-scope-bar')) {
         var scopeBar = document.createElement('div');
         scopeBar.id = 'guide-scope-bar';
         scopeBar.className = 'guide-scope-bar';
         scopeBar.innerHTML =
-          '<button id="btn-guide-scope-channel" class="guide-scope-btn active focusable" type="button">הערוץ הנוכחי</button>' +
-          '<button id="btn-guide-scope-vod" class="guide-scope-btn focusable" type="button">VOD כל הערוצים — 7 ימים</button>';
+          '<button id="btn-guide-scope-channel" class="guide-scope-btn active focusable" type="button" data-guide-scope="channel">הערוץ הנוכחי</button>' +
+          '<button id="btn-guide-scope-vod" class="guide-scope-btn focusable" type="button" data-guide-scope="vod">VOD כל הערוצים — 7 ימים</button>';
         if (daysBar && daysBar.parentNode === guideCard) {
           guideCard.insertBefore(scopeBar, daysBar);
         } else {
@@ -442,8 +443,8 @@ const otaRuntimeWrapper = `
         vodSearchBar.id = 'vod-search-bar';
         vodSearchBar.className = 'vod-search-bar hidden';
         vodSearchBar.innerHTML =
-          '<input type="text" id="vod-search-input" class="tv-input focusable" placeholder="חפש תוכנית מ-7 הימים האחרונים..." dir="auto">' +
-          '<button id="btn-vod-only-past" class="btn-tv-secondary focusable" type="button">רק שידורים מוקלטים</button>';
+          '<input type="text" id="vod-search-input" class="tv-input vod-search-input focusable" placeholder="חפש תוכנית מ-7 הימים האחרונים..." dir="rtl">' +
+          '<button id="btn-vod-only-past" class="vod-filter-btn focusable" type="button">רק שידורים מוקלטים</button>';
         if (daysBar && daysBar.parentNode === guideCard) {
           guideCard.insertBefore(vodSearchBar, daysBar);
         } else {
@@ -473,7 +474,8 @@ const otaRuntimeWrapper = `
         vodInput.dataset.otaFallbackBound = '1';
         if (vodInput.dataset.vodBound !== '1') {
           vodInput.addEventListener('input', function() {
-            if (typeof app.renderVodResults === 'function') app.renderVodResults();
+            app.vodSearchQuery = vodInput.value || '';
+            if (typeof app.renderVodProgrammes === 'function') app.renderVodProgrammes();
           });
         }
       }
@@ -496,14 +498,20 @@ const otaRuntimeWrapper = `
         sleepModal.className = 'modal-backdrop hidden';
         sleepModal.setAttribute('aria-hidden', 'true');
         sleepModal.innerHTML =
-          '<div id="sleep-warning-card" class="modal-card modal-sleep-card">' +
-            '<h2 class="sleep-warning-title">מצב חיסכון בחשמל — כיבוי מסך אוטומטי</h2>' +
-            '<p class="sleep-warning-desc">לא זוהתה פעילות ממושכת. השידור ייעצר והמסך ייכנס לחיסכון בחשמל בעוד:</p>' +
-            '<div id="sleep-countdown-sec" class="sleep-countdown-sec">60</div>' +
-            '<div id="sleep-countdown-bar-track" class="sleep-countdown-bar-track">' +
+          '<div id="sleep-warning-card" class="modal-card sleep-warning-card">' +
+            '<div class="sleep-warning-badge">מצב חיסכון בחשמל</div>' +
+            '<h2 class="sleep-warning-title">המסך ייכבה בקרוב עקב חוסר פעילות</h2>' +
+            '<p class="sleep-warning-desc">המערכת עומדת לעבור למצב חיסכון בחשמל ולהפסיק את השידור כדי לחסוך באנרגיה ולמנוע צריבת מסך.</p>' +
+            '<div class="sleep-countdown-row">' +
+              '<span id="sleep-countdown-sec" class="sleep-countdown-sec">60</span>' +
+              '<span class="sleep-countdown-unit">שניות לכיבוי</span>' +
+            '</div>' +
+            '<div id="sleep-countdown-bar-track" class="sleep-countdown-bar-track" dir="ltr">' +
               '<div id="sleep-countdown-bar" class="sleep-countdown-bar" style="width:100%;"></div>' +
             '</div>' +
-            '<button id="btn-sleep-stay-awake" class="btn-tv-primary focusable" type="button">אני עדיין צופה — בטל כיבוי (OK)</button>' +
+            '<div class="sleep-warning-actions">' +
+              '<button id="btn-sleep-stay-awake" class="btn-tv-primary focusable" type="button">אני עדיין צופה — בטל כיבוי (OK)</button>' +
+            '</div>' +
           '</div>';
         document.body.appendChild(sleepModal);
       }
@@ -523,7 +531,7 @@ const otaRuntimeWrapper = `
         powerSaveEl.className = 'power-save-screen hidden';
         powerSaveEl.setAttribute('aria-hidden', 'true');
         powerSaveEl.innerHTML =
-          '<div class="power-save-hint">מצב חיסכון בחשמל — לחץ על כל מקש לחזרה לצפייה</div>';
+          '<div class="power-save-hint">מצב חיסכון בחשמל פעיל — לחץ על כל מקש לחזרה לצפייה</div>';
         document.body.appendChild(powerSaveEl);
       }
       var powerSaveNode = document.getElementById('power-save-screen');
@@ -543,10 +551,17 @@ const otaRuntimeWrapper = `
         voiceEl.setAttribute('aria-hidden', 'true');
         voiceEl.innerHTML =
           '<div class="modal-card voice-card">' +
-            '<div id="voice-mic-ring" class="voice-mic-ring">🎤</div>' +
-            '<div id="voice-status-text" class="voice-status-text">מקשיב... אמור שם ערוץ, מספר או תוכנית</div>' +
-            '<div id="voice-transcript-text" class="voice-transcript-text"></div>' +
-            '<button id="btn-voice-cancel" class="btn-tv-secondary focusable" type="button">ביטול (BACK)</button>' +
+            '<div class="voice-header">' +
+              '<div id="voice-mic-ring" class="voice-mic-ring">🎤</div>' +
+              '<div class="voice-title-col">' +
+                '<h2 id="voice-status-text">מקשיב... אמור שם ערוץ, מספר או תוכנית</h2>' +
+                '<div id="voice-transcript-text" class="voice-transcript-text">דוגמה: "קשת 12", "ערוץ 11", "מסך מלא", "חדשות"</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="voice-actions">' +
+              '<button id="btn-voice-fallback-search" class="btn-tv-primary focusable hidden" type="button">פתח חיפוש מהיר (ערוצים / VOD)</button>' +
+              '<button id="btn-voice-cancel" class="btn-tv-secondary focusable" type="button">✕ ביטול (BACK)</button>' +
+            '</div>' +
           '</div>';
         document.body.appendChild(voiceEl);
       }
@@ -555,7 +570,7 @@ const otaRuntimeWrapper = `
         voiceCancelBtn.dataset.otaFallbackBound = '1';
         if (voiceCancelBtn.dataset.voiceBound !== '1') {
           voiceCancelBtn.addEventListener('click', function() {
-            if (typeof app.stopVoiceCommand === 'function') app.stopVoiceCommand();
+            if (typeof app.closeVoiceOverlay === 'function') app.closeVoiceOverlay();
             else if (typeof app.closeModals === 'function') app.closeModals();
           });
         }
@@ -571,6 +586,7 @@ const otaRuntimeWrapper = `
         appendBtn.id = 'btn-append-default-source';
         appendBtn.className = 'btn-tv-secondary focusable';
         appendBtn.type = 'button';
+        appendBtn.setAttribute('data-action', 'append-default-source');
         appendBtn.textContent = '+ הוסף מקור ברירת מחדל (ללא מחיקה)';
         if (loadSampleBtn && loadSampleBtn.parentNode === actionsCol) {
           actionsCol.insertBefore(appendBtn, loadSampleBtn.nextSibling);
@@ -581,12 +597,14 @@ const otaRuntimeWrapper = `
       var appendBtnEl = document.getElementById('btn-append-default-source');
       if (appendBtnEl && appendBtnEl.dataset && appendBtnEl.dataset.otaFallbackBound !== '1') {
         appendBtnEl.dataset.otaFallbackBound = '1';
-        if (appendBtnEl.dataset.appendBound !== '1') {
+        if (appendBtnEl.dataset.appendDefaultBound !== '1') {
           appendBtnEl.addEventListener('click', function() {
-            if (app.store && typeof app.store.appendDefaultSource === 'function') {
+            if (typeof app.appendDefaultSource === 'function') {
+              app.appendDefaultSource();
+            } else if (app.store && typeof app.store.appendDefaultSource === 'function') {
               var res = app.store.appendDefaultSource();
               if (typeof app.renderSourcesManagerList === 'function') app.renderSourcesManagerList();
-              if (typeof app.refreshAllSources === 'function') app.refreshAllSources(false);
+              if (typeof app.refreshAllSources === 'function') app.refreshAllSources(false, { keepModalOpen: true });
               if (typeof app.showToast === 'function') {
                 app.showToast(res && res.added ? 'מקור ברירת המחדל נוסף לרשימה ללא מחיקה ✓' : 'מקור ברירת המחדל הופעל מחדש ✓');
               }
@@ -601,21 +619,21 @@ const otaRuntimeWrapper = `
         card.className = 'perf-section-card ui-pref-card';
         card.id = 'ui-power-voice-card';
         card.innerHTML =
-          '<h3>חיסכון בחשמל (Sleep Timer) ושפת פקודות קוליות</h3>' +
-          '<p class="perf-desc">כיבוי מסך והפסקת שידור אוטומטית בחוסר פעילות:</p>' +
+          '<h3>כיבוי מסך אוטומטי (חיסכון בחשמל) ושפת פקודות קוליות</h3>' +
+          '<p class="perf-desc">טיימר כיבוי מסך אוטומטי בחוסר פעילות (ברירת מחדל: 4 שעות):</p>' +
           '<div class="perf-options-grid ui-grid-4" id="ui-sleep-options">' +
-            '<button class="perf-option-btn focusable" data-ui-pref="sleepTimeoutHours" data-ui-value="0"><span class="perf-opt-title">כבוי</span><span class="perf-opt-sub">ללא כיבוי אוטומטי</span></button>' +
-            '<button class="perf-option-btn focusable" data-ui-pref="sleepTimeoutHours" data-ui-value="1"><span class="perf-opt-title">שעה אחת</span><span class="perf-opt-sub">חיסכון מהיר</span></button>' +
-            '<button class="perf-option-btn focusable" data-ui-pref="sleepTimeoutHours" data-ui-value="2"><span class="perf-opt-title">שעתיים</span><span class="perf-opt-sub">2 שעות</span></button>' +
-            '<button class="perf-option-btn focusable" data-ui-pref="sleepTimeoutHours" data-ui-value="3"><span class="perf-opt-title">3 שעות</span><span class="perf-opt-sub">צפייה ממושכת</span></button>' +
-            '<button class="perf-option-btn focusable" data-ui-pref="sleepTimeoutHours" data-ui-value="4"><span class="perf-opt-title">4 שעות (ברירת מחדל)</span><span class="perf-opt-sub">מומלץ לטלוויזיות</span></button>' +
-            '<button class="perf-option-btn focusable" data-ui-pref="sleepTimeoutHours" data-ui-value="6"><span class="perf-opt-title">6 שעות</span><span class="perf-opt-sub">ערב ארוך</span></button>' +
-            '<button class="perf-option-btn focusable" data-ui-pref="sleepTimeoutHours" data-ui-value="8"><span class="perf-opt-title">8 שעות</span><span class="perf-opt-sub">מקסימום</span></button>' +
+            '<button id="btn-sleep-0" class="perf-option-btn focusable" type="button" data-sleep-hours="0"><span class="perf-opt-title">כבוי</span><span class="perf-opt-sub">ללא כיבוי אוטומטי</span></button>' +
+            '<button id="btn-sleep-1" class="perf-option-btn focusable" type="button" data-sleep-hours="1"><span class="perf-opt-title">1 שעה</span><span class="perf-opt-sub">חיסכון מהיר</span></button>' +
+            '<button id="btn-sleep-2" class="perf-option-btn focusable" type="button" data-sleep-hours="2"><span class="perf-opt-title">2 שעות</span><span class="perf-opt-sub">צפייה קצרה</span></button>' +
+            '<button id="btn-sleep-3" class="perf-option-btn focusable" type="button" data-sleep-hours="3"><span class="perf-opt-title">3 שעות</span><span class="perf-opt-sub">מאוזן</span></button>' +
+            '<button id="btn-sleep-4" class="perf-option-btn focusable" type="button" data-sleep-hours="4"><span class="perf-opt-title">4 שעות</span><span class="perf-opt-sub">ברירת מחדל</span></button>' +
+            '<button id="btn-sleep-6" class="perf-option-btn focusable" type="button" data-sleep-hours="6"><span class="perf-opt-title">6 שעות</span><span class="perf-opt-sub">צפייה ממושכת</span></button>' +
+            '<button id="btn-sleep-8" class="perf-option-btn focusable" type="button" data-sleep-hours="8"><span class="perf-opt-title">8 שעות</span><span class="perf-opt-sub">לילה ארוך</span></button>' +
           '</div>' +
           '<p class="perf-desc">שפת זיהוי פקודות קוליות (Voice Language):</p>' +
           '<div class="perf-options-grid" id="ui-voice-lang-options">' +
-            '<button class="perf-option-btn focusable" data-ui-pref="voiceLang" data-ui-value="he-IL"><span class="perf-opt-title">עברית (he-IL)</span><span class="perf-opt-sub">ברירת מחדל</span></button>' +
-            '<button class="perf-option-btn focusable" data-ui-pref="voiceLang" data-ui-value="en-US"><span class="perf-opt-title">English (en-US)</span><span class="perf-opt-sub">אנגלית</span></button>' +
+            '<button id="btn-voicelang-he" class="perf-option-btn focusable" type="button" data-voice-lang="he-IL"><span class="perf-opt-title">עברית (he-IL)</span><span class="perf-opt-sub">ברירת מחדל</span></button>' +
+            '<button id="btn-voicelang-en" class="perf-option-btn focusable" type="button" data-voice-lang="en-US"><span class="perf-opt-title">English (en-US)</span><span class="perf-opt-sub">פקודות באנגלית</span></button>' +
           '</div>';
         var actionsBar = appPanel.querySelector('.perf-actions-bar');
         if (actionsBar && actionsBar.parentNode === appPanel) {
@@ -623,20 +641,33 @@ const otaRuntimeWrapper = `
         } else {
           appPanel.appendChild(card);
         }
-        var prefBtns = card.querySelectorAll('[data-ui-pref]');
-        for (var i = 0; i < prefBtns.length; i++) {
+        var sleepBtns = card.querySelectorAll('[data-sleep-hours]');
+        for (var i = 0; i < sleepBtns.length; i++) {
           (function(btn) {
             if (btn && btn.dataset && btn.dataset.otaFallbackBound !== '1') {
               btn.dataset.otaFallbackBound = '1';
               btn.addEventListener('click', function() {
-                var key = btn.dataset.uiPref;
-                var val = btn.dataset.uiValue;
-                if (key && typeof val !== 'undefined' && typeof app.setUiPref === 'function') {
-                  app.setUiPref(key, key === 'sleepTimeoutHours' ? parseInt(val, 10) : val, false);
+                var hrs = parseInt(btn.dataset.sleepHours, 10);
+                if (!isNaN(hrs) && typeof app.setUiPref === 'function') {
+                  app.setUiPref('sleepTimeoutHours', hrs, false);
                 }
               });
             }
-          })(prefBtns[i]);
+          })(sleepBtns[i]);
+        }
+        var voiceLangBtns = card.querySelectorAll('[data-voice-lang]');
+        for (var j = 0; j < voiceLangBtns.length; j++) {
+          (function(btn) {
+            if (btn && btn.dataset && btn.dataset.otaFallbackBound !== '1') {
+              btn.dataset.otaFallbackBound = '1';
+              btn.addEventListener('click', function() {
+                var lang = btn.dataset.voiceLang;
+                if (lang && typeof app.setUiPref === 'function') {
+                  app.setUiPref('voiceLang', lang, false);
+                }
+              });
+            }
+          })(voiceLangBtns[j]);
         }
       }
     }

@@ -2789,6 +2789,9 @@ class IPTVApp {
     this._modeBeforePowerSave =
       this._modeBeforeSleepWarning === 'FULLSCREEN' || this.mode === 'FULLSCREEN' ? 'FULLSCREEN' : 'BROWSE';
 
+    if (this.player && typeof this.player.setPowerSaveMode === 'function') {
+      this.player.setPowerSaveMode(true);
+    }
     if (this.player && typeof this.player.stop === 'function') {
       this.player.stop();
     }
@@ -2826,6 +2829,10 @@ class IPTVApp {
   exitPowerSaveMode() {
     if (!this.isPowerSaveMode) return;
     this.isPowerSaveMode = false;
+
+    if (this.player && typeof this.player.setPowerSaveMode === 'function') {
+      this.player.setPowerSaveMode(false);
+    }
 
     const blkScreen = document.getElementById('power-save-screen');
     if (blkScreen) {
@@ -3391,11 +3398,14 @@ class IPTVApp {
       const trimmed = key.trim();
       if (!trimmed) return;
       if (!byEpgId[trimmed]) byEpgId[trimmed] = ch;
+      if (!channelMap[trimmed] && ch.name) channelMap[trimmed] = ch.name;
       const lower = trimmed.toLowerCase();
       if (!byEpgId[lower]) byEpgId[lower] = ch;
+      if (!channelMap[lower] && ch.name) channelMap[lower] = ch.name;
       if (this.epg && typeof this.epg.normalizeChannelKey === 'function') {
         const norm = this.epg.normalizeChannelKey(trimmed);
         if (norm && !byEpgId[norm]) byEpgId[norm] = ch;
+        if (norm && !channelMap[norm] && ch.name) channelMap[norm] = ch.name;
       }
     };
 

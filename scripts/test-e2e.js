@@ -245,9 +245,30 @@ async function runStaticChecks(webRoot, repoRoot) {
     );
   }
 
+  // Verify inline <script> tags in index.html parse cleanly and pass Chromium 53 rules
+  const inlineScriptRe = /<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/gi;
+  let inlineMatch;
+  let inlineIdx = 0;
+  while ((inlineMatch = inlineScriptRe.exec(indexHtml)) !== null) {
+    inlineIdx++;
+    new Function(inlineMatch[1]);
+    for (let r = 0; r < compatRules.length; r++) {
+      assert(!compatRules[r].rx.test(inlineMatch[1]), 'index.html inline script #' + inlineIdx + ' contains Chromium 53 incompatible syntax: ' + compatRules[r].name);
+    }
+  }
+  assert(inlineIdx >= 1, 'index.html must contain inline boot script');
+
+  // Verify clean-boot hidden guard on v5.6.0 modals/overlays (only #disclaimer-modal may show on fresh boot)
+  for (const hiddenId of ['sleep-warning-modal', 'power-save-screen', 'voice-overlay']) {
+    const tagMatch = indexHtml.match(new RegExp('<[^>]*id="' + hiddenId + '"[^>]*>'));
+    assert(tagMatch && /\bhidden\b/.test(tagMatch[0]), 'index.html #' + hiddenId + ' must start with .hidden on clean boot');
+  }
+
   for (const cssRel of ['css/style.css', 'css/theme-glass.css']) {
     const cssText = fs.readFileSync(path.join(webRoot, cssRel), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     assert(!/:\s*[^;{}]*\b(clamp|min|max)\s*\(/i.test(cssText), cssRel + ' must not use CSS min()/max()/clamp() (webOS 4.x)');
+    assert(!/(?:^|[;{\s])(?:row-|column-)?gap\s*:/im.test(cssText), cssRel + ' must not use CSS flex gap (Chromium 53)');
+    assert(!/display\s*:\s*(?:inline-)?grid/i.test(cssText), cssRel + ' must not use display: grid (Chromium 53)');
     const webkitClamps = (cssText.match(/-webkit-line-clamp\s*:/g) || []).length;
     const stdClamps = (cssText.match(/(^|[^-])line-clamp\s*:/gm) || []).length;
     assert.strictEqual(webkitClamps, stdClamps, cssRel + ' must pair every -webkit-line-clamp with standard line-clamp');
@@ -484,7 +505,7 @@ async function verifySettingsScrollingForTheme(page, theme) {
 
     const appVis = [];
     let seenResetUiBtn = false;
-    for (let i = 0; i < 85; i++) {
+    for (let i = 0; i < 120; i++) {
       window.app.navigate('down');
       const cur = window.app.currentFocusedEl;
       if (cur && appEl.contains(cur)) {
@@ -503,7 +524,7 @@ async function verifySettingsScrollingForTheme(page, theme) {
     }
     const appMaxScrollAfterDown = appEl.scrollTop;
 
-    for (let i = 0; i < 85; i++) {
+    for (let i = 0; i < 120; i++) {
       window.app.navigate('up');
       const cur = window.app.currentFocusedEl;
       if (cur && (cur.classList.contains('settings-tab-btn') || cur.classList.contains('modal-close-btn'))) {
@@ -1772,6 +1793,10 @@ async function runTests() {
         await verifyAutoFullscreenSuite(browser, opts.webRoot, sampleM3u25, cached25, pass);
         await verifySilentAutoOtaSuite(browser, opts.webRoot, sampleM3u25, cached25, otaManifest, pass);
         await verifyLiveEpgSuite(browser, opts.webRoot, opts.repoRoot, sampleM3u25, cached25, pass);
+        await verifyGlobalVodDiscoverySuite(browser, opts.webRoot, sampleM3u25, cached25, pass);
+        await verifyPowerSaveSleepSuite(browser, opts.webRoot, sampleM3u25, cached25, pass);
+        await verifyVoiceCommandSuite(browser, opts.webRoot, sampleM3u25, cached25, pass);
+        await verifyAppendDefaultSourceSuite(browser, opts.webRoot, sampleM3u25, cached25, pass);
       } finally {
         server.close();
       }
@@ -1792,7 +1817,15 @@ async function runTests() {
               window.AndroidTvHost = {
                 isSafeMode: function () { return safeFlag; },
                 notifyAppReady: function () { window.__testReadyCalls++; },
-                setInputFocused: function () {}
+                setInputFocused: function () {},
+                setScreenSleepMode: function (asleep) {
+                  window.__sleepModeCalls = window.__sleepModeCalls || [];
+                  window.__sleepModeCalls.push(Boolean(asleep));
+                },
+                startVoiceCommand: function (lang) {
+                  window.__voiceHostLangs = window.__voiceHostLangs || [];
+                  window.__voiceHostLangs.push(lang || '');
+                }
               };
               localStorage.setItem('zenplay_iptv_sources_v2', JSON.stringify([{ id: 'src_1', name: 'Test', url: sampleUrl, enabled: true }]));
               localStorage.setItem('zenplay_iptv_cached_lineup_v2', JSON.stringify({ v: 2, updatedAt: Date.now(), discoveredEpgUrls: [], rawChannels: cached }));
@@ -1861,6 +1894,28 @@ async function runTests() {
             });
             assert.strictEqual(atvThemeSwitch.focused, 'btn-theme-glass', 'AndroidTVBridge must focus btn-theme-glass');
             assert.strictEqual(atvThemeSwitch.themeAfterGlass, 'glass', 'AndroidTVBridge OK must switch theme to glass');
+
+            // Verify AndroidTvHost v5.6.0 native hooks (setScreenSleepMode + startVoiceCommand + handleVoiceCommand)
+            const atvV56 = await page.evaluate(() => {
+              window.app.startVoiceCommand();
+              window.app.handleVoiceCommand('ערוץ 12');
+              const voiceNum = window.app.selectedChannel ? window.app.selectedChannel.number : 0;
+              window.app.enterPowerSaveMode();
+              const isAsleep = window.app.isPowerSaveMode === true && window.app.player._isPowerSaveMode === true;
+              window.app.exitPowerSaveMode();
+              const isAwake = window.app.isPowerSaveMode === false && window.app.player._isPowerSaveMode === false;
+              return {
+                voiceHostLangs: window.__voiceHostLangs || [],
+                voiceNum,
+                sleepCalls: window.__sleepModeCalls || [],
+                isAsleep,
+                isAwake
+              };
+            });
+            assert(atvV56.voiceHostLangs.length === 1 && atvV56.voiceHostLangs[0] === 'he-IL', 'AndroidTvHost.startVoiceCommand must pass he-IL: ' + JSON.stringify(atvV56));
+            assert.strictEqual(atvV56.voiceNum, 12, 'Android TV handleVoiceCommand must tune ch 12');
+            assert(atvV56.isAsleep && atvV56.isAwake, 'Android TV power-save mode toggle failed');
+            assert.deepStrictEqual(atvV56.sleepCalls, [true, false], 'AndroidTvHost.setScreenSleepMode(true/false) mismatch');
           }
 
           assert.strictEqual(pageErrors.length, 0, 'Android TV pageerrors: ' + pageErrors.join('; '));
@@ -1935,6 +1990,16 @@ async function runTests() {
           const injectedDisclaimerModal = Boolean(document.getElementById('disclaimer-modal'));
           const injectedOpenLegal = Boolean(document.getElementById('btn-open-disclaimer'));
           const injectedAutoOta = Boolean(document.getElementById('btn-toggle-auto-ota'));
+          const injectedVodBtn = Boolean(document.getElementById('btn-open-vod'));
+          const injectedVoiceBtn = Boolean(document.getElementById('btn-voice-command'));
+          const injectedScopeBar = Boolean(document.getElementById('guide-scope-bar'));
+          const injectedVodSearch = Boolean(document.getElementById('vod-search-bar'));
+          const injectedSleepModal = Boolean(document.getElementById('sleep-warning-modal'));
+          const injectedPowerSave = Boolean(document.getElementById('power-save-screen'));
+          const injectedVoiceOverlay = Boolean(document.getElementById('voice-overlay'));
+          const injectedAppendBtn = Boolean(document.getElementById('btn-append-default-source'));
+          const injectedSleepOpts = Boolean(document.getElementById('ui-sleep-options'));
+          const injectedVoiceLangOpts = Boolean(document.getElementById('ui-voice-lang-options'));
           document.getElementById('btn-preset-minimal').click();
           const minimalOk = document.documentElement.classList.contains('ui-density-compact');
           document.getElementById('btn-reset-ui-prefs').click();
@@ -1958,6 +2023,16 @@ async function runTests() {
             injectedDisclaimerModal,
             injectedOpenLegal,
             injectedAutoOta,
+            injectedVodBtn,
+            injectedVoiceBtn,
+            injectedScopeBar,
+            injectedVodSearch,
+            injectedSleepModal,
+            injectedPowerSave,
+            injectedVoiceOverlay,
+            injectedAppendBtn,
+            injectedSleepOpts,
+            injectedVoiceLangOpts,
             minimalOk,
             vividOk
           };
@@ -1967,7 +2042,7 @@ async function runTests() {
         assert.strictEqual(synthRes.hasRowEls, true, '_channelRowEls must be backfilled');
         assert.strictEqual(synthRes.hasPreviewCache, true, '_previewHeaderCache must be backfilled');
         assert.strictEqual(synthRes.hasOsdCache, true, '_osdLastCache must be backfilled');
-        assert(synthRes.injectedTab && synthRes.injectedPanel && synthRes.injectedAvTab && synthRes.injectedAvPanel && synthRes.injectedStatsBadge && synthRes.injectedBadge && synthRes.injectedDisclaimerModal && synthRes.injectedOpenLegal && synthRes.injectedAutoOta && synthRes.minimalOk && synthRes.vividOk, 'Synthetic OTA must inject Appearance, AV, Disclaimer & Auto-OTA controls');
+        assert(synthRes.injectedTab && synthRes.injectedPanel && synthRes.injectedAvTab && synthRes.injectedAvPanel && synthRes.injectedStatsBadge && synthRes.injectedBadge && synthRes.injectedDisclaimerModal && synthRes.injectedOpenLegal && synthRes.injectedAutoOta && synthRes.injectedVodBtn && synthRes.injectedVoiceBtn && synthRes.injectedScopeBar && synthRes.injectedVodSearch && synthRes.injectedSleepModal && synthRes.injectedPowerSave && synthRes.injectedVoiceOverlay && synthRes.injectedAppendBtn && synthRes.injectedSleepOpts && synthRes.injectedVoiceLangOpts && synthRes.minimalOk && synthRes.vividOk, 'Synthetic OTA must inject Appearance, AV, Disclaimer, Auto-OTA & v5.6.0 VOD/Sleep/Voice/Append controls');
         assert.strictEqual(pageErrors.length, 0, 'Synthetic OTA pageerrors: ' + pageErrors.join('; '));
         assert.strictEqual(consoleErrors.length, 0, 'Synthetic OTA console errors: ' + consoleErrors.join('; '));
         await page.close();
@@ -2926,6 +3001,474 @@ async function verifyLiveEpgSuite(browser, webRoot, repoRoot, sampleM3u25, cache
     assert.strictEqual(consoleErrors.length, 0, 'Live EPG suite console errors: ' + consoleErrors.join('; '));
     await page.close();
     pass('live-epg-fallback-and-multi-alias', 'Stale feed fallback, real epg-il.xml 10/10 Israeli channels, sibling freshness & cache expiry verified');
+  } finally {
+    server.close();
+  }
+}
+
+async function verifyGlobalVodDiscoverySuite(browser, webRoot, sampleM3u25, cached25, pass) {
+  const vodM3u = [
+    '#EXTM3U',
+    '#EXTINF:-1 tvg-id="kan11" catchup="default" catchup-days="7" catchup-source="http://127.0.0.1:19999/catchup/kan11.m3u8?start={utc}&end={utcend}",כאן 11',
+    'http://127.0.0.1:19999/live/1.m3u8',
+    '#EXTINF:-1 tvg-id="keshet12" catchup="default" catchup-days="7" catchup-source="http://127.0.0.1:19999/catchup/keshet12.m3u8?start={utc}&end={utcend}",קשת 12',
+    'http://127.0.0.1:19999/live/2.m3u8',
+    '#EXTINF:-1 tvg-id="reshet13",רשת 13',
+    'http://127.0.0.1:19999/live/3.m3u8'
+  ].join('\n') + '\n';
+
+  const { server, port } = await createStaticServer({ webRoot, sampleM3u: vodM3u });
+  try {
+    const { page, pageErrors, consoleErrors } = await openConfiguredPage(browser, port, {
+      width: 1920,
+      height: 1080,
+      setupFn: (sampleUrl) => {
+        window.webOSSystem = { close: function () {} };
+        localStorage.setItem('zenplay_iptv_sources_v2', JSON.stringify([{ id: 'src_vod', name: 'VOD Test', url: sampleUrl, enabled: true }]));
+      },
+      setupArgs: ['http://127.0.0.1:' + port + '/sample.m3u']
+    });
+
+    await page.waitForFunction(() => window.app && window.app.allChannels && window.app.allChannels.length === 3, { timeout: 6000 });
+
+    const setupRes = await page.evaluate(() => {
+      const now = Date.now();
+      const pad = (n) => (n < 10 ? '0' + n : '' + n);
+      const fmt = (ms) => {
+        const d = new Date(ms);
+        return d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + pad(d.getUTCSeconds()) + ' +0000';
+      };
+      const xml = '<?xml version="1.0" encoding="UTF-8"?><tv>' +
+        '<channel id="kan11"><display-name>כאן 11</display-name></channel>' +
+        '<channel id="keshet12"><display-name>קשת 12</display-name></channel>' +
+        '<channel id="reshet13"><display-name>רשת 13</display-name></channel>' +
+        '<programme start="' + fmt(now - 1800000) + '" stop="' + fmt(now + 1800000) + '" channel="kan11"><title>מהדורה מרכזית חי</title><desc>שידור חדשות</desc></programme>' +
+        '<programme start="' + fmt(now - 2 * 86400000 - 3600000) + '" stop="' + fmt(now - 2 * 86400000) + '" channel="keshet12"><title>ארץ נהדרת פרק מיוחד</title><desc>סאטירה ובידור</desc></programme>' +
+        '<programme start="' + fmt(now - 4 * 86400000 - 3600000) + '" stop="' + fmt(now - 4 * 86400000) + '" channel="reshet13"><title>הצינור ארכיון</title><desc>תוכנית לילה</desc></programme>' +
+        '</tv>';
+      window.app.epg.parseXMLTV(xml);
+      window.app.epg.rebuildAliasesFromLoadedChannels();
+      window.app.refreshVisibleEPGLabels();
+
+      const vodBtn = document.getElementById('btn-open-vod');
+      vodBtn.click();
+
+      const initialCards = Array.from(document.querySelectorAll('#guide-programmes-list .vod-result-card'));
+      document.getElementById('btn-vod-only-past').click();
+      const pastOnlyLiveCount = document.querySelectorAll('#guide-programmes-list .vod-result-card.is-live').length;
+      const pastOnlyTotal = document.querySelectorAll('#guide-programmes-list .vod-result-card').length;
+      document.getElementById('btn-vod-only-past').click();
+
+      return {
+        mode: window.app.mode,
+        scope: window.app.guideScope,
+        guideVisible: !document.getElementById('guide-modal').classList.contains('hidden'),
+        vodActiveBtn: document.getElementById('btn-guide-scope-vod').classList.contains('active'),
+        searchBarVisible: !document.getElementById('vod-search-bar').classList.contains('hidden'),
+        daysBarHidden: document.getElementById('guide-days-bar').classList.contains('hidden'),
+        initialCount: initialCards.length,
+        pastOnlyLiveCount,
+        pastOnlyTotal
+      };
+    });
+    assert.strictEqual(setupRes.mode, 'GUIDE');
+    assert.strictEqual(setupRes.scope, 'vod');
+    assert(setupRes.guideVisible && setupRes.vodActiveBtn && setupRes.searchBarVisible && setupRes.daysBarHidden, 'Global VOD UI state mismatch: ' + JSON.stringify(setupRes));
+    assert(setupRes.initialCount >= 3, 'Global VOD must populate recent 7-day items immediately');
+    assert.strictEqual(setupRes.pastOnlyLiveCount, 0, '#btn-vod-only-past must exclude live broadcasts');
+    assert(setupRes.pastOnlyTotal >= 2, 'Past-only filter should retain past programmes');
+
+    // Search by Hebrew title and trigger catchup VOD playback
+    await page.evaluate(() => {
+      const inp = document.getElementById('vod-search-input');
+      inp.value = 'ארץ';
+      inp.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await new Promise((r) => setTimeout(r, 200));
+    const catchupRes = await page.evaluate(() => {
+      const cards = document.querySelectorAll('#guide-programmes-list .vod-result-card');
+      const count = cards.length;
+      const title = cards[0] ? cards[0].querySelector('.vod-result-title').textContent : '';
+      const vid = document.getElementById('tv-video');
+      if (vid) vid.play = function () { return Promise.resolve(); };
+      if (cards[0]) cards[0].click();
+      return {
+        count,
+        title,
+        selectedEpgId: window.app.selectedChannel ? window.app.selectedChannel.epgId : '',
+        modeAfterClick: window.app.mode,
+        catchupOriginStartMs: window.app.player ? window.app.player.catchupOriginStartMs : 0,
+        toastText: (document.getElementById('toast-message') && document.getElementById('toast-message').textContent) || ''
+      };
+    });
+    assert.strictEqual(catchupRes.count, 1, 'VOD search for "ארץ" should match 1 item');
+    assert(catchupRes.title.indexOf('ארץ נהדרת') !== -1);
+    assert.strictEqual(catchupRes.selectedEpgId, 'keshet12');
+    assert.strictEqual(catchupRes.modeAfterClick, 'FULLSCREEN');
+    assert(catchupRes.catchupOriginStartMs > 0, 'Catchup-capable channel must start catchup playback');
+
+    // Non-catchup channel past programme falls back cleanly to live tuning with informative toast
+    const nonCatchupRes = await page.evaluate(() => {
+      window.app.exitFullscreen();
+      window.app.openGuideModal('vod', 'הצינור');
+      const cards = document.querySelectorAll('#guide-programmes-list .vod-result-card');
+      const count = cards.length;
+      if (cards[0]) cards[0].click();
+      return {
+        count,
+        selectedEpgId: window.app.selectedChannel ? window.app.selectedChannel.epgId : '',
+        modeAfterClick: window.app.mode,
+        toastText: (document.getElementById('toast-message') && document.getElementById('toast-message').textContent) || ''
+      };
+    });
+    assert.strictEqual(nonCatchupRes.count, 1);
+    assert.strictEqual(nonCatchupRes.selectedEpgId, 'reshet13');
+    assert.strictEqual(nonCatchupRes.modeAfterClick, 'FULLSCREEN');
+    assert(nonCatchupRes.toastText.indexOf('Catchup/VOD') !== -1, 'Non-catchup VOD fallback toast missing: ' + nonCatchupRes.toastText);
+
+    // Toggle back to channel scope
+    const scopeBackRes = await page.evaluate(() => {
+      window.app.exitFullscreen();
+      window.app.openGuideModal('vod');
+      document.getElementById('btn-guide-scope-channel').click();
+      const res = {
+        scope: window.app.guideScope,
+        daysBarHidden: document.getElementById('guide-days-bar').classList.contains('hidden'),
+        searchBarHidden: document.getElementById('vod-search-bar').classList.contains('hidden')
+      };
+      window.app.closeModals();
+      return res;
+    });
+    assert(scopeBackRes.scope === 'channel' && !scopeBackRes.daysBarHidden && scopeBackRes.searchBarHidden);
+
+    assert.strictEqual(pageErrors.length, 0, 'Global VOD suite pageerrors: ' + pageErrors.join('; '));
+    assert.strictEqual(consoleErrors.length, 0, 'Global VOD suite console errors: ' + consoleErrors.join('; '));
+    await page.close();
+    pass('global-7day-vod-discovery', 'Global VOD trigger, search, past-only filter, catchup & fallback playback verified');
+  } finally {
+    server.close();
+  }
+}
+
+async function verifyPowerSaveSleepSuite(browser, webRoot, sampleM3u25, cached25, pass) {
+  const { server, port } = await createStaticServer({ webRoot, sampleM3u: sampleM3u25 });
+  try {
+    const { page, pageErrors, consoleErrors } = await openConfiguredPage(browser, port, {
+      width: 1920,
+      height: 1080,
+      setupFn: (sampleUrl, cached) => {
+        window.webOSSystem = { close: function () {} };
+        window.__sleepHookCalls = [];
+        window.AndroidTvHost = {
+          setScreenSleepMode: function (asleep) {
+            window.__sleepHookCalls.push(Boolean(asleep));
+          }
+        };
+        localStorage.setItem('zenplay_iptv_sources_v2', JSON.stringify([{ id: 'src_1', name: 'Test', url: sampleUrl, enabled: true }]));
+        localStorage.setItem('zenplay_iptv_cached_lineup_v2', JSON.stringify({ v: 2, updatedAt: Date.now(), discoveredEpgUrls: [], rawChannels: cached }));
+      },
+      setupArgs: ['http://127.0.0.1:' + port + '/sample.m3u', cached25]
+    });
+
+    // 1. Clean boot hidden state + default 4h + Settings persistence
+    const initial = await page.evaluate(() => ({
+      sleepTimeoutHours: window.app.getUiPrefs().sleepTimeoutHours,
+      sleepModalHidden: document.getElementById('sleep-warning-modal').classList.contains('hidden'),
+      powerSaveHidden: document.getElementById('power-save-screen').classList.contains('hidden'),
+      voiceHidden: document.getElementById('voice-overlay').classList.contains('hidden')
+    }));
+    assert.strictEqual(initial.sleepTimeoutHours, 4, 'Default sleepTimeoutHours must be 4');
+    assert(initial.sleepModalHidden && initial.powerSaveHidden && initial.voiceHidden, 'New v5.6.0 overlays must start hidden on clean boot');
+
+    await page.evaluate(() => {
+      window.app.openSettingsModal();
+      window.app.switchSettingsTab('appearance');
+      document.getElementById('btn-sleep-2').click();
+      window.app.closeModals();
+    });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await new Promise((r) => setTimeout(r, 600));
+    const afterReloadHours = await page.evaluate(() => {
+      window.__sleepHookCalls = [];
+      window.AndroidTvHost = {
+        setScreenSleepMode: function (asleep) {
+          window.__sleepHookCalls.push(Boolean(asleep));
+        }
+      };
+      return window.app.getUiPrefs().sleepTimeoutHours;
+    });
+    assert.strictEqual(afterReloadHours, 2, 'sleepTimeoutHours=2 must persist across reload');
+
+    // 2. triggerSleepWarning(2) -> any-key cancels cleanly
+    const warnCheck = await page.evaluate(() => {
+      window.app.triggerSleepWarning(2);
+      return {
+        active: window.app._sleepWarningActive,
+        visible: !document.getElementById('sleep-warning-modal').classList.contains('hidden'),
+        secText: document.getElementById('sleep-countdown-sec').textContent,
+        focusedId: window.app.currentFocusedEl ? window.app.currentFocusedEl.id : ''
+      };
+    });
+    assert(warnCheck.active && warnCheck.visible && warnCheck.secText === '2' && warnCheck.focusedId === 'btn-sleep-stay-awake', 'Sleep warning modal state invalid: ' + JSON.stringify(warnCheck));
+
+    await page.keyboard.press('ArrowDown');
+    await new Promise((r) => setTimeout(r, 80));
+    const cancelledCheck = await page.evaluate(() => ({
+      active: window.app._sleepWarningActive,
+      hidden: document.getElementById('sleep-warning-modal').classList.contains('hidden'),
+      powerSave: window.app.isPowerSaveMode
+    }));
+    assert(!cancelledCheck.active && cancelledCheck.hidden && !cancelledCheck.powerSave, 'Any-key must cancel sleep warning');
+
+    // 3. Countdown to 0 -> enters #power-save-screen, stops player, calls setPowerSaveMode(true) & AndroidTvHost(true)
+    await page.evaluate(() => {
+      const vid = document.getElementById('tv-video');
+      if (vid) vid.play = function () { return Promise.resolve(); };
+      window.app.player.play(window.app.visibleChannels[0]);
+      window.__sleepHookCalls = [];
+      window.app.triggerSleepWarning(1);
+    });
+    await page.waitForFunction(() => window.app && window.app.isPowerSaveMode === true, { timeout: 3500, polling: 50 });
+
+    const asleepState = await page.evaluate(() => ({
+      isPowerSaveMode: window.app.isPowerSaveMode,
+      playerPowerSave: window.app.player._isPowerSaveMode,
+      playerPlaying: window.app.player._isPlaying,
+      blackoutVisible: !document.getElementById('power-save-screen').classList.contains('hidden'),
+      warningHidden: document.getElementById('sleep-warning-modal').classList.contains('hidden'),
+      sleepCalls: window.__sleepHookCalls.slice()
+    }));
+    assert(asleepState.isPowerSaveMode && asleepState.playerPowerSave && !asleepState.playerPlaying && asleepState.blackoutVisible && asleepState.warningHidden, 'Power-save blackout state failed: ' + JSON.stringify(asleepState));
+    assert.deepStrictEqual(asleepState.sleepCalls, [true]);
+
+    // 4. Key wake resumes playback and restores player._isPowerSaveMode = false
+    await page.keyboard.press('Enter');
+    await new Promise((r) => setTimeout(r, 100));
+    const awakeState = await page.evaluate(() => ({
+      isPowerSaveMode: window.app.isPowerSaveMode,
+      playerPowerSave: window.app.player._isPowerSaveMode,
+      blackoutHidden: document.getElementById('power-save-screen').classList.contains('hidden'),
+      sleepCalls: window.__sleepHookCalls.slice()
+    }));
+    assert(!awakeState.isPowerSaveMode && !awakeState.playerPowerSave && awakeState.blackoutHidden, 'Wake from power-save failed: ' + JSON.stringify(awakeState));
+    assert.deepStrictEqual(awakeState.sleepCalls, [true, false]);
+
+    assert.strictEqual(pageErrors.length, 0, 'Sleep suite pageerrors: ' + pageErrors.join('; '));
+    assert.strictEqual(consoleErrors.length, 0, 'Sleep suite console errors: ' + consoleErrors.join('; '));
+    await page.close();
+    pass('power-save-sleep-timer', 'Default 4h, Settings persistence, 60s warning cancel, blackout sleep & key-wake verified');
+  } finally {
+    server.close();
+  }
+}
+
+async function verifyVoiceCommandSuite(browser, webRoot, sampleM3u25, cached25, pass) {
+  const { server, port } = await createStaticServer({ webRoot, sampleM3u: sampleM3u25 });
+  try {
+    const { page, pageErrors, consoleErrors } = await openConfiguredPage(browser, port, {
+      width: 1920,
+      height: 1080,
+      setupFn: (sampleUrl, cached) => {
+        window.webOSSystem = { close: function () {} };
+        localStorage.setItem('zenplay_iptv_sources_v2', JSON.stringify([{ id: 'src_1', name: 'Test', url: sampleUrl, enabled: true }]));
+        localStorage.setItem('zenplay_iptv_cached_lineup_v2', JSON.stringify({ v: 2, updatedAt: Date.now(), discoveredEpgUrls: [], rawChannels: cached }));
+      },
+      setupArgs: ['http://127.0.0.1:' + port + '/sample.m3u', cached25]
+    });
+
+    // 1. V key fallback when Speech API & AndroidTvHost unavailable, then Escape closes cleanly
+    await page.keyboard.press('KeyV');
+    await new Promise((r) => setTimeout(r, 80));
+    const unsupportedOverlay = await page.evaluate(() => ({
+      mode: window.app.mode,
+      visible: !document.getElementById('voice-overlay').classList.contains('hidden'),
+      fallbackVisible: !document.getElementById('btn-voice-fallback-search').classList.contains('hidden')
+    }));
+    assert(unsupportedOverlay.mode === 'VOICE' && unsupportedOverlay.visible && unsupportedOverlay.fallbackVisible, 'V key unsupported voice overlay failed: ' + JSON.stringify(unsupportedOverlay));
+    await page.keyboard.press('Escape');
+    await new Promise((r) => setTimeout(r, 80));
+    assert.strictEqual(await page.evaluate(() => window.app.mode), 'BROWSE', 'Escape must close voice overlay');
+
+    // 2. Web Speech Recognition interim -> final command tuning + XMLTV VOD voice search + remote commands
+    const voiceRes = await page.evaluate(() => {
+      const now = Date.now();
+      const pad = (n) => (n < 10 ? '0' + n : '' + n);
+      const fmt = (ms) => {
+        const d = new Date(ms);
+        return d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + pad(d.getUTCSeconds()) + ' +0000';
+      };
+      const xml = '<?xml version="1.0" encoding="UTF-8"?><tv>' +
+        '<channel id="kan11"><display-name>כאן 11</display-name></channel>' +
+        '<channel id="keshet12"><display-name>קשת 12</display-name></channel>' +
+        '<programme start="' + fmt(now - 3600000 * 5) + '" stop="' + fmt(now - 3600000 * 4) + '" channel="keshet12"><title>סדרת מופת מיוחדת</title></programme>' +
+        '<programme start="' + fmt(now - 3600000 * 7) + '" stop="' + fmt(now - 3600000 * 6) + '" channel="kan11"><title>סדרת מופת ראשונה</title></programme>' +
+        '</tv>';
+      window.app.epg.parseXMLTV(xml);
+      window.app.epg.rebuildAliasesFromLoadedChannels();
+
+      let latestRec = null;
+      window.SpeechRecognition = function () {
+        latestRec = this;
+        this.start = function () {};
+        this.abort = function () {};
+      };
+      document.getElementById('btn-voice-command').click();
+      const overlayVisibleDuringListen = !document.getElementById('voice-overlay').classList.contains('hidden');
+      latestRec.onresult({
+        resultIndex: 0,
+        results: [{ isFinal: false, 0: { transcript: 'קשת' } }]
+      });
+      const interimText = document.getElementById('voice-transcript-text').textContent;
+      latestRec.onresult({
+        resultIndex: 0,
+        results: [{ isFinal: true, 0: { transcript: 'ערוץ 12' } }]
+      });
+      const tunedNumAfterSpeech = window.app.selectedChannel ? window.app.selectedChannel.number : 0;
+      const overlayClosedAfterFinal = document.getElementById('voice-overlay').classList.contains('hidden');
+
+      delete window.SpeechRecognition;
+
+      const chNameRes = window.app.handleVoiceCommand('כאן');
+      const chNameAfter = window.app.selectedChannel ? window.app.selectedChannel.name : '';
+
+      const vodVoiceRes = window.app.handleVoiceCommand('סדרת מופת');
+      const vodOpenedQuery = document.getElementById('vod-search-input') ? document.getElementById('vod-search-input').value : '';
+      const vodScopeOpen = window.app.mode === 'GUIDE' && window.app.guideScope === 'vod';
+      window.app.closeModals();
+
+      const fsRes = window.app.handleVoiceCommand('מסך מלא');
+      const modeInFs = window.app.mode;
+      const exitRes = window.app.handleVoiceCommand('רשימה');
+      const modeAfterExit = window.app.mode;
+
+      window.app.openSettingsModal();
+      window.app.switchSettingsTab('appearance');
+      document.getElementById('btn-voicelang-en').click();
+      window.app.closeModals();
+      const hostLangs = [];
+      window.AndroidTvHost = { startVoiceCommand: (l) => hostLangs.push(l) };
+      document.getElementById('btn-voice-command').click();
+
+      return {
+        overlayVisibleDuringListen,
+        interimText,
+        tunedNumAfterSpeech,
+        overlayClosedAfterFinal,
+        chNameAction: chNameRes.action,
+        chNameAfter,
+        vodAction: vodVoiceRes.action,
+        vodOpenedQuery,
+        vodScopeOpen,
+        fsAction: fsRes.action,
+        modeInFs,
+        exitAction: exitRes.action,
+        modeAfterExit,
+        hostLangs
+      };
+    });
+
+    assert(voiceRes.overlayVisibleDuringListen && voiceRes.interimText === 'קשת' && voiceRes.tunedNumAfterSpeech === 12 && voiceRes.overlayClosedAfterFinal, 'SpeechRecognition interim/final flow failed: ' + JSON.stringify(voiceRes));
+    assert(voiceRes.chNameAction === 'channel-name' && voiceRes.chNameAfter === 'כאן 11', 'Fuzzy Hebrew channel match failed: ' + JSON.stringify(voiceRes));
+    assert(voiceRes.vodAction === 'vod-list' && voiceRes.vodScopeOpen && voiceRes.vodOpenedQuery === 'סדרת מופת', '7-day VOD voice search failed: ' + JSON.stringify(voiceRes));
+    assert(voiceRes.fsAction === 'fullscreen' && voiceRes.modeInFs === 'FULLSCREEN' && voiceRes.exitAction === 'exit' && voiceRes.modeAfterExit === 'BROWSE', 'Voice remote commands failed: ' + JSON.stringify(voiceRes));
+    assert.deepStrictEqual(voiceRes.hostLangs, ['en-US'], 'Voice language setting must flow to AndroidTvHost.startVoiceCommand');
+
+    assert.strictEqual(pageErrors.length, 0, 'Voice suite pageerrors: ' + pageErrors.join('; '));
+    assert.strictEqual(consoleErrors.length, 0, 'Voice suite console errors: ' + consoleErrors.join('; '));
+    await page.close();
+    pass('direct-voice-command-engine', 'V hotkey, SpeechRecognition interim/final, channel/VOD/remote voice commands & AndroidTvHost verified');
+  } finally {
+    server.close();
+  }
+}
+
+async function verifyAppendDefaultSourceSuite(browser, webRoot, sampleM3u25, cached25, pass) {
+  const defaultDemoM3u = [
+    '#EXTM3U',
+    '#EXTINF:-1 tvg-id="demo1" group-title="ברירת מחדל",דמו ישראל 1',
+    'http://127.0.0.1:19999/live/101.m3u8',
+    '#EXTINF:-1 tvg-id="demo2" group-title="ברירת מחדל",דמו ישראל 2',
+    'http://127.0.0.1:19999/live/102.m3u8'
+  ].join('\n') + '\n';
+
+  const { server, port } = await createStaticServer({ webRoot, sampleM3u: sampleM3u25.slice(0, 500) });
+  try {
+    const { page, pageErrors, consoleErrors } = await openConfiguredPage(browser, port, {
+      width: 1920,
+      height: 1080,
+      interceptFn: (req, corsHeaders) => {
+        if (req.url().indexOf('iptv-org.github.io/iptv/countries/il.m3u') !== -1) {
+          req.respond({
+            status: 200,
+            headers: corsHeaders,
+            contentType: 'text/plain; charset=utf-8',
+            body: defaultDemoM3u
+          });
+          return true;
+        }
+        return false;
+      },
+      setupFn: (sampleUrl) => {
+        window.webOSSystem = { close: function () {} };
+        localStorage.setItem(
+          'zenplay_iptv_sources_v2',
+          JSON.stringify([{ id: 'user_custom_1', name: 'מקור פרטי שלי', url: sampleUrl, enabled: true }])
+        );
+      },
+      setupArgs: ['http://127.0.0.1:' + port + '/sample.m3u']
+    });
+
+    await page.waitForFunction(() => window.app && window.app.allChannels && window.app.allChannels.length >= 2, { timeout: 6000 });
+
+    const beforeCount = await page.evaluate(() => window.app.allChannels.length);
+
+    await page.evaluate(() => {
+      window.app.openSettingsModal();
+      window.app.switchSettingsTab('sources');
+      document.getElementById('btn-append-default-source').click();
+    });
+    await page.waitForFunction(
+      (prev) => window.app && window.app.allChannels && window.app.allChannels.length > prev,
+      { timeout: 6000 },
+      beforeCount
+    );
+
+    const afterAppend = await page.evaluate(() => {
+      const sources = window.app.store.sources.slice();
+      const customPreserved = sources.some((s) => s.id === 'user_custom_1' && s.enabled === true);
+      const defaultAdded = sources.some((s) => s.url.indexOf('iptv-org.github.io/iptv/countries/il.m3u') !== -1 && s.enabled === true);
+      const renderedRows = document.querySelectorAll('#m3u-sources-list .source-item-row').length;
+
+      // Disable default and click again -> re-enables without duplicating
+      const defSrc = sources.find((s) => s.url.indexOf('iptv-org.github.io/iptv/countries/il.m3u') !== -1);
+      if (defSrc) defSrc.enabled = false;
+      document.getElementById('btn-append-default-source').click();
+      const countAfterSecondClick = window.app.store.sources.length;
+      const defReenabled = Boolean(defSrc && defSrc.enabled === true);
+      window.app.closeModals();
+
+      return {
+        sourceCount: sources.length,
+        customPreserved,
+        defaultAdded,
+        renderedRows,
+        totalChannelsAfter: window.app.allChannels.length,
+        countAfterSecondClick,
+        defReenabled
+      };
+    });
+
+    assert.strictEqual(afterAppend.sourceCount, 2, 'Should have 2 sources after non-destructive append');
+    assert(afterAppend.customPreserved && afterAppend.defaultAdded, 'Custom source must stay preserved while default is appended');
+    assert.strictEqual(afterAppend.renderedRows, 2);
+    assert(afterAppend.totalChannelsAfter >= beforeCount + 2, 'Merged channels must include both custom and default sources');
+    assert.strictEqual(afterAppend.countAfterSecondClick, 2, 'Re-clicking must not duplicate default source');
+    assert.strictEqual(afterAppend.defReenabled, true, 'Disabled default source must re-enable cleanly');
+
+    assert.strictEqual(pageErrors.length, 0, 'Append default source pageerrors: ' + pageErrors.join('; '));
+    assert.strictEqual(consoleErrors.length, 0, 'Append default source console errors: ' + consoleErrors.join('; '));
+    await page.close();
+    pass('non-destructive-append-default-source', 'Default M3U source appended & re-enabled cleanly while preserving existing user sources');
   } finally {
     server.close();
   }
