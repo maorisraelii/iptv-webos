@@ -419,11 +419,42 @@ async function verifySettingsScrollingForTheme(page, theme) {
         });
       }
     }
+    // Verify toggling visibility / number on a scrolled row preserves exact focus & scrollTop
+    let focusPreservedAfterEdit = false;
+    const focusedBtn = window.app.currentFocusedEl;
+    if (focusedBtn && focusedBtn.dataset && focusedBtn.dataset.uid && editorList.scrollTop > 0) {
+      const targetUid = focusedBtn.dataset.uid;
+      const scrollBeforeToggle = editorList.scrollTop;
+      const rows = Array.from(editorList.querySelectorAll('.editor-channel-row'));
+      const curRowIdx = rows.findIndex((r) => r.contains(focusedBtn));
+      const toggleBtn = curRowIdx >= 0 ? rows[curRowIdx].querySelector('[data-act="toggle"]') : null;
+      if (toggleBtn) {
+        window.app.setFocusedElementFast(toggleBtn);
+        toggleBtn.click();
+        const cur1 = window.app.currentFocusedEl;
+        const scrollAfterToggle = editorList.scrollTop;
+        const keptOnToggle = Boolean(cur1 && cur1.dataset && cur1.dataset.uid === targetUid && cur1.dataset.act === 'toggle');
+        const keptScroll = scrollAfterToggle >= Math.max(1, scrollBeforeToggle - 10);
+
+        const toggledBack = editorList.querySelector('.editor-channel-row [data-act="toggle"].toggle-off');
+        if (keptOnToggle && cur1 === editorList.querySelectorAll('.editor-channel-row')[curRowIdx].querySelector('[data-act="toggle"]')) {
+          cur1.click();
+        } else if (toggledBack) {
+          toggledBack.click();
+        }
+        window.app.navigate('down');
+        const afterDownEl = window.app.currentFocusedEl;
+        const stayedNearRow = Boolean(afterDownEl && editorList.contains(afterDownEl) && editorList.scrollTop > 0);
+        focusPreservedAfterEdit = Boolean(keptOnToggle && keptScroll && stayedNearRow);
+      }
+    }
+
     out.tabs.channels = {
       clientH: editorList.clientHeight,
       scrollH: editorList.scrollHeight,
       scrollTopAfterDown: editorList.scrollTop,
-      allVisibleInViewport: editorSteps.length > 0 && editorSteps.every((s) => s.topOk && s.bottomOk)
+      allVisibleInViewport: editorSteps.length > 0 && editorSteps.every((s) => s.topOk && s.bottomOk),
+      focusPreservedAfterEdit: focusPreservedAfterEdit
     };
 
     // 3. Performance tab (Theme + Buffer + Cache): must reset to 0, scroll down to bottom buttons, then scroll back up to 0
@@ -1735,6 +1766,7 @@ async function runTests() {
           const scrollRes = await verifySettingsScrollingForTheme(page, t);
           assert(scrollRes.tabs.channels.scrollTopAfterDown > 0, t + ' channels editor list did not scroll on ArrowDown');
           assert(scrollRes.tabs.channels.allVisibleInViewport, t + ' channels editor focused item outside viewport');
+          assert.strictEqual(scrollRes.tabs.channels.focusPreservedAfterEdit, true, t + ' channels editor must preserve scrollTop and exact focused button when toggling channel');
           assert.strictEqual(scrollRes.tabs.performance.resetOnSwitch, 0, t + ' perf tab scrollTop did not reset to 0');
           assert.strictEqual(scrollRes.tabs.performance.badItems.length, 0, t + ' perf tab clipped focused item(s): ' + JSON.stringify(scrollRes.tabs.performance.badItems));
           if (scrollRes.tabs.performance.overflows) {

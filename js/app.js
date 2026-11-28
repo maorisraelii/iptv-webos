@@ -8266,17 +8266,29 @@ class IPTVApp {
     }
   }
 
-  renderSourcesManagerList() {
+  renderSourcesManagerList(restoreFocus) {
     const listEl = document.getElementById('m3u-sources-list');
     const countBadge = document.getElementById('sources-count-badge');
     if (!listEl) return;
+
+    const prevScrollTop = listEl.scrollTop || 0;
+    let targetSpec = restoreFocus && typeof restoreFocus === 'object' ? restoreFocus : null;
+    if (!targetSpec && this.mode === 'SETTINGS' && this.activeSettingsTab === 'sources' && this.currentFocusedEl && listEl.contains(this.currentFocusedEl)) {
+      const ds = this.currentFocusedEl.dataset || {};
+      if (ds.toggleSrc) {
+        targetSpec = { srcId: ds.toggleSrc, act: 'toggle' };
+      } else if (ds.delSrc) {
+        targetSpec = { srcId: ds.delSrc, act: 'del' };
+      }
+    }
+
     listEl.innerHTML = '';
 
     if (countBadge) {
       countBadge.textContent = this.store.sources.length + ' מקורות M3U';
     }
 
-    this.store.sources.forEach((src) => {
+    this.store.sources.forEach((src, rowIdx) => {
       const row = document.createElement('div');
       row.className = 'source-item-row';
       row.innerHTML =
@@ -8293,7 +8305,7 @@ class IPTVApp {
       if (toggleBtn) {
         toggleBtn.addEventListener('click', () => {
           this.store.updateSource(src.id, { enabled: !src.enabled });
-          this.renderSourcesManagerList();
+          this.renderSourcesManagerList({ srcId: src.id, act: 'toggle' });
         });
       }
 
@@ -8301,36 +8313,82 @@ class IPTVApp {
       if (delBtn) {
         delBtn.addEventListener('click', () => {
           this.store.removeSource(src.id);
-          this.renderSourcesManagerList();
+          this.renderSourcesManagerList({ fallbackIndex: Math.max(0, rowIdx - 1) });
         });
       }
 
       listEl.appendChild(row);
     });
+
+    listEl.scrollTop = Math.min(prevScrollTop, Math.max(0, listEl.scrollHeight - listEl.clientHeight));
+
+    if (targetSpec && this.mode === 'SETTINGS' && this.activeSettingsTab === 'sources') {
+      let restoreBtn = null;
+      const btns = listEl.querySelectorAll('button.source-item-btn');
+      if (targetSpec.srcId) {
+        const attr = targetSpec.act === 'del' ? 'delSrc' : 'toggleSrc';
+        for (let i = 0; i < btns.length; i++) {
+          if (btns[i].dataset && btns[i].dataset[attr] === targetSpec.srcId) {
+            restoreBtn = btns[i];
+            break;
+          }
+        }
+        if (!restoreBtn) {
+          for (let i = 0; i < btns.length; i++) {
+            if (btns[i].dataset && btns[i].dataset.toggleSrc === targetSpec.srcId) {
+              restoreBtn = btns[i];
+              break;
+            }
+          }
+        }
+      }
+      if (!restoreBtn && typeof targetSpec.fallbackIndex === 'number') {
+        const toggles = listEl.querySelectorAll('button[data-toggle-src]');
+        if (toggles.length > 0) {
+          restoreBtn = toggles[Math.min(targetSpec.fallbackIndex, toggles.length - 1)];
+        }
+      }
+      if (restoreBtn) {
+        this.setFocusedElementFast(restoreBtn);
+      }
+    }
   }
 
-  renderChannelEditorTab() {
+  renderChannelEditorTab(restoreFocus) {
     const filtersEl = document.getElementById('editor-source-filters');
     const listEl = document.getElementById('channel-editor-list');
     if (!filtersEl || !listEl) return;
 
+    const prevScrollTop = listEl.scrollTop || 0;
+    let targetSpec = restoreFocus && typeof restoreFocus === 'object' ? restoreFocus : null;
+    if (!targetSpec && this.mode === 'SETTINGS' && this.activeSettingsTab === 'channels' && this.currentFocusedEl) {
+      const ds = this.currentFocusedEl.dataset || {};
+      if (listEl.contains(this.currentFocusedEl) && ds.uid) {
+        targetSpec = { uid: ds.uid, act: ds.act || 'toggle' };
+      } else if (filtersEl.contains(this.currentFocusedEl) && ds.filterSrc) {
+        targetSpec = { filterSrc: ds.filterSrc };
+      }
+    }
+
     filtersEl.innerHTML = '';
     const allBtn = document.createElement('button');
     allBtn.className = 'source-item-btn focusable' + (this.editorSourceFilter === 'ALL' ? ' active-filter' : '');
+    allBtn.dataset.filterSrc = 'ALL';
     allBtn.textContent = 'כל המקורות (' + this.store.rawChannels.length + ')';
     allBtn.addEventListener('click', () => {
       this.editorSourceFilter = 'ALL';
-      this.renderChannelEditorTab();
+      this.renderChannelEditorTab({ filterSrc: 'ALL', resetScroll: true });
     });
     filtersEl.appendChild(allBtn);
 
     this.store.sources.forEach((src) => {
       const btn = document.createElement('button');
       btn.className = 'source-item-btn focusable' + (this.editorSourceFilter === src.id ? ' active-filter' : '');
+      btn.dataset.filterSrc = src.id;
       btn.textContent = src.name;
       btn.addEventListener('click', () => {
         this.editorSourceFilter = src.id;
-        this.renderChannelEditorTab();
+        this.renderChannelEditorTab({ filterSrc: src.id, resetScroll: true });
       });
       filtersEl.appendChild(btn);
     });
@@ -8355,7 +8413,7 @@ class IPTVApp {
           '<span class="editor-ch-source">' + (ch.sourceName || 'M3U') + '</span>' +
         '</div>' +
         '<div class="editor-ch-actions">' +
-          '<button class="editor-btn ' + (isEnabled ? 'toggle-on' : 'toggle-off') + ' focusable" data-act="toggle">' +
+          '<button class="editor-btn ' + (isEnabled ? 'toggle-on' : 'toggle-off') + ' focusable" data-act="toggle" data-uid="' + ch.uid + '">' +
             (isEnabled ? 'מוצג ✓' : 'מוסתר ✕') +
           '</button>' +
           '<button class="editor-btn focusable" data-act="num-up" data-uid="' + ch.uid + '">מספר +1 ▲</button>' +
@@ -8366,27 +8424,60 @@ class IPTVApp {
         this.store.setChannelOverride(ch.uid, { enabled: !isEnabled, customNumber: curNum });
         this.allChannels = this.store.compiledChannels;
         this.applyChannelFilter();
-        this.renderChannelEditorTab();
+        this.renderChannelEditorTab({ uid: ch.uid, act: 'toggle' });
       });
 
       row.querySelector('[data-act="num-up"]').addEventListener('click', () => {
         this.store.setChannelOverride(ch.uid, { enabled: isEnabled, customNumber: curNum + 1 });
         this.allChannels = this.store.compiledChannels;
         this.applyChannelFilter();
-        this.renderChannelEditorTab();
+        this.renderChannelEditorTab({ uid: ch.uid, act: 'num-up' });
       });
 
       row.querySelector('[data-act="num-down"]').addEventListener('click', () => {
         this.store.setChannelOverride(ch.uid, { enabled: isEnabled, customNumber: Math.max(1, curNum - 1) });
         this.allChannels = this.store.compiledChannels;
         this.applyChannelFilter();
-        this.renderChannelEditorTab();
+        this.renderChannelEditorTab({ uid: ch.uid, act: 'num-down' });
       });
 
       fragment.appendChild(row);
     });
 
     listEl.appendChild(fragment);
+
+    const isFilterReset = Boolean(targetSpec && targetSpec.resetScroll);
+    const maxScroll = Math.max(0, listEl.scrollHeight - listEl.clientHeight);
+    listEl.scrollTop = isFilterReset ? 0 : Math.min(prevScrollTop, maxScroll);
+
+    if (targetSpec && this.mode === 'SETTINGS' && this.activeSettingsTab === 'channels') {
+      let restoreBtn = null;
+      if (targetSpec.uid) {
+        const desiredAct = targetSpec.act || 'toggle';
+        const rowBtns = listEl.querySelectorAll('button[data-uid]');
+        for (let i = 0; i < rowBtns.length; i++) {
+          const b = rowBtns[i];
+          if (b.dataset && b.dataset.uid === targetSpec.uid) {
+            if (!restoreBtn) restoreBtn = b;
+            if (b.dataset.act === desiredAct) {
+              restoreBtn = b;
+              break;
+            }
+          }
+        }
+      } else if (targetSpec.filterSrc) {
+        const fBtns = filtersEl.querySelectorAll('button[data-filter-src]');
+        for (let i = 0; i < fBtns.length; i++) {
+          if (fBtns[i].dataset && fBtns[i].dataset.filterSrc === targetSpec.filterSrc) {
+            restoreBtn = fBtns[i];
+            break;
+          }
+        }
+      }
+      if (restoreBtn) {
+        this.setFocusedElementFast(restoreBtn);
+      }
+    }
   }
 
   handleModalNumberKey(digit) {
@@ -8399,6 +8490,7 @@ class IPTVApp {
       // If focused on a channel number button in Channel Editor tab, let user type exact channel number!
       if (this.currentFocusedEl && this.currentFocusedEl.dataset && this.currentFocusedEl.dataset.uid) {
         const uid = this.currentFocusedEl.dataset.uid;
+        const curAct = this.currentFocusedEl.dataset.act || 'num-up';
         this.editorNumberBuffer += digit;
         clearTimeout(this.editorNumberTimer);
         this.showToast('קובע מספר ערוץ: ' + this.editorNumberBuffer);
@@ -8409,7 +8501,7 @@ class IPTVApp {
             this.store.setChannelOverride(uid, { enabled: true, customNumber: newNum });
             this.allChannels = this.store.compiledChannels;
             this.applyChannelFilter();
-            this.renderChannelEditorTab();
+            this.renderChannelEditorTab({ uid: uid, act: curAct });
             this.showToast('מספר הערוץ עודכן ל-' + newNum);
           }
         }, 900);
