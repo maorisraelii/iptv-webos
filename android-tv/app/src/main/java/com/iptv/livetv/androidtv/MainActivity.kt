@@ -104,13 +104,39 @@ class MainActivity : Activity() {
                     safely("setScreenSleepMode") {
                         if (isFinishing || isDestroyed) return@safely
                         isScreenSleepMode = asleep
+                        val params = window.attributes
                         if (asleep) {
                             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                             webView?.keepScreenOn = false
+                            window.decorView.keepScreenOn = false
+                            if (params.screenBrightness != 0.01f) {
+                                savedWindowBrightness = params.screenBrightness
+                            }
+                            params.screenBrightness = 0.01f
+                            window.attributes = params
                         } else {
                             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                             webView?.keepScreenOn = true
+                            window.decorView.keepScreenOn = true
+                            params.screenBrightness = savedWindowBrightness
+                            window.attributes = params
                         }
+                    }
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun handoffToTvScreensaver() {
+            safely("handoffToTvScreensaver dispatch") {
+                runOnUiThread {
+                    safely("handoffToTvScreensaver") {
+                        if (isFinishing || isDestroyed) return@safely
+                        isScreenSleepMode = true
+                        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        webView?.keepScreenOn = false
+                        window.decorView.keepScreenOn = false
+                        moveTaskToBack(true)
                     }
                 }
             }
@@ -198,6 +224,8 @@ class MainActivity : Activity() {
 
     @Volatile
     private var isScreenSleepMode: Boolean = false
+
+    private var savedWindowBrightness: Float = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
 
     private var suppressNextKeyUpKeyCode: Int = -1
     private var renderCrashCount: Int = 0
@@ -1502,6 +1530,20 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         isForeground = true
+        if (isScreenSleepMode) {
+            isScreenSleepMode = false
+            safely("restore brightness on resume") {
+                window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                webView?.keepScreenOn = true
+                window.decorView.keepScreenOn = true
+                val params = window.attributes
+                params.screenBrightness = savedWindowBrightness
+                window.attributes = params
+            }
+            evaluateWebJs(
+                "window.app && window.app.isPowerSaveMode && window.app.exitPowerSaveMode && window.app.exitPowerSaveMode()"
+            )
+        }
         applyImmersiveFullscreen()
         if (pendingRecovery && !isTerminalCrashState) {
             pendingRecovery = false

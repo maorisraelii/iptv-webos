@@ -3190,9 +3190,13 @@ async function verifyPowerSaveSleepSuite(browser, webRoot, sampleM3u25, cached25
     await new Promise((r) => setTimeout(r, 600));
     const afterReloadHours = await page.evaluate(() => {
       window.__sleepHookCalls = [];
+      window.__sleepHandoffCalls = 0;
       window.AndroidTvHost = {
         setScreenSleepMode: function (asleep) {
           window.__sleepHookCalls.push(Boolean(asleep));
+        },
+        handoffToTvScreensaver: function () {
+          window.__sleepHandoffCalls += 1;
         }
       };
       return window.app.getUiPrefs().sleepTimeoutHours;
@@ -3220,12 +3224,14 @@ async function verifyPowerSaveSleepSuite(browser, webRoot, sampleM3u25, cached25
     }));
     assert(!cancelledCheck.active && cancelledCheck.hidden && !cancelledCheck.powerSave, 'Any-key must cancel sleep warning');
 
-    // 3. Countdown to 0 -> enters #power-save-screen, stops player, calls setPowerSaveMode(true) & AndroidTvHost(true)
+    // 3. Countdown to 0 -> enters #power-save-screen, stops player, calls setPowerSaveMode(true) & AndroidTvHost(true), then hands off to TV screensaver
     await page.evaluate(() => {
       const vid = document.getElementById('tv-video');
       if (vid) vid.play = function () { return Promise.resolve(); };
       window.app.player.play(window.app.visibleChannels[0]);
       window.__sleepHookCalls = [];
+      window.__sleepHandoffCalls = 0;
+      window.app._powerSaveHandoffDelayMs = 150;
       window.app.triggerSleepWarning(1);
     });
     await page.waitForFunction(() => window.app && window.app.isPowerSaveMode === true, { timeout: 3500, polling: 50 });
@@ -3236,10 +3242,15 @@ async function verifyPowerSaveSleepSuite(browser, webRoot, sampleM3u25, cached25
       playerPlaying: window.app.player._isPlaying,
       blackoutVisible: !document.getElementById('power-save-screen').classList.contains('hidden'),
       warningHidden: document.getElementById('sleep-warning-modal').classList.contains('hidden'),
-      sleepCalls: window.__sleepHookCalls.slice()
+      sleepCalls: window.__sleepHookCalls.slice(),
+      handoffBefore: window.__sleepHandoffCalls
     }));
     assert(asleepState.isPowerSaveMode && asleepState.playerPowerSave && !asleepState.playerPlaying && asleepState.blackoutVisible && asleepState.warningHidden, 'Power-save blackout state failed: ' + JSON.stringify(asleepState));
     assert.deepStrictEqual(asleepState.sleepCalls, [true]);
+
+    await new Promise((r) => setTimeout(r, 260));
+    const handoffAfter = await page.evaluate(() => window.__sleepHandoffCalls);
+    assert.strictEqual(handoffAfter, 1, 'Expected handoffToTvScreensaver() after Stage-2 delay');
 
     // 4. Key wake resumes playback and restores player._isPowerSaveMode = false
     await page.keyboard.press('Enter');
@@ -3253,10 +3264,21 @@ async function verifyPowerSaveSleepSuite(browser, webRoot, sampleM3u25, cached25
     assert(!awakeState.isPowerSaveMode && !awakeState.playerPowerSave && awakeState.blackoutHidden, 'Wake from power-save failed: ' + JSON.stringify(awakeState));
     assert.deepStrictEqual(awakeState.sleepCalls, [true, false]);
 
+    // 5. Waking before Stage-2 handoff delay cancels the handoff timer cleanly
+    await page.evaluate(() => {
+      window.app._powerSaveHandoffDelayMs = 260;
+      window.app.enterPowerSaveMode();
+    });
+    await new Promise((r) => setTimeout(r, 60));
+    await page.keyboard.press('Enter');
+    await new Promise((r) => setTimeout(r, 300));
+    const finalHandoffCalls = await page.evaluate(() => window.__sleepHandoffCalls);
+    assert.strictEqual(finalHandoffCalls, 1, 'Wake before delay must cancel TV screensaver handoff timer');
+
     assert.strictEqual(pageErrors.length, 0, 'Sleep suite pageerrors: ' + pageErrors.join('; '));
     assert.strictEqual(consoleErrors.length, 0, 'Sleep suite console errors: ' + consoleErrors.join('; '));
     await page.close();
-    pass('power-save-sleep-timer', 'Default 4h, Settings persistence, 60s warning cancel, blackout sleep & key-wake verified');
+    pass('power-save-sleep-timer', 'Default 4h, Settings persistence, 60s warning cancel, blackout sleep, Stage-2 TV screensaver handoff & key-wake verified');
   } finally {
     server.close();
   }

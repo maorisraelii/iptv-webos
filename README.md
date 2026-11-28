@@ -2,7 +2,7 @@
   <img src="https://files.catbox.moe/f4jrx8.png" alt="IPTV Live TV App Icon" width="128" height="128" />
 </div>
 
-<h1 align="center">📺 Live TV for LG webOS, Android TV &amp; Web Browser (v5.6.0)</h1>
+<h1 align="center">📺 Live TV for LG webOS, Android TV &amp; Web Browser (v5.6.1)</h1>
 
 <p align="center">
   <strong>Smart, ultra-fast, native-feeling Live TV &amp; 7-Day Catch-Up IPTV player built for LG webOS Smart TVs (webOS 4.0 – webOS 24+), Android TV / Google TV, and Laptop/Desktop Web Browsers — featuring Classic &amp; Apple Liquid Glass themes, Web Audio Volume Normalization, Picture Calibration, Automatic Background OTA Updates, and an Android One-Click webOS Installer Wizard.</strong>
@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-5.6.0%20Unified-0284c7?style=for-the-badge" alt="Version 5.6.0" />
+  <img src="https://img.shields.io/badge/Version-5.6.1%20Unified-0284c7?style=for-the-badge" alt="Version 5.6.1" />
   <img src="https://img.shields.io/badge/Web%20App-GitHub%20Pages%20Live-0ea5e9?style=for-the-badge&logo=googlechrome" alt="Web App Live" />
   <img src="https://img.shields.io/badge/Platform-LG%20webOS%20TV-a50034?style=for-the-badge&logo=lg" alt="LG webOS" />
   <img src="https://img.shields.io/badge/Platform-Android%20TV%20%2F%20Google%20TV-16a34a?style=for-the-badge&logo=android" alt="Android TV" />

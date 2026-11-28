@@ -222,6 +222,9 @@ class IPTVApp {
     this._channelBeforePowerSave = null;
     this._modeBeforePowerSave = 'BROWSE';
     this._modeBeforeSleepWarning = 'BROWSE';
+    this._powerSaveHandoffTimer = null;
+    this._powerSaveHandoffDelayMs = 120000;
+    this._webosEnergySavingApplied = false;
 
     // Direct 1-Press Voice Command & Focus Restoration state
     this._activeSpeechRecognition = null;
@@ -312,6 +315,9 @@ class IPTVApp {
     if (typeof this._lastActivityNoteMs !== 'number') this._lastActivityNoteMs = 0;
     if (typeof this._lastToastMsg !== 'string') this._lastToastMsg = '';
     if (typeof this._lastToastTime !== 'number') this._lastToastTime = 0;
+    if (typeof this._powerSaveHandoffTimer === 'undefined') this._powerSaveHandoffTimer = null;
+    if (typeof this._powerSaveHandoffDelayMs !== 'number') this._powerSaveHandoffDelayMs = 120000;
+    if (typeof this._webosEnergySavingApplied !== 'boolean') this._webosEnergySavingApplied = false;
     if (typeof this._lastToastCritical !== 'boolean') this._lastToastCritical = false;
   }
 
@@ -2434,7 +2440,7 @@ class IPTVApp {
       blk.id = 'power-save-screen';
       blk.className = 'power-save-screen hidden';
       blk.setAttribute('aria-hidden', 'true');
-      blk.innerHTML = '<div class="power-save-hint">מצב חיסכון בחשמל פעיל — לחץ על כל מקש לחזרה לצפייה</div>';
+      blk.innerHTML = '<div class="power-save-hint">מצב חיסכון בחשמל — הטלוויזיה תעבור לשומר מסך בעוד כ-2 דקות • לחץ על כל מקש לחזרה</div>';
       document.body.appendChild(blk);
     }
 
@@ -2772,6 +2778,8 @@ class IPTVApp {
     this.ensurePowerSaveDOM();
     clearInterval(this._sleepWarningTimer);
     this._sleepWarningTimer = null;
+    clearTimeout(this._powerSaveHandoffTimer);
+    this._powerSaveHandoffTimer = null;
     this._sleepWarningActive = false;
     this.cancelAutoFullscreen();
     this.cancelPendingPreviewPlayback();
@@ -2809,6 +2817,7 @@ class IPTVApp {
       }
     } catch (e) {}
 
+    const self = this;
     try {
       if (
         typeof window !== 'undefined' &&
@@ -2820,13 +2829,62 @@ class IPTVApp {
           method: 'power/turnOffScreen',
           parameters: { standbyMode: 'active' },
           onSuccess: function () {},
-          onFailure: function () {}
+          onFailure: function () {
+            try {
+              window.webOS.service.request('luna://com.webos.settingsservice', {
+                method: 'setSystemSettings',
+                parameters: {
+                  category: 'picture',
+                  settings: { energySaving: 'screen_off' }
+                },
+                onSuccess: function () {
+                  self._webosEnergySavingApplied = true;
+                },
+                onFailure: function () {}
+              });
+            } catch (e2) {}
+          }
         });
+      }
+    } catch (e) {}
+
+    const handoffDelayMs =
+      typeof this._powerSaveHandoffDelayMs === 'number' && this._powerSaveHandoffDelayMs >= 0
+        ? this._powerSaveHandoffDelayMs
+        : 120000;
+    this._powerSaveHandoffTimer = setTimeout(() => {
+      this._handoffPowerSaveToTvScreensaver();
+    }, handoffDelayMs);
+  }
+
+  _handoffPowerSaveToTvScreensaver() {
+    this._powerSaveHandoffTimer = null;
+    if (!this.isPowerSaveMode) return;
+    try {
+      if (
+        typeof window !== 'undefined' &&
+        window.AndroidTvHost &&
+        typeof window.AndroidTvHost.handoffToTvScreensaver === 'function'
+      ) {
+        window.AndroidTvHost.handoffToTvScreensaver();
+        return;
+      }
+    } catch (e) {}
+
+    try {
+      if (typeof window !== 'undefined' && window.webOS && (typeof document === 'undefined' || document.visibilityState !== 'hidden')) {
+        if (typeof window.webOS.platformBack === 'function') {
+          window.webOS.platformBack();
+        } else if (typeof window.close === 'function') {
+          window.close();
+        }
       }
     } catch (e) {}
   }
 
   exitPowerSaveMode() {
+    clearTimeout(this._powerSaveHandoffTimer);
+    this._powerSaveHandoffTimer = null;
     if (!this.isPowerSaveMode) return;
     this.isPowerSaveMode = false;
 
@@ -2859,6 +2917,18 @@ class IPTVApp {
           onSuccess: function () {},
           onFailure: function () {}
         });
+        if (this._webosEnergySavingApplied) {
+          this._webosEnergySavingApplied = false;
+          window.webOS.service.request('luna://com.webos.settingsservice', {
+            method: 'setSystemSettings',
+            parameters: {
+              category: 'picture',
+              settings: { energySaving: 'off' }
+            },
+            onSuccess: function () {},
+            onFailure: function () {}
+          });
+        }
       }
     } catch (e) {}
 
@@ -4605,6 +4675,7 @@ class IPTVApp {
   }
 
   updateClock() {
+    if (this.isPowerSaveMode) return;
     const now = new Date();
     const hours = ('0' + now.getHours()).slice(-2);
     const minNum = now.getMinutes();

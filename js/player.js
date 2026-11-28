@@ -691,7 +691,19 @@ class VideoPlayer {
     this._isPowerSaveMode = Boolean(active);
     if (this._isPowerSaveMode) {
       this._stopLoudnessSampler();
+      try {
+        if (this._audioCtx && this._audioCtx.state === 'running' && typeof this._audioCtx.suspend === 'function') {
+          const sp = this._audioCtx.suspend();
+          if (sp && typeof sp.catch === 'function') sp.catch(() => {});
+        }
+      } catch (e) {}
     } else {
+      try {
+        if (this._audioCtx && this._audioCtx.state === 'suspended' && typeof this._audioCtx.resume === 'function') {
+          const rp = this._audioCtx.resume();
+          if (rp && typeof rp.catch === 'function') rp.catch(() => {});
+        }
+      } catch (e) {}
       this._syncLoudnessSamplerState();
     }
   }

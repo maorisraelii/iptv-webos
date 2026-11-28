@@ -531,7 +531,7 @@ const otaRuntimeWrapper = `
         powerSaveEl.className = 'power-save-screen hidden';
         powerSaveEl.setAttribute('aria-hidden', 'true');
         powerSaveEl.innerHTML =
-          '<div class="power-save-hint">מצב חיסכון בחשמל פעיל — לחץ על כל מקש לחזרה לצפייה</div>';
+          '<div class="power-save-hint">מצב חיסכון בחשמל — הטלוויזיה תעבור לשומר מסך בעוד כ-2 דקות • לחץ על כל מקש לחזרה</div>';
         document.body.appendChild(powerSaveEl);
       }
       var powerSaveNode = document.getElementById('power-save-screen');
