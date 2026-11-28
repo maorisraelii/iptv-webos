@@ -24,7 +24,7 @@ class RemoteController {
     // Precomputed O(1) key lookup maps (zero per-keydown array allocations on TV)
     this._tvKeyCodeMap = {
       13: true, 19: true, 27: true, 33: true, 34: true, 37: true, 38: true, 39: true, 40: true,
-      179: true, 403: true, 404: true, 405: true, 406: true, 412: true, 413: true, 415: true,
+      179: true, 231: true, 403: true, 404: true, 405: true, 406: true, 412: true, 413: true, 415: true,
       417: true, 427: true, 428: true, 457: true, 458: true, 461: true
     };
     this._tvKeyNameMap = {
@@ -37,7 +37,8 @@ class RemoteController {
       Rewind: true, MediaRewind: true, MediaTrackPrevious: true,
       FastForward: true, MediaFastForward: true, MediaTrackNext: true,
       Play: true, Pause: true, MediaPlayPause: true, Stop: true, MediaStop: true,
-      ChannelUp: true, ChannelDown: true, Info: true, Guide: true
+      ChannelUp: true, ChannelDown: true, Info: true, Guide: true,
+      Search: true, VoiceAssist: true
     };
 
     this.bindEvents();
@@ -67,6 +68,17 @@ class RemoteController {
 
   dispatchAndroidAction(action) {
     if (!this.app || !action) return false;
+    if (typeof this.app.noteUserActivity === 'function') {
+      this.app.noteUserActivity();
+    }
+    if (this.app.isPowerSaveMode && typeof this.app.exitPowerSaveMode === 'function') {
+      this.app.exitPowerSaveMode();
+      return true;
+    }
+    if (this.app._sleepWarningActive && typeof this.app.cancelSleepWarning === 'function') {
+      this.app.cancelSleepWarning();
+      return true;
+    }
     const act = String(action).toLowerCase();
 
     if (this.app.mode === 'DISCLAIMER') {
@@ -147,6 +159,19 @@ class RemoteController {
       case 'info':
         this.app.showOSD();
         return true;
+      case 'voice':
+      case 'search':
+        if (typeof this.app.startVoiceCommand === 'function') {
+          this.app.startVoiceCommand();
+          return true;
+        }
+        return false;
+      case 'vod':
+        if (typeof this.app.openGuideModal === 'function') {
+          this.app.openGuideModal('vod');
+          return true;
+        }
+        return false;
       case 'end_seek':
         this.clearSeekHold();
         return true;
@@ -315,10 +340,34 @@ class RemoteController {
     const key = e.key || '';
     const now = Date.now();
 
+    if (this.app && typeof this.app.noteUserActivity === 'function') {
+      this.app.noteUserActivity();
+    }
+
+    if (this.app && this.app.isPowerSaveMode && typeof this.app.exitPowerSaveMode === 'function') {
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+      this.app.exitPowerSaveMode();
+      return;
+    }
+
+    if (this.app && this.app._sleepWarningActive && typeof this.app.cancelSleepWarning === 'function') {
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+      this.app.cancelSleepWarning();
+      return;
+    }
+
     if (this.isTvControlKey(code, key)) {
       if (typeof e.preventDefault === 'function') e.preventDefault();
       if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
     }
+
+    const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+    const isTextInputFocused = Boolean(
+      activeEl &&
+      (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)
+    );
 
     const seekInfo = this.getSeekKeyInfo(code, key);
     if (!seekInfo && this._heldSeekKey) {
@@ -354,8 +403,8 @@ class RemoteController {
     // Unmute & unlock hardware audio on user gesture (fixes webOS silent autoplay policy bug)
     this.unlockAudioOnGesture();
 
-    // Number keys (0-9): 48-57 or 96-105
-    if ((code >= 48 && code <= 57) || (code >= 96 && code <= 105)) {
+    // Number keys (0-9): 48-57 or 96-105 (let real focused <input>/<textarea> handle digits natively)
+    if (!isTextInputFocused && ((code >= 48 && code <= 57) || (code >= 96 && code <= 105))) {
       const num = code >= 96 ? (code - 96).toString() : (code - 48).toString();
       this.handleNumberKey(num);
       return;
@@ -464,8 +513,23 @@ class RemoteController {
       return;
     }
 
-    // While Legal Disclaimer is open, prevent Guide/Color/OSD/Media hotkeys from opening behind/over it
+    // While Legal Disclaimer is open, prevent Guide/Color/OSD/Media/Voice hotkeys from opening behind/over it
     if (this.app && this.app.mode === 'DISCLAIMER') {
+      return;
+    }
+
+    // 1-Press Voice Command shortcut ('V', Search 84, VoiceAssist 231)
+    const isVoiceRemoteKey =
+      key === 'Search' ||
+      key === 'VoiceAssist' ||
+      code === 231 ||
+      (!isTextInputFocused && (code === 86 || key === 'v' || key === 'V' || (code === 84 && key !== 't' && key !== 'T')));
+    if (isVoiceRemoteKey) {
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+      if (this.app && typeof this.app.startVoiceCommand === 'function') {
+        this.app.startVoiceCommand();
+      }
       return;
     }
 
