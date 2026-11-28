@@ -2,7 +2,9 @@ package com.iptv.livetv.androidtv
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
@@ -16,6 +18,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Process
 import android.os.SystemClock
+import android.speech.RecognizerIntent
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
@@ -93,6 +96,56 @@ class MainActivity : Activity() {
 
         @JavascriptInterface
         fun isSafeMode(): Boolean = safeModeActive
+
+        @JavascriptInterface
+        fun setScreenSleepMode(asleep: Boolean) {
+            safely("setScreenSleepMode dispatch") {
+                runOnUiThread {
+                    safely("setScreenSleepMode") {
+                        if (isFinishing || isDestroyed) return@safely
+                        isScreenSleepMode = asleep
+                        if (asleep) {
+                            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                            webView?.keepScreenOn = false
+                        } else {
+                            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                            webView?.keepScreenOn = true
+                        }
+                    }
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun startVoiceCommand(lang: String?) {
+            safely("startVoiceCommand dispatch") {
+                runOnUiThread {
+                    if (isFinishing || isDestroyed) {
+                        notifyNativeVoiceError("unsupported")
+                        return@runOnUiThread
+                    }
+                    try {
+                        val resolvedLang = if (lang.isNullOrBlank()) "he-IL" else lang.trim()
+                        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                            putExtra(
+                                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                            )
+                            putExtra(RecognizerIntent.EXTRA_LANGUAGE, resolvedLang)
+                            putExtra(RecognizerIntent.EXTRA_PROMPT, "אמור שם ערוץ או תוכנית")
+                            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                        }
+                        startActivityForResult(intent, REQ_VOICE_COMMAND)
+                    } catch (e: ActivityNotFoundException) {
+                        Log.w(TAG, "Voice recognizer unavailable on device", e)
+                        notifyNativeVoiceError("unsupported")
+                    } catch (t: Throwable) {
+                        Log.w(TAG, "startVoiceCommand failed", t)
+                        notifyNativeVoiceError("unsupported")
+                    }
+                }
+            }
+        }
     }
 
     private class ConnectionManagedInputStream(
@@ -142,6 +195,9 @@ class MainActivity : Activity() {
 
     @Volatile
     private var safeModeActive: Boolean = false
+
+    @Volatile
+    private var isScreenSleepMode: Boolean = false
 
     private var suppressNextKeyUpKeyCode: Int = -1
     private var renderCrashCount: Int = 0
@@ -208,6 +264,24 @@ class MainActivity : Activity() {
         } catch (t: Throwable) {
             Log.w(TAG, "$tag notice", t)
         }
+    }
+
+    private fun evaluateWebJs(script: String) {
+        safely("evaluateWebJs") {
+            val wv = webView ?: return@safely
+            wv.evaluateJavascript(script, null)
+        }
+    }
+
+    private fun notifyNativeVoiceError(errorCode: String) {
+        val quoted = if (errorCode == "unsupported" || errorCode == "cancelled") {
+            "'$errorCode'"
+        } else {
+            JSONObject.quote(errorCode)
+        }
+        evaluateWebJs(
+            "window.app && window.app.onNativeVoiceError && window.app.onNativeVoiceError($quoted)"
+        )
     }
 
     // ---------------------------------------------------------------------------------------
@@ -358,6 +432,10 @@ class MainActivity : Activity() {
     private fun initWebView() {
         try {
             isPageLoaded = false
+            isScreenSleepMode = false
+            safely("initWebView keepScreenOn") {
+                window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
             cancelBootOverlayFallback()
             markBootAttemptStarted()
             val wv = WebView(this).apply {
@@ -1525,6 +1603,30 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != REQ_VOICE_COMMAND) return
+        safely("onActivityResult voice") {
+            val text = if (resultCode == Activity.RESULT_OK && data != null) {
+                data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                    ?.firstOrNull()
+                    ?.trim()
+                    ?.takeIf { it.isNotEmpty() }
+            } else {
+                null
+            }
+            if (text != null) {
+                evaluateWebJs(
+                    "window.app && window.app.handleVoiceCommand && window.app.handleVoiceCommand(" +
+                        JSONObject.quote(text) +
+                        ")"
+                )
+            } else {
+                notifyNativeVoiceError("cancelled")
+            }
+        }
+    }
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (customView != null && event.keyCode == KeyEvent.KEYCODE_BACK) {
             if (event.action == KeyEvent.ACTION_DOWN) {
@@ -1552,6 +1654,19 @@ class MainActivity : Activity() {
 
         if (!isDown && suppressNextKeyUpKeyCode == androidKeyCode) {
             suppressNextKeyUpKeyCode = -1
+            return true
+        }
+
+        if (!isWebInputFocused &&
+            (androidKeyCode == KeyEvent.KEYCODE_SEARCH ||
+                androidKeyCode == KeyEvent.KEYCODE_VOICE_ASSIST)
+        ) {
+            if (isDown && !isRepeat) {
+                suppressNextKeyUpKeyCode = androidKeyCode
+                evaluateWebJs(
+                    "window.app && window.app.startVoiceCommand && window.app.startVoiceCommand()"
+                )
+            }
             return true
         }
 
@@ -1757,10 +1872,15 @@ class MainActivity : Activity() {
     @Suppress("DEPRECATION")
     private fun applyImmersiveFullscreen() {
         try {
-            window.addFlags(
-                WindowManager.LayoutParams.FLAG_FULLSCREEN
-                    or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-            )
+            if (isScreenSleepMode) {
+                window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+                window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            } else {
+                window.addFlags(
+                    WindowManager.LayoutParams.FLAG_FULLSCREEN
+                        or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                )
+            }
             window.decorView.systemUiVisibility = (
                 View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                     or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
@@ -1797,6 +1917,7 @@ class MainActivity : Activity() {
         private const val BOOT_ERROR_COLOR = 0xFFFCA5A5.toInt()
         private const val WEB_KEY_ENTER = 13
         private const val WEB_KEY_BACK = 461
+        private const val REQ_VOICE_COMMAND = 4091
         private const val CRASH_PREFS = "iptv_android_crash_guard"
         private const val KEY_STARTUP_STREAK = "consecutive_startup_crashes"
         private const val KEY_BOOT_PENDING = "boot_pending"
