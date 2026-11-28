@@ -809,6 +809,9 @@ const otaRuntimeWrapper = `
       if (typeof app.ensureVodHeaderBtnDOM === 'function') {
         app.ensureVodHeaderBtnDOM();
       }
+      if (typeof app.ensureProgramEpisodesDOM === 'function') {
+        app.ensureProgramEpisodesDOM();
+      }
       if (typeof app.ensurePowerSaveDOM === 'function') {
         app.ensurePowerSaveDOM();
       }
@@ -825,6 +828,38 @@ const otaRuntimeWrapper = `
       ensureFallbackVodDom(app);
       ensureFallbackSleepAndVoiceDom(app);
       ensureFallbackSettingsDom(app);
+      if (!document.getElementById('program-episodes-modal') && document.body) {
+        var epModalEl = document.createElement('div');
+        epModalEl.id = 'program-episodes-modal';
+        epModalEl.className = 'modal-backdrop hidden';
+        epModalEl.setAttribute('aria-hidden', 'true');
+        epModalEl.innerHTML =
+          '<div class="modal-card program-episodes-card">' +
+            '<div class="modal-header program-episodes-header">' +
+              '<div class="program-episodes-title-col">' +
+                '<div class="program-episodes-badge-row">' +
+                  '<span class="color-badge badge-blue"></span>' +
+                  '<span class="program-episodes-kicker">כל שידורי התוכנית מהשבוע האחרון (סטארט אובר / VOD)</span>' +
+                  '<span id="program-episodes-count" class="program-episodes-count">0 שידורים</span>' +
+                '</div>' +
+                '<h2 id="program-episodes-title">תוכנית נבחרת</h2>' +
+              '</div>' +
+              '<button id="btn-close-program-episodes" class="modal-close-btn focusable" data-action="close-modal" type="button">✕ סגור (BACK)</button>' +
+            '</div>' +
+            '<div id="program-episodes-list" class="program-episodes-list"></div>' +
+          '</div>';
+        document.body.appendChild(epModalEl);
+        var epCloseEl = document.getElementById('btn-close-program-episodes');
+        if (epCloseEl) {
+          epCloseEl.addEventListener('click', function() {
+            if (typeof app.closeModals === 'function') app.closeModals();
+          });
+        }
+      }
+      var blueHintLabel = document.getElementById('hint-blue-label');
+      if (blueHintLabel) {
+        blueHintLabel.textContent = 'כל פרקי התוכנית (7 ימים)';
+      }
 
       if (typeof app.applyUiPrefs === 'function') {
         app.applyUiPrefs(true);

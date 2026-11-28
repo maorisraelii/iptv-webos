@@ -2808,6 +2808,181 @@ class EPGService {
     });
     return results.length > limit ? results.slice(0, limit) : results;
   }
+
+  /**
+   * Strips episode/season/rerun/subtitle suffixes to derive the canonical series base title
+   * (e.g. "ארץ נהדרת - פרק 4" -> "ארץ נהדרת", "חוק וסדר עונה 3 פרק 12" -> "חוק וסדר").
+   */
+  extractSeriesBaseTitle(rawTitle) {
+    if (!rawTitle || typeof rawTitle !== 'string') return '';
+    const original = rawTitle.trim();
+    if (!original) return '';
+    let base = original
+      .replace(/\s*\(\s*(?:ש\.ח\.?|שידור חוזר|Rerun|Live|שידור חי)\s*\)\s*/gi, ' ')
+      .replace(/\s*(?:[-–—:|]|•)\s*(?:שידור חוזר|ש\.ח\.?)\s*$/gi, '')
+      .replace(/\s*(?:[-–—:|]|,)?\s*(?:עונה|Season|S)\s*[\dא-ת]+(?:\s*[-–—:|,]?\s*(?:פרק|Episode|Ep\.?|E)\s*[\dא-ת]+)?\s*$/gi, '')
+      .replace(/\s*(?:[-–—:|]|,)?\s*(?:פרק|Episode|Ep\.?)\s*[\dא-ת'"]+(?:\s*[-–—:|].*)?$/gi, '')
+      .replace(/\s*(?:[-–—:|]|,)?\s*(?:חלק|Part|Pt\.?)\s*[א-ת\d'"]+\s*$/gi, '')
+      .replace(/\s+S\d{1,2}E\d{1,3}\b.*$/i, '');
+
+    const dashIdx = base.search(/\s+(?:—|–|-)\s+/);
+    if (dashIdx >= 3) {
+      const leftPart = base.slice(0, dashIdx).trim();
+      const rightPart = base.slice(dashIdx).trim();
+      if (leftPart.length >= 3 && /(?:פרק|עונה|ספיישל|חלק|ש\.ח|שידור|חוזר|מיוחד|מהדורה|תוכנית|\d)/.test(rightPart)) {
+        base = leftPart;
+      }
+    }
+
+    base = base.replace(/[\s\-–—:|,]+$/g, '').trim();
+    return base.length >= 3 ? base : original;
+  }
+
+  _collectChannelKeyVariants(channel) {
+    const out = Object.create(null);
+    if (!channel) return out;
+    const rawKeys = [channel.epgId, channel.tvgId, channel.id, channel.tvgName, channel.name];
+    for (let i = 0; i < rawKeys.length; i++) {
+      const val = rawKeys[i];
+      if (!val) continue;
+      const trimmed = String(val).trim();
+      if (!trimmed) continue;
+      const lower = trimmed.toLowerCase();
+      const norm = typeof this.normalizeChannelKey === 'function' ? this.normalizeChannelKey(trimmed) : '';
+      out[trimmed] = true;
+      out[lower] = true;
+      if (norm) out[norm] = true;
+      if (this.channelAliasMap && typeof this.channelAliasMap.get === 'function') {
+        const mapped = this.channelAliasMap.get(trimmed) || this.channelAliasMap.get(lower) || (norm ? this.channelAliasMap.get(norm) : '');
+        if (mapped) {
+          out[mapped] = true;
+          out[String(mapped).toLowerCase()] = true;
+        }
+      }
+      if (this.channelAliasCandidates && typeof this.channelAliasCandidates.get === 'function') {
+        const cands = this.channelAliasCandidates.get(trimmed) || this.channelAliasCandidates.get(lower) || (norm ? this.channelAliasCandidates.get(norm) : null);
+        if (Array.isArray(cands)) {
+          for (let j = 0; j < cands.length; j++) {
+            const c = String(cands[j] || '').trim();
+            if (c) {
+              out[c] = true;
+              out[c.toLowerCase()] = true;
+            }
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Returns all airings (past 7 days + currently live) of a specific programme/series
+   * sorted with current channel airings first, then newest first, for 1-key Start-Over/VOD access.
+   */
+  getProgrammeEpisodesLast7Days(channel, programmeOrTitle, options) {
+    const opts = options && typeof options === 'object' ? options : {};
+    const maxDays = typeof opts.maxDays === 'number' && opts.maxDays > 0 ? opts.maxDays : 7;
+    const limit = typeof opts.limit === 'number' && opts.limit > 0 ? opts.limit : 60;
+    const now = typeof opts.now === 'number' && isFinite(opts.now) ? opts.now : Date.now();
+    const minMs = now - (maxDays * this.DAY_MS);
+
+    const rawTitle = typeof programmeOrTitle === 'string'
+      ? programmeOrTitle.trim()
+      : (programmeOrTitle && typeof programmeOrTitle.title === 'string' ? programmeOrTitle.title.trim() : '');
+    if (!rawTitle) {
+      return { seriesTitle: '', rawTitle: '', episodes: [] };
+    }
+
+    const baseTitle = this.extractSeriesBaseTitle(rawTitle);
+    const normBase = this.normalizeSearchText(baseTitle);
+    const normRaw = this.normalizeSearchText(rawTitle);
+    const targetVariants = this._collectChannelKeyVariants(channel);
+    const baseTokens = normBase ? normBase.split(' ') : [];
+    const seen = Object.create(null);
+    const matches = [];
+
+    const tryMatchList = (list, chKey, forceSameChannel) => {
+      if (!Array.isArray(list) || list.length === 0) return;
+      const chKeyStr = String(chKey || '');
+      const chKeyLower = chKeyStr.toLowerCase();
+      const chKeyNorm = typeof this.normalizeChannelKey === 'function' ? this.normalizeChannelKey(chKeyStr) : '';
+      const isSameCh = Boolean(
+        forceSameChannel ||
+        (chKeyStr && (targetVariants[chKeyStr] || targetVariants[chKeyLower] || (chKeyNorm && targetVariants[chKeyNorm])))
+      );
+
+      for (let i = 0; i < list.length; i++) {
+        const p = list[i];
+        if (!p || !p.title) continue;
+        const pStart = typeof p.startMs === 'number' ? p.startMs : p.start;
+        const pStop = typeof p.stopMs === 'number' ? p.stopMs : p.stop;
+        if (typeof pStart !== 'number' || typeof pStop !== 'number') continue;
+        if (pStop < minMs || pStart > now) continue;
+
+        if (p._normTitle === undefined) {
+          p._normTitle = this.normalizeSearchText(p.title);
+        }
+        const normP = p._normTitle;
+        if (!normP) continue;
+
+        let matched = false;
+        if (normP === normBase || normP === normRaw) {
+          matched = true;
+        } else if (normBase && (normP.indexOf(normBase + ' ') === 0 || normP.indexOf(normBase) === 0 && normBase.length >= 4)) {
+          matched = true;
+        } else {
+          const pBaseNorm = this.normalizeSearchText(this.extractSeriesBaseTitle(p.title));
+          if (pBaseNorm && (pBaseNorm === normBase || (normBase.length >= 4 && pBaseNorm.indexOf(normBase) === 0))) {
+            matched = true;
+          } else if (normBase.length >= 4 && baseTokens.length > 0) {
+            let allIn = true;
+            for (let t = 0; t < baseTokens.length; t++) {
+              if (baseTokens[t] && normP.indexOf(baseTokens[t]) === -1) {
+                allIn = false;
+                break;
+              }
+            }
+            if (allIn) matched = true;
+          }
+        }
+
+        if (!matched) continue;
+
+        const dedupeKey = (isSameCh ? '__SAME__' : chKeyLower) + '|' + pStart + '|' + normP;
+        if (seen[dedupeKey]) continue;
+        seen[dedupeKey] = true;
+
+        const item = this._buildVodResultItem(chKeyStr, p, pStart, pStop, now, isSameCh ? 200 : 100);
+        item.sameChannel = isSameCh;
+        matches.push(item);
+      }
+    };
+
+    this._forEachProgrammeList((list, chKey) => {
+      tryMatchList(list, chKey, false);
+    });
+
+    if (channel) {
+      const chKeyFallback = channel.epgId || channel.tvgId || channel.id || '';
+      const chList = this.getChannelProgrammes(channel);
+      if (Array.isArray(chList) && chList.length > 0) {
+        tryMatchList(chList, chKeyFallback, true);
+      }
+    }
+
+    matches.sort((a, b) => {
+      if (Boolean(b.sameChannel) !== Boolean(a.sameChannel)) {
+        return b.sameChannel ? 1 : -1;
+      }
+      return b.start - a.start;
+    });
+
+    return {
+      seriesTitle: baseTitle,
+      rawTitle: rawTitle,
+      episodes: matches.length > limit ? matches.slice(0, limit) : matches
+    };
+  }
 }
 
 if (typeof module !== 'undefined' && module.exports) {

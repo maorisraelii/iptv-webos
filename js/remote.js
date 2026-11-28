@@ -140,9 +140,11 @@ class RemoteController {
         this.app.onYellowButton();
         return true;
       case 'blue':
+        this.app.onBlueButton();
+        return true;
       case 'fast_forward':
         this.unlockAudioOnGesture();
-        this.app.onBlueButton();
+        this.app.handleSeekKeyHold(1, this.app.getSeekStepSec());
         return true;
       case 'play_pause':
         this.unlockAudioOnGesture();
@@ -248,10 +250,9 @@ class RemoteController {
       return { id: 'rewind', run: () => this.app.onGreenButton() };
     }
     if (
-      code === 406 || key === 'Blue' || key === 'ColorF3Blue' ||
       code === 417 || key === 'FastForward' || key === 'MediaFastForward' || key === 'MediaTrackNext'
     ) {
-      return { id: 'ff', run: () => this.app.onBlueButton() };
+      return { id: 'ff', run: () => this.app.handleSeekKeyHold(1, this.app.getSeekStepSec()) };
     }
     return null;
   }
@@ -518,6 +519,16 @@ class RemoteController {
       return;
     }
 
+    // Direct 1-Key Instant Programme Episodes ('E' key)
+    if (!isTextInputFocused && (code === 69 || key === 'e' || key === 'E')) {
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+      if (this.app && typeof this.app.onBlueButton === 'function') {
+        this.app.onBlueButton();
+      }
+      return;
+    }
+
     // 1-Press Voice Command shortcut ('V', Search 84, VoiceAssist 231)
     const isVoiceRemoteKey =
       key === 'Search' ||
@@ -559,7 +570,7 @@ class RemoteController {
       this.app.onYellowButton();
       return;
     }
-    // Blue (406): Fast-Forward 30s
+    // Blue (406): Instant 7-Day Programme Episodes (Start-Over / VOD)
     if (code === 406 || key === 'Blue' || key === 'ColorF3Blue') {
       this.app.onBlueButton();
       return;
@@ -575,7 +586,7 @@ class RemoteController {
       return;
     }
     if (code === 417 || key === 'FastForward' || key === 'MediaFastForward' || key === 'MediaTrackNext') {
-      this.app.onBlueButton();
+      this.app.handleSeekKeyHold(1, this.app.getSeekStepSec());
       return;
     }
     if (code === 413 || key === 'Stop' || key === 'MediaStop') {

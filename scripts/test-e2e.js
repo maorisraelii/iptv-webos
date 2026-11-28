@@ -1797,6 +1797,7 @@ async function runTests() {
         await verifyPowerSaveSleepSuite(browser, opts.webRoot, sampleM3u25, cached25, pass);
         await verifyVoiceCommandSuite(browser, opts.webRoot, sampleM3u25, cached25, pass);
         await verifyAppendDefaultSourceSuite(browser, opts.webRoot, sampleM3u25, cached25, pass);
+        await verifyInstantProgramEpisodesSuite(browser, opts.webRoot, sampleM3u25, cached25, pass);
       } finally {
         server.close();
       }
@@ -3491,6 +3492,166 @@ async function verifyAppendDefaultSourceSuite(browser, webRoot, sampleM3u25, cac
     assert.strictEqual(consoleErrors.length, 0, 'Append default source console errors: ' + consoleErrors.join('; '));
     await page.close();
     pass('non-destructive-append-default-source', 'Default M3U source appended & re-enabled cleanly while preserving existing user sources');
+  } finally {
+    server.close();
+  }
+}
+
+async function verifyInstantProgramEpisodesSuite(browser, webRoot, sampleM3u25, cached25, pass) {
+  const catchupM3u = [
+    '#EXTM3U',
+    '#EXTINF:-1 tvg-id="keshet12" catchup="default" catchup-days="7" catchup-source="http://127.0.0.1:19999/catchup/ch12/{utc}-{duration}.m3u8",קשת 12',
+    'http://127.0.0.1:19999/live/ch12.m3u8',
+    '#EXTINF:-1 tvg-id="kan11",כאן 11',
+    'http://127.0.0.1:19999/live/ch11.m3u8'
+  ].join('\n') + '\n';
+
+  function fmtXmltvDate(ms) {
+    const d = new Date(ms);
+    const pad = (n) => (n < 10 ? '0' + n : String(n));
+    return (
+      d.getUTCFullYear() +
+      pad(d.getUTCMonth() + 1) +
+      pad(d.getUTCDate()) +
+      pad(d.getUTCHours()) +
+      pad(d.getUTCMinutes()) +
+      pad(d.getUTCSeconds()) +
+      ' +0000'
+    );
+  }
+
+  const nowMs = Date.now();
+  const xmltvBody = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<tv>',
+    '<channel id="keshet12"><display-name>קשת 12</display-name></channel>',
+    '<channel id="kan11"><display-name>כאן 11</display-name></channel>',
+    '<programme start="' + fmtXmltvDate(nowMs - 6 * 86400000 - 3600000) + '" stop="' + fmtXmltvDate(nowMs - 6 * 86400000) + '" channel="keshet12"><title>ארץ נהדרת - עונה 22 פרק 9</title><desc>פרק מלפני 6 ימים</desc></programme>',
+    '<programme start="' + fmtXmltvDate(nowMs - 3 * 86400000 - 3600000) + '" stop="' + fmtXmltvDate(nowMs - 3 * 86400000) + '" channel="keshet12"><title>ארץ נהדרת (שידור חוזר)</title><desc>שידור חוזר</desc></programme>',
+    '<programme start="' + fmtXmltvDate(nowMs - 86400000 - 3600000) + '" stop="' + fmtXmltvDate(nowMs - 86400000) + '" channel="keshet12"><title>ארץ נהדרת - פרק 11</title><desc>פרק מאתמול</desc></programme>',
+    '<programme start="' + fmtXmltvDate(nowMs - 15 * 60000) + '" stop="' + fmtXmltvDate(nowMs + 45 * 60000) + '" channel="keshet12"><title>ארץ נהדרת - פרק 12</title><desc>הפרק המשודר כעת</desc></programme>',
+    '<programme start="' + fmtXmltvDate(nowMs - 1800000) + '" stop="' + fmtXmltvDate(nowMs + 1800000) + '" channel="kan11"><title>חדשות הערב - מהדורה</title><desc>מהדורה</desc></programme>',
+    '</tv>'
+  ].join('\n');
+
+  const { server, port } = await createStaticServer({ webRoot, sampleM3u: catchupM3u });
+  try {
+    const { page, pageErrors, consoleErrors } = await openConfiguredPage(browser, port, {
+      width: 1920,
+      height: 1080,
+      interceptFn: (req, corsHeaders) => {
+        if (req.url().indexOf('epg-il.xml') !== -1 || req.url().indexOf('/test-ep-epg.xml') !== -1) {
+          req.respond({
+            status: 200,
+            headers: corsHeaders,
+            contentType: 'application/xml; charset=utf-8',
+            body: xmltvBody
+          });
+          return true;
+        }
+        return false;
+      },
+      setupFn: (sampleUrl, epgUrl) => {
+        window.webOSSystem = { close: function () {} };
+        localStorage.setItem('zenplay_iptv_sources_v2', JSON.stringify([{ id: 'src_1', name: 'Test', url: sampleUrl, enabled: true }]));
+        localStorage.setItem('zenplay_custom_epg_url', epgUrl);
+      },
+      setupArgs: ['http://127.0.0.1:' + port + '/sample.m3u', 'http://127.0.0.1:' + port + '/test-ep-epg.xml']
+    });
+
+    await page.waitForFunction(
+      () => window.app && window.app.allChannels && window.app.allChannels.length === 2 && window.app.epg,
+      { timeout: 8000 }
+    );
+    await page.evaluate((xml) => {
+      if (window.app.epg.programmesByChannel) window.app.epg.programmesByChannel.clear();
+      if (typeof window.app.epg.clearCaches === 'function') window.app.epg.clearCaches();
+      window.app.epg.parseXMLTV(xml);
+      window.app.epg.rebuildAliasesFromLoadedChannels();
+      window.app.refreshVisibleEPGLabels();
+    }, xmltvBody);
+
+    const hiddenOnBoot = await page.evaluate(() =>
+      document.getElementById('program-episodes-modal').classList.contains('hidden')
+    );
+    assert.strictEqual(hiddenOnBoot, true, '#program-episodes-modal must start hidden on clean boot');
+
+    // 1. In BROWSE mode on Keshet 12, press Blue remote key (keyCode 406) -> opens 4 episodes immediately
+    await page.evaluate(() => {
+      window.app.focusedChannelIndex = 0;
+      window.app.updateChannelFocusFast();
+      const ev = new KeyboardEvent('keydown', { key: 'Blue', bubbles: true, cancelable: true });
+      Object.defineProperty(ev, 'keyCode', { get: function () { return 406; } });
+      Object.defineProperty(ev, 'which', { get: function () { return 406; } });
+      window.dispatchEvent(ev);
+    });
+    await new Promise((r) => setTimeout(r, 120));
+
+    const modalState = await page.evaluate(() => {
+      const titles = Array.from(document.querySelectorAll('#program-episodes-list .ep-title')).map((el) => el.textContent);
+      return {
+        mode: window.app.mode,
+        modalVisible: !document.getElementById('program-episodes-modal').classList.contains('hidden'),
+        seriesHeader: document.getElementById('program-episodes-title').textContent,
+        countText: document.getElementById('program-episodes-count').textContent,
+        titles: titles,
+        focusedIndex: window.app.programEpisodesIndex
+      };
+    });
+    assert.strictEqual(modalState.mode, 'PROGRAM_EPISODES', 'Blue key must immediately open PROGRAM_EPISODES');
+    assert.strictEqual(modalState.modalVisible, true);
+    assert(modalState.seriesHeader.indexOf('ארץ נהדרת') !== -1, 'Header should strip episode suffix to base title: ' + modalState.seriesHeader);
+    assert.strictEqual(modalState.titles.length, 4, 'Must find all 4 episodes across last 7 days: ' + JSON.stringify(modalState.titles));
+    assert(modalState.titles.every((t) => t.indexOf('חדשות') === -1), 'Must exclude unrelated shows');
+
+    // 2. Navigate Down to episode #2 (yesterday's episode) and press Enter -> plays catchup start-over!
+    await page.evaluate(() => {
+      window.__lastPlayedCatchupTitle = '';
+      const orig = window.app.player.playProgrammeStartOver.bind(window.app.player);
+      window.app.player.playProgrammeStartOver = function (ch, prog) {
+        window.__lastPlayedCatchupTitle = prog ? prog.title : '';
+        return orig(ch, prog);
+      };
+    });
+    await page.keyboard.press('ArrowDown');
+    await new Promise((r) => setTimeout(r, 80));
+    await page.keyboard.press('Enter');
+    await new Promise((r) => setTimeout(r, 120));
+
+    const playRes = await page.evaluate(() => ({
+      mode: window.app.mode,
+      modalHidden: document.getElementById('program-episodes-modal').classList.contains('hidden'),
+      catchupTitle: window.__lastPlayedCatchupTitle
+    }));
+    assert.strictEqual(playRes.mode, 'FULLSCREEN', 'Selecting past episode should start playback in FULLSCREEN');
+    assert.strictEqual(playRes.modalHidden, true);
+    assert.strictEqual(playRes.catchupTitle, 'ארץ נהדרת - פרק 11');
+
+    // 3. In FULLSCREEN, press keyboard 'E' -> opens episodes modal again; Escape closes back to FULLSCREEN cleanly
+    await page.keyboard.press('KeyE');
+    await new Promise((r) => setTimeout(r, 120));
+    const fsModalOpen = await page.evaluate(() => ({
+      mode: window.app.mode,
+      visible: !document.getElementById('program-episodes-modal').classList.contains('hidden'),
+      len: window.app.programEpisodes.length
+    }));
+    assert.strictEqual(fsModalOpen.mode, 'PROGRAM_EPISODES');
+    assert.strictEqual(fsModalOpen.visible, true);
+    assert.strictEqual(fsModalOpen.len, 4);
+
+    await page.keyboard.press('Escape');
+    await new Promise((r) => setTimeout(r, 100));
+    const afterEsc = await page.evaluate(() => ({
+      mode: window.app.mode,
+      hidden: document.getElementById('program-episodes-modal').classList.contains('hidden')
+    }));
+    assert.strictEqual(afterEsc.mode, 'FULLSCREEN');
+    assert.strictEqual(afterEsc.hidden, true);
+
+    assert.strictEqual(pageErrors.length, 0, 'Instant episodes pageerrors: ' + pageErrors.join('; '));
+    assert.strictEqual(consoleErrors.length, 0, 'Instant episodes console errors: ' + consoleErrors.join('; '));
+    await page.close();
+    pass('instant-program-episodes-vod', '1-key Blue/E instant 7-day series episodes modal, suffix stripping, D-pad/Enter start-over & Esc restore verified');
   } finally {
     server.close();
   }

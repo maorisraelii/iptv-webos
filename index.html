@@ -528,7 +528,7 @@
         </div>
         <span id="active-category-title" class="header-view-label">כל הערוצים</span>
         <span id="channel-list-count" class="header-count-pill">0 ערוצים</span>
-        <span id="header-version-badge" class="header-version-pill">v5.6.1</span>
+        <span id="header-version-badge" class="header-version-pill">v5.7.0</span>
       </div>
 
       <div class="header-left">
@@ -628,6 +628,7 @@
               <span id="preview-epg-badge" class="epg-badge-now">משודר כעת</span>
               <span id="preview-epg-title" class="epg-show-title">שידור ישיר</span>
               <span id="preview-epg-time" class="epg-time-range">--:-- - --:--</span>
+              <button id="btn-preview-episodes" class="btn-episodes-pill" type="button" title="כל פרקי התוכנית מהשבוע האחרון (כחול / E)"><span class="color-badge badge-blue"></span><span>כל הפרקים (7 ימים)</span></button>
             </div>
 
             <div class="epg-progress-track">
@@ -689,7 +690,7 @@
             <span id="osd-live-badge" class="osd-live-tag">שידור חי</span>
             <span id="osd-channel-category" class="osd-quality-tag">HD</span>
             <span id="osd-vod-badge" class="channel-vod-badge hidden">VOD 7d</span>
-            <span id="osd-version-badge" class="osd-version-tag">v5.6.1</span>
+            <span id="osd-version-badge" class="osd-version-tag">v5.7.0</span>
           </div>
 
           <!-- OSD EPG Current Programme with Start & End Time -->
@@ -726,8 +727,8 @@
 
           <!-- OSD Remote Legend Line & Active Version Info -->
           <div class="osd-sub-line">
-            <span class="osd-hint">▲▼ זפזופ • <strong>◀ קדימה / ▶ אחורה</strong> (החזק להאצה) • <strong>OK</strong> פאוז/נגן (ארוך: סטארט אובר) • <strong>אדום</strong> סטארט אובר / יציאה • <strong>צהוב</strong> מדריך 7 ימים</span>
-            <span id="osd-footer-version" class="osd-footer-ver">גרסה v5.6.1</span>
+            <span class="osd-hint">▲▼ זפזופ • <strong>◀ קדימה / ▶ אחורה</strong> • <strong>OK</strong> פאוז/נגן • <strong>אדום</strong> סטארט אובר • <strong>צהוב</strong> מדריך • <strong>כחול (E)</strong> כל פרקי התוכנית</span>
+            <span id="osd-footer-version" class="osd-footer-ver">גרסה v5.7.0</span>
           </div>
         </div>
 
@@ -737,6 +738,7 @@
             <span>▲ ערוץ +</span>
             <span>▼ ערוץ -</span>
           </div>
+          <button id="btn-osd-episodes" class="osd-episodes-btn focusable" type="button" title="כל פרקי התוכנית מהשבוע האחרון (כחול / E)"><span class="color-badge badge-blue"></span><span>כל הפרקים</span></button>
           <button id="btn-osd-exit-fullscreen" class="osd-exit-btn focusable" type="button" title="חזרה לרשימת הערוצים (ESC)">✕ חזרה לרשימה</button>
         </div>
       </div>
@@ -784,9 +786,9 @@
       <span class="color-badge badge-yellow"></span>
       <span>מדריך תוכניות (7 ימים)</span>
     </div>
-    <div class="color-hint" id="hint-blue" data-action="fast-forward">
+    <div class="color-hint" id="hint-blue" data-action="program-episodes">
       <span class="color-badge badge-blue"></span>
-      <span id="hint-blue-label">30 שניות קדימה ◀◀</span>
+      <span id="hint-blue-label">כל פרקי התוכנית (7 ימים)</span>
     </div>
   </footer>
 
@@ -833,8 +835,10 @@
             <p id="guide-detail-desc" class="guide-detail-desc">לחץ על החצים למעלה/למטה לבחירת תוכנית, או ימינה/שמאלה למעבר מהיר בין ימים (עד 7 ימים אחורה). לחיצה על OK תפעיל את התוכנית מההתחלה (סטארט אובר).</p>
             <div class="guide-action-hint">
               <div><strong>OK בשלט:</strong> הפעל תוכנית זו מההתחלה (סטארט אובר)</div>
+              <div><strong>כחול / E בשלט:</strong> רשימת כל הפרקים/שידורים של תוכנית זו מהשבוע האחרון</div>
               <div><strong>◀ / ▶ בשלט:</strong> דפדוף מהיר בין ימים (היום עד 7 ימים אחורה)</div>
             </div>
+            <button id="btn-guide-episodes" class="btn-episodes-pill guide-episodes-btn" type="button"><span class="color-badge badge-blue"></span><span>כל פרקי תוכנית זו (7 ימים)</span></button>
           </div>
         </div>
       </div>
@@ -1849,7 +1853,7 @@
             <div class="about-app-icon">TV</div>
             <div class="about-title-col" style="flex:1;">
               <div class="about-app-name">Live TV — LG webOS Broadcast Player</div>
-              <div id="about-version-text" class="about-app-version">גרסה v5.6.1 • גרסה מאוחדת (קלאסי + Apple Liquid Glass) • עדכוני OTA פעילים</div>
+              <div id="about-version-text" class="about-app-version">גרסה v5.7.0 • גרסה מאוחדת (קלאסי + Apple Liquid Glass) • עדכוני OTA פעילים</div>
             </div>
             <div class="about-header-actions">
               <button id="btn-open-issue-report" class="btn-tv-secondary focusable" style="margin-left:10px;">דווח על תקלה (שלח לוג)</button>
@@ -2069,6 +2073,26 @@
       <div class="voice-actions">
         <button id="btn-voice-fallback-search" class="btn-tv-primary focusable hidden" type="button">פתח חיפוש מהיר (ערוצים / VOD)</button>
         <button id="btn-voice-cancel" class="btn-tv-secondary focusable" type="button">✕ ביטול (BACK)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Instant 1-Key Programme Episodes Modal (Blue / E) -->
+  <div id="program-episodes-modal" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="modal-card program-episodes-card">
+      <div class="modal-header program-episodes-header">
+        <div class="program-episodes-title-col">
+          <div class="program-episodes-badge-row">
+            <span class="color-badge badge-blue"></span>
+            <span class="program-episodes-kicker">כל שידורי התוכנית מהשבוע האחרון (סטארט אובר / VOD)</span>
+            <span id="program-episodes-count" class="program-episodes-count">0 שידורים</span>
+          </div>
+          <h2 id="program-episodes-title">תוכנית נבחרת</h2>
+        </div>
+        <button id="btn-close-program-episodes" class="modal-close-btn focusable" data-action="close-modal" type="button">✕ סגור (BACK)</button>
+      </div>
+      <div id="program-episodes-list" class="program-episodes-list">
+        <!-- Populated dynamically with past 7-day Start-Over / VOD airings -->
       </div>
     </div>
   </div>

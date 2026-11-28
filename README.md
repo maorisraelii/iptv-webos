@@ -2,7 +2,7 @@
   <img src="https://files.catbox.moe/f4jrx8.png" alt="IPTV Live TV App Icon" width="128" height="128" />
 </div>
 
-<h1 align="center">📺 Live TV for LG webOS, Android TV &amp; Web Browser (v5.6.1)</h1>
+<h1 align="center">📺 Live TV for LG webOS, Android TV &amp; Web Browser (v5.7.0)</h1>
 
 <p align="center">
   <strong>Smart, ultra-fast, native-feeling Live TV &amp; 7-Day Catch-Up IPTV player built for LG webOS Smart TVs (webOS 4.0 – webOS 24+), Android TV / Google TV, and Laptop/Desktop Web Browsers — featuring Classic &amp; Apple Liquid Glass themes, Web Audio Volume Normalization, Picture Calibration, Automatic Background OTA Updates, and an Android One-Click webOS Installer Wizard.</strong>
@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-5.6.1%20Unified-0284c7?style=for-the-badge" alt="Version 5.6.1" />
+  <img src="https://img.shields.io/badge/Version-5.7.0%20Unified-0284c7?style=for-the-badge" alt="Version 5.7.0" />
   <img src="https://img.shields.io/badge/Web%20App-GitHub%20Pages%20Live-0ea5e9?style=for-the-badge&logo=googlechrome" alt="Web App Live" />
   <img src="https://img.shields.io/badge/Platform-LG%20webOS%20TV-a50034?style=for-the-badge&logo=lg" alt="LG webOS" />
   <img src="https://img.shields.io/badge/Platform-Android%20TV%20%2F%20Google%20TV-16a34a?style=for-the-badge&logo=android" alt="Android TV" />
@@ -28,9 +28,9 @@
   <img src="https://img.shields.io/badge/Language-RTL%20Hebrew%20%2F%20All%20Feeds-0284c7?style=for-the-badge" alt="RTL Hebrew" />
 </p>
 
-> ✨ **Unified Release (`v5.6.0`):** Classic Broadcast and **Apple Liquid Glass (60fps webOS & Android TV engine)** are built into one unified app with **Global 7-Day VOD Discovery**, **4h Power-Save Sleep Timer**, **1-Press Voice Commands**, **Non-Destructive Default Source Append**, and **40 Engine & UI/UX Optimizations**. Primary Downloader Code: **`2606856`** (legacy code **`2087324`** also points to the same unified `v5.6.0` build).
+> ✨ **Unified Release (`v5.7.0`):** Classic Broadcast and **Apple Liquid Glass (60fps webOS & Android TV engine)** are built into one unified app with **1-Key Instant 7-Day Programme Episodes (Blue / `E`)**, **Global 7-Day VOD Discovery**, **2-Stage Power-Save Sleep Timer -> TV Screensaver**, **1-Press Voice Commands**, **Non-Destructive Default Source Append**, and **40 Engine & UI/UX Optimizations**. Primary Downloader Code: **`2606856`** (legacy code **`2087324`** also points to the same unified `v5.7.0` build).
 >
-> ✨ **גרסה מאוחדת (`v5.6.0`):** ממשק **Classic Broadcast** ו-**Apple Liquid Glass (מנוע 60fps ל-webOS ו-Android TV)** משולבים בגרסה אחת עם **דפדפן VOD 7 ימים גלובלי**, **טיימר כיבוי מסך לחיסכון בחשמל (4 שעות)**, **פקודות קוליות בלחיצה אחת**, **הוספת מקור ברירת מחדל ללא מחיקה** ו-**40 שדרוגי ביצועים וממשק**. קוד Downloader ראשי: **`2606856`** (גם הקוד הקודם **`2087324`** מפנה לאותה גרסה מאוחדת).
+> ✨ **גרסה מאוחדת (`v5.7.0`):** ממשק **Classic Broadcast** ו-**Apple Liquid Glass (מנוע 60fps ל-webOS ו-Android TV)** משולבים בגרסה אחת עם **רשימת כל פרקי התוכנית מהשבוע האחרון בלחיצה אחת (כחול / `E`)**, **דפדפן VOD 7 ימים גלובלי**, **מצב חיסכון דו-שלבי (4 שעות -> השחרה -> שומר מסך)**, **פקודות קוליות בלחיצה אחת**, **הוספת מקור ברירת מחדל ללא מחיקה** ו-**40 שדרוגי ביצועים וממשק**. קוד Downloader ראשי: **`2606856`** (גם הקוד הקודם **`2087324`** מפנה לאותה גרסה מאוחדת).
 
 > ⚖️ **Legal Notice / הבהרה משפטית:** This application is neutral IPTV/M3U media player software only — it does **not** host, provide, sell, distribute, or curate any streams or copyrighted media. Users must supply their own playlists/EPG URLs and bear 100% sole legal responsibility. ([Read full English Disclaimer](#-legal-disclaimer--terms-of-use) • [לקריאת ההצהרה המשפטית המלאה בעברית](#-הצהרה-משפטית-ותנאי-שימוש))
 

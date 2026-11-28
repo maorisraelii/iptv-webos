@@ -5940,3 +5940,291 @@ html.tv-platform.ui-anim-off .boot-splash {
 .issue-status-box {
   margin-top: 4px;
 }
+
+/* ============================================================================
+   1-Key Instant Programme Episodes Modal (v5.7.0 - Blue / E)
+   ============================================================================ */
+.btn-episodes-pill {
+  display: inline-flex;
+  align-items: center;
+  background-color: rgba(59, 130, 246, 0.16);
+  border: 1px solid rgba(96, 165, 250, 0.45);
+  color: #dbeafe;
+  border-radius: 10px;
+  padding: 5px 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-right: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn-episodes-pill .color-badge {
+  margin-left: 7px;
+}
+
+html[dir="ltr"] .btn-episodes-pill {
+  margin-right: 0;
+  margin-left: 10px;
+}
+
+html[dir="ltr"] .btn-episodes-pill .color-badge {
+  margin-left: 0;
+  margin-right: 7px;
+}
+
+.btn-episodes-pill:hover,
+.btn-episodes-pill:focus,
+.btn-episodes-pill.focused {
+  background-color: var(--primary);
+  border-color: #ffffff;
+  color: #ffffff;
+  outline: none;
+}
+
+.guide-episodes-btn {
+  margin-top: 12px;
+  margin-right: 0;
+  width: 100%;
+  justify-content: center;
+  padding: 10px 14px;
+  font-size: 16px;
+}
+
+.osd-episodes-btn {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(59, 130, 246, 0.18);
+  border: 1px solid rgba(96, 165, 250, 0.5);
+  color: #eff6ff;
+  border-radius: 10px;
+  padding: 6px 14px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.osd-episodes-btn .color-badge {
+  margin-left: 7px;
+}
+
+.osd-episodes-btn:hover,
+.osd-episodes-btn:focus,
+.osd-episodes-btn.focused {
+  background-color: var(--primary);
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.program-episodes-card {
+  width: 1120px;
+  max-width: 94%;
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 28px;
+}
+
+.program-episodes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 16px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.program-episodes-title-col {
+  flex: 1;
+  min-width: 0;
+  margin-left: 16px;
+}
+
+html[dir="ltr"] .program-episodes-title-col {
+  margin-left: 0;
+  margin-right: 16px;
+}
+
+.program-episodes-badge-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.program-episodes-badge-row .color-badge {
+  margin-left: 8px;
+}
+
+.program-episodes-kicker {
+  font-size: 15px;
+  font-weight: 700;
+  color: #93c5fd;
+  margin-left: 10px;
+}
+
+.program-episodes-count {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary-bright);
+  background-color: var(--accent-surface);
+  border: 1px solid var(--accent-border-soft);
+  border-radius: 999px;
+  padding: 2px 11px;
+}
+
+#program-episodes-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.program-episodes-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scroll-padding-top: 12px;
+  scroll-padding-bottom: 12px;
+  padding-left: 4px;
+}
+
+.program-episode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #101726;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.program-episode-row:last-child {
+  margin-bottom: 0;
+}
+
+.program-episode-row:hover,
+.program-episode-row:focus,
+.program-episode-row.focused {
+  background-color: #172a4a;
+  border-color: var(--primary-bright);
+  outline: none;
+}
+
+.ep-main-col {
+  flex: 1;
+  min-width: 0;
+  margin-left: 16px;
+}
+
+html[dir="ltr"] .ep-main-col {
+  margin-left: 0;
+  margin-right: 16px;
+}
+
+.ep-meta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 5px;
+}
+
+.ep-day-badge,
+.ep-time-badge,
+.ep-channel-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 8px;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+.ep-day-badge {
+  background-color: var(--accent-surface);
+  border: 1px solid var(--accent-border-soft);
+  color: var(--primary-bright);
+}
+
+.ep-time-badge {
+  background-color: rgba(148, 163, 184, 0.14);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  color: #e2e8f0;
+}
+
+.ep-channel-badge {
+  background-color: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(52, 211, 153, 0.36);
+  color: #a7f3d0;
+}
+
+.ep-title {
+  font-size: 21px;
+  font-weight: 800;
+  color: #f8fafc;
+  line-height: 1.28;
+}
+
+.ep-desc {
+  margin-top: 4px;
+  font-size: 16px;
+  color: #94a3b8;
+  line-height: 1.35;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.ep-actions-col {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.ep-play-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 15px;
+  font-weight: 800;
+  padding: 6px 14px;
+  border-radius: 10px;
+  background-color: rgba(56, 189, 248, 0.18);
+  border: 1px solid rgba(56, 189, 248, 0.48);
+  color: #e0f2fe;
+  white-space: nowrap;
+}
+
+.program-episode-row:hover .ep-play-pill,
+.program-episode-row:focus .ep-play-pill,
+.program-episode-row.focused .ep-play-pill {
+  background-color: #ffffff;
+  border-color: #ffffff;
+  color: #070b14;
+}
+
+.program-episode-row:hover .ep-desc,
+.program-episode-row:focus .ep-desc,
+.program-episode-row.focused .ep-desc {
+  color: #e2e8f0;
+}
+
+.tv-platform .program-episode-row,
+.tv-platform .btn-episodes-pill,
+.tv-platform .osd-episodes-btn {
+  transition: none !important;
+  box-shadow: none !important;
+}

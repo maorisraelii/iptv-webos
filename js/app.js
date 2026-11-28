@@ -210,6 +210,13 @@ class IPTVApp {
     this.guideProgNodes = [];
     this.guideDayTabNodes = [];
 
+    // 1-Key Instant Programme Episodes Modal state (Blue / E)
+    this.programEpisodes = [];
+    this.programEpisodesIndex = 0;
+    this.programEpisodesNodes = [];
+    this._programEpisodesSeriesTitle = '';
+    this._programEpisodesChannel = null;
+
     // Power-Saving Sleep Timer & Blackout Mode state
     this.isPowerSaveMode = false;
     this._sleepWarningActive = false;
@@ -307,6 +314,11 @@ class IPTVApp {
     if (typeof this.vodOnlyPast !== 'boolean') this.vodOnlyPast = false;
     if (typeof this.vodSearchQuery !== 'string') this.vodSearchQuery = '';
     if (!Array.isArray(this.vodResults)) this.vodResults = [];
+    if (!Array.isArray(this.programEpisodes)) this.programEpisodes = [];
+    if (typeof this.programEpisodesIndex !== 'number') this.programEpisodesIndex = 0;
+    if (!Array.isArray(this.programEpisodesNodes)) this.programEpisodesNodes = [];
+    if (typeof this._programEpisodesSeriesTitle !== 'string') this._programEpisodesSeriesTitle = '';
+    if (typeof this._programEpisodesChannel === 'undefined') this._programEpisodesChannel = null;
     if (typeof this.isPowerSaveMode !== 'boolean') this.isPowerSaveMode = false;
     if (typeof this._sleepWarningActive !== 'boolean') this._sleepWarningActive = false;
     if (typeof this._sleepWarningRemainingSec !== 'number') this._sleepWarningRemainingSec = 60;
@@ -2054,6 +2066,7 @@ class IPTVApp {
     this.ensureIssueReporterDOM();
     this.ensureDisclaimerDOM();
     this.ensureVodHeaderBtnDOM();
+    this.ensureProgramEpisodesDOM();
     this.ensurePowerSaveDOM();
     this.ensureVoiceDOM();
     this.ensureAppendDefaultBtnDOM();
@@ -4381,6 +4394,7 @@ class IPTVApp {
     try {
       this.ensureRuntimeState();
       this.ensureVodHeaderBtnDOM();
+      this.ensureProgramEpisodesDOM();
       this.ensurePowerSaveDOM();
       this.ensureVoiceDOM();
       this.ensureAppendDefaultBtnDOM();
@@ -6351,6 +6365,12 @@ class IPTVApp {
       return;
     }
 
+    // 2a. INSTANT PROGRAMME EPISODES MODAL MODE (Blue / E)
+    if (this.mode === 'PROGRAM_EPISODES') {
+      this.navigateProgramEpisodesModal(direction);
+      return;
+    }
+
     // 2b. LEGAL DISCLAIMER MODAL MODE
     if (this.mode === 'DISCLAIMER') {
       if (direction === 'up') {
@@ -6572,6 +6592,19 @@ class IPTVApp {
         const ch = this.guideChannel || this.selectedChannel;
         this.closeModals();
         this.startProgrammeCatchup(ch, prog);
+      }
+      return;
+    }
+
+    // 2a. INSTANT PROGRAMME EPISODES MODAL MODE
+    if (this.mode === 'PROGRAM_EPISODES') {
+      if (this.currentFocusedEl && this.currentFocusedEl.id === 'btn-close-program-episodes') {
+        this.closeModals();
+        return;
+      }
+      const ep = Array.isArray(this.programEpisodes) ? this.programEpisodes[this.programEpisodesIndex] : null;
+      if (ep) {
+        this.playSelectedProgramEpisode(ep);
       }
       return;
     }
@@ -7133,7 +7166,378 @@ class IPTVApp {
   }
 
   onBlueButton() {
-    this.handleSeekKeyHold(1, this.getSeekStepSec());
+    if (this.mode === 'PROGRAM_EPISODES') {
+      this.closeModals();
+      return;
+    }
+    this.openProgramEpisodesForContext();
+  }
+
+  ensureProgramEpisodesDOM() {
+    if (typeof document === 'undefined' || !document.body) return;
+
+    if (!document.getElementById('program-episodes-modal')) {
+      const modal = document.createElement('div');
+      modal.id = 'program-episodes-modal';
+      modal.className = 'modal-backdrop hidden';
+      modal.setAttribute('aria-hidden', 'true');
+      modal.innerHTML =
+        '<div class="modal-card program-episodes-card">' +
+          '<div class="modal-header program-episodes-header">' +
+            '<div class="program-episodes-title-col">' +
+              '<div class="program-episodes-badge-row">' +
+                '<span class="color-badge badge-blue"></span>' +
+                '<span class="program-episodes-kicker">כל שידורי התוכנית מהשבוע האחרון (סטארט אובר / VOD)</span>' +
+                '<span id="program-episodes-count" class="program-episodes-count">0 שידורים</span>' +
+              '</div>' +
+              '<h2 id="program-episodes-title">תוכנית נבחרת</h2>' +
+            '</div>' +
+            '<button id="btn-close-program-episodes" class="modal-close-btn focusable" data-action="close-modal" type="button">✕ סגור (BACK)</button>' +
+          '</div>' +
+          '<div id="program-episodes-list" class="program-episodes-list"></div>' +
+        '</div>';
+      document.body.appendChild(modal);
+    }
+
+    const previewNowLine = document.querySelector('#preview-epg-box .epg-now-line');
+    if (previewNowLine && !document.getElementById('btn-preview-episodes')) {
+      const pBtn = document.createElement('button');
+      pBtn.id = 'btn-preview-episodes';
+      pBtn.className = 'btn-episodes-pill';
+      pBtn.type = 'button';
+      pBtn.title = 'כל פרקי התוכנית מהשבוע האחרון (כחול / E)';
+      pBtn.innerHTML = '<span class="color-badge badge-blue"></span><span>כל הפרקים (7 ימים)</span>';
+      previewNowLine.appendChild(pBtn);
+    }
+
+    const osdClockBox = document.querySelector('#fullscreen-osd .osd-clock-box');
+    const osdExitBtn = document.getElementById('btn-osd-exit-fullscreen');
+    if (osdClockBox && !document.getElementById('btn-osd-episodes')) {
+      const oBtn = document.createElement('button');
+      oBtn.id = 'btn-osd-episodes';
+      oBtn.className = 'osd-episodes-btn focusable';
+      oBtn.type = 'button';
+      oBtn.title = 'כל פרקי התוכנית מהשבוע האחרון (כחול / E)';
+      oBtn.innerHTML = '<span class="color-badge badge-blue"></span><span>כל הפרקים</span>';
+      if (osdExitBtn && osdExitBtn.parentNode === osdClockBox) {
+        osdClockBox.insertBefore(oBtn, osdExitBtn);
+      } else {
+        osdClockBox.appendChild(oBtn);
+      }
+    }
+
+    const guideCard = document.querySelector('#guide-modal .guide-selected-card');
+    if (guideCard && !document.getElementById('btn-guide-episodes')) {
+      const gBtn = document.createElement('button');
+      gBtn.id = 'btn-guide-episodes';
+      gBtn.className = 'btn-episodes-pill guide-episodes-btn';
+      gBtn.type = 'button';
+      gBtn.innerHTML = '<span class="color-badge badge-blue"></span><span>כל פרקי תוכנית זו (7 ימים)</span>';
+      guideCard.appendChild(gBtn);
+    }
+
+    const hintBlueLabel = document.getElementById('hint-blue-label');
+    if (hintBlueLabel) {
+      hintBlueLabel.textContent = 'כל פרקי התוכנית (7 ימים)';
+    }
+
+    const closeEpBtn = document.getElementById('btn-close-program-episodes');
+    if (closeEpBtn && closeEpBtn.dataset && closeEpBtn.dataset.epBound !== '1') {
+      closeEpBtn.dataset.epBound = '1';
+      closeEpBtn.addEventListener('click', () => this.closeModals());
+    }
+
+    const epModal = document.getElementById('program-episodes-modal');
+    if (epModal && epModal.dataset && epModal.dataset.epBound !== '1') {
+      epModal.dataset.epBound = '1';
+      epModal.addEventListener('click', (e) => {
+        if (e && e.target === epModal) this.closeModals();
+      });
+    }
+
+    const triggerIds = ['btn-preview-episodes', 'btn-osd-episodes', 'btn-guide-episodes'];
+    for (let i = 0; i < triggerIds.length; i++) {
+      const btn = document.getElementById(triggerIds[i]);
+      if (btn && btn.dataset && btn.dataset.epBound !== '1') {
+        btn.dataset.epBound = '1';
+        btn.addEventListener('click', (e) => {
+          if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+          this.openProgramEpisodesForContext();
+        });
+      }
+    }
+  }
+
+  getContextChannelAndProgramme() {
+    if (this.mode === 'GUIDE') {
+      if (this.guideScope === 'vod') {
+        const vodItem = Array.isArray(this.vodResults) ? this.vodResults[this.guideProgIndex] : null;
+        if (vodItem) {
+          const ch = vodItem.channel || this._resolveChannelForEpgId(vodItem.epgChannelId) || this.guideChannel || this.selectedChannel || null;
+          return { channel: ch, programme: vodItem };
+        }
+      } else {
+        const dayBucket = Array.isArray(this.guideDays) ? this.guideDays[this.guideDayIndex] : null;
+        const gProg = dayBucket && Array.isArray(dayBucket.programmes) ? dayBucket.programmes[this.guideProgIndex] : null;
+        if (gProg) {
+          return { channel: this.guideChannel || this.previewedChannel || this.selectedChannel || null, programme: gProg };
+        }
+      }
+    }
+
+    if (this.mode === 'BROWSE' && this.focusArea === 'timeline') {
+      const tProg = Array.isArray(this.timelineProgrammes) ? this.timelineProgrammes[this.focusedTimelineIndex] : null;
+      if (tProg) {
+        return { channel: this.previewedChannel || this.selectedChannel || null, programme: tProg };
+      }
+    }
+
+    if (this.mode === 'FULLSCREEN') {
+      if (this.isSurfing && Array.isArray(this.visibleChannels) && this.visibleChannels[this.surfingIndex]) {
+        const surfCh = this.visibleChannels[this.surfingIndex];
+        const surfEpg = this.epg ? this.epg.getNowNext(surfCh) : null;
+        return { channel: surfCh, programme: surfEpg ? surfEpg.current : null };
+      }
+      const fsCh = this.selectedChannel || (this.player && this.player.currentChannel) || null;
+      const playingProg = this.player && this.player.currentProgramme ? this.player.currentProgramme : null;
+      if (playingProg) {
+        return { channel: fsCh, programme: playingProg };
+      }
+      const fsEpg = fsCh && this.epg ? this.epg.getNowNext(fsCh) : null;
+      return { channel: fsCh, programme: fsEpg ? fsEpg.current : null };
+    }
+
+    const browseCh =
+      (Array.isArray(this.visibleChannels) && this.visibleChannels[this.focusedChannelIndex]) ||
+      this.previewedChannel ||
+      this.selectedChannel ||
+      null;
+    const browseEpg = browseCh && this.epg ? this.epg.getNowNext(browseCh) : null;
+    return { channel: browseCh, programme: browseEpg ? browseEpg.current : null };
+  }
+
+  openProgramEpisodesForContext(explicitChannel, explicitProgramme) {
+    this.ensureProgramEpisodesDOM();
+    if (this.mode === 'DISCLAIMER' || this.isPowerSaveMode) return;
+
+    const ctx = (explicitChannel || explicitProgramme)
+      ? { channel: explicitChannel || null, programme: explicitProgramme || null }
+      : this.getContextChannelAndProgramme();
+
+    const ch = ctx.channel || null;
+    let prog = ctx.programme || null;
+    if (!prog && ch && this.epg) {
+      const epgInfo = this.epg.getNowNext(ch);
+      prog = epgInfo ? epgInfo.current : null;
+    }
+
+    const rawTitle = typeof prog === 'string'
+      ? prog.trim()
+      : (prog && typeof prog.title === 'string' ? prog.title.trim() : '');
+
+    if (!rawTitle || !this.epg || typeof this.epg.getProgrammeEpisodesLast7Days !== 'function') {
+      this.showToast('אין מידע לוח שידורים לתוכנית זו', true);
+      return;
+    }
+
+    const lookup = this._buildEpgChannelLookup();
+    const res = this.epg.getProgrammeEpisodesLast7Days(ch, rawTitle, {
+      maxDays: 7,
+      limit: 60,
+      channelMap: lookup.channelMap
+    });
+    const episodes = res && Array.isArray(res.episodes) ? res.episodes : [];
+    const seriesTitle = (res && res.seriesTitle) ? res.seriesTitle : rawTitle;
+
+    if (episodes.length === 0) {
+      this.showToast('לא נמצאו שידורים נוספים ב-7 הימים האחרונים עבור "' + seriesTitle + '"', true);
+      return;
+    }
+
+    this.cancelAutoFullscreen();
+    if (!this.isModalOpen()) {
+      this._saveFocusBeforeModal();
+      this.previousModeBeforeModal = this.mode === 'FULLSCREEN' ? 'FULLSCREEN' : 'BROWSE';
+    } else if (this.mode !== 'PROGRAM_EPISODES') {
+      const openBackdrops = document.querySelectorAll('.modal-backdrop:not(.hidden)');
+      for (let i = 0; i < openBackdrops.length; i++) {
+        if (openBackdrops[i].id !== 'program-episodes-modal') {
+          openBackdrops[i].classList.add('hidden');
+        }
+      }
+    }
+
+    this.mode = 'PROGRAM_EPISODES';
+    this._programEpisodesSeriesTitle = seriesTitle;
+    this._programEpisodesChannel = ch;
+    this.programEpisodesNodes = [];
+    this.programEpisodesIndex = 0;
+
+    const osd = document.getElementById('fullscreen-osd');
+    if (osd) osd.classList.add('hidden');
+    const pauseBadge = document.getElementById('video-pause-indicator');
+    if (pauseBadge) pauseBadge.classList.add('hidden');
+
+    const titleEl = document.getElementById('program-episodes-title');
+    const countEl = document.getElementById('program-episodes-count');
+    const listEl = document.getElementById('program-episodes-list');
+    const modal = document.getElementById('program-episodes-modal');
+
+    if (titleEl) {
+      titleEl.textContent = seriesTitle + (ch && ch.name ? (' • ' + ch.name) : '');
+    }
+    if (countEl) {
+      countEl.textContent = episodes.length + ' שידורים מ-7 הימים האחרונים';
+    }
+
+    const mapped = [];
+    const hebrewDays = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+    for (let i = 0; i < episodes.length; i++) {
+      const ep = episodes[i];
+      const epChannel = ep.sameChannel && ch
+        ? ch
+        : (this._resolveChannelForEpgId(ep.epgChannelId, lookup) || ch);
+      const startMs = typeof ep.startMs === 'number' ? ep.startMs : ep.start;
+      const stopMs = typeof ep.stopMs === 'number' ? ep.stopMs : ep.stop;
+      const dObj = new Date(startMs);
+      const dd = ('0' + dObj.getDate()).slice(-2);
+      const mm = ('0' + (dObj.getMonth() + 1)).slice(-2);
+      const relDay = this._formatVodDayLabel(startMs);
+      const fullDayLabel = relDay + ' • יום ' + hebrewDays[dObj.getDay()] + ' ' + dd + '/' + mm;
+
+      mapped.push({
+        epgChannelId: ep.epgChannelId || (epChannel ? (epChannel.epgId || epChannel.id) : ''),
+        channel: epChannel || null,
+        channelName: epChannel ? epChannel.name : (lookup.channelMap[ep.epgChannelId] || ep.epgChannelId || ''),
+        channelNumber: epChannel ? epChannel.number : '',
+        title: ep.title || seriesTitle,
+        desc: ep.desc || '',
+        startMs: startMs,
+        stopMs: stopMs,
+        startStr: ep.startStr || (this.epg ? this.epg.formatTime(startMs) : ''),
+        stopStr: ep.stopStr || (this.epg ? this.epg.formatTime(stopMs) : ''),
+        dayBadge: fullDayLabel,
+        durationMin: ep.durationMin || Math.max(1, Math.round((stopMs - startMs) / 60000)),
+        isLive: Boolean(ep.isLive),
+        isPast: Boolean(ep.isPast),
+        sameChannel: Boolean(ep.sameChannel)
+      });
+    }
+    this.programEpisodes = mapped;
+
+    if (listEl) {
+      listEl.innerHTML = '';
+      listEl.scrollTop = 0;
+      const fragment = document.createDocumentFragment();
+      for (let i = 0; i < mapped.length; i++) {
+        const ep = mapped[i];
+        const row = document.createElement('div');
+        row.className = 'program-episode-row focusable' + (ep.isLive ? ' is-live' : ' is-past');
+        const pillHtml = ep.isLive
+          ? '<span class="vod-type-pill is-live">● משודר כעת</span>'
+          : '<span class="vod-type-pill is-vod">VOD • סטארט אובר</span>';
+        const playLabel = ep.isLive ? '▶ צפה מההתחלה / חי' : '▶ הפעל פרק זה';
+        row.innerHTML =
+          '<div class="ep-main-col">' +
+            '<div class="ep-meta-row">' +
+              '<span class="ep-day-badge"></span>' +
+              '<span class="ep-time-badge"></span>' +
+              (!ep.sameChannel && ep.channelName ? '<span class="ep-channel-badge"></span>' : '') +
+            '</div>' +
+            '<div class="ep-title"></div>' +
+            (ep.desc ? '<div class="ep-desc"></div>' : '') +
+          '</div>' +
+          '<div class="ep-actions-col">' +
+            pillHtml +
+            '<span class="ep-play-pill">' + playLabel + '</span>' +
+          '</div>';
+
+        const dayEl = row.querySelector('.ep-day-badge');
+        const timeEl = row.querySelector('.ep-time-badge');
+        const chEl = row.querySelector('.ep-channel-badge');
+        const epTitleEl = row.querySelector('.ep-title');
+        const epDescEl = row.querySelector('.ep-desc');
+        if (dayEl) dayEl.textContent = ep.dayBadge;
+        if (timeEl) timeEl.textContent = ep.startStr + ' - ' + ep.stopStr + ' (' + ep.durationMin + ' דק׳)';
+        if (chEl) chEl.textContent = (ep.channelNumber ? ('#' + ep.channelNumber + ' ') : '') + ep.channelName;
+        if (epTitleEl) epTitleEl.textContent = ep.title;
+        if (epDescEl) epDescEl.textContent = ep.desc;
+
+        row.addEventListener('click', () => {
+          this.programEpisodesIndex = i;
+          this.updateProgramEpisodesFocus();
+          this.playSelectedProgramEpisode(ep);
+        });
+
+        this.programEpisodesNodes.push(row);
+        fragment.appendChild(row);
+      }
+      listEl.appendChild(fragment);
+    }
+
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.setAttribute('aria-hidden', 'false');
+    }
+    this.updateVideoSurfacePosition();
+
+    if (this.programEpisodesNodes.length > 0) {
+      this.updateProgramEpisodesFocus();
+    } else {
+      const closeBtn = document.getElementById('btn-close-program-episodes');
+      if (closeBtn) this.setFocusedElementFast(closeBtn);
+    }
+  }
+
+  updateProgramEpisodesFocus() {
+    if (!Array.isArray(this.programEpisodesNodes) || this.programEpisodesNodes.length === 0) return;
+    if (this.programEpisodesIndex < 0) this.programEpisodesIndex = 0;
+    if (this.programEpisodesIndex >= this.programEpisodesNodes.length) {
+      this.programEpisodesIndex = this.programEpisodesNodes.length - 1;
+    }
+    const target = this.programEpisodesNodes[this.programEpisodesIndex];
+    if (target) {
+      this.setFocusedElementFast(target);
+      this.scrollModalTargetIntoView(target);
+    }
+  }
+
+  navigateProgramEpisodesModal(direction) {
+    const closeBtn = document.getElementById('btn-close-program-episodes');
+    const curEl = this.currentFocusedEl;
+    if (curEl === closeBtn) {
+      if (direction === 'down' && this.programEpisodesNodes.length > 0) {
+        this.programEpisodesIndex = 0;
+        this.updateProgramEpisodesFocus();
+      }
+      return;
+    }
+
+    if (direction === 'down') {
+      if (this.programEpisodesNodes.length === 0) return;
+      this.programEpisodesIndex = (this.programEpisodesIndex + 1) % this.programEpisodesNodes.length;
+      this.updateProgramEpisodesFocus();
+    } else if (direction === 'up') {
+      if (this.programEpisodesIndex <= 0) {
+        if (closeBtn) this.setFocusedElementFast(closeBtn);
+        return;
+      }
+      this.programEpisodesIndex -= 1;
+      this.updateProgramEpisodesFocus();
+    } else if (direction === 'left' || direction === 'right') {
+      if (closeBtn) this.setFocusedElementFast(closeBtn);
+    }
+  }
+
+  playSelectedProgramEpisode(ep) {
+    if (!ep) return false;
+    const ch = ep.channel || this._resolveChannelForEpgId(ep.epgChannelId) || this._programEpisodesChannel;
+    if (!ch) {
+      this.showToast('הערוץ של פרק זה אינו נמצא ברשימת הערוצים הפעילה', true);
+      return false;
+    }
+    this.closeModals();
+    return this.playCatchup(ch, ep);
   }
 
   togglePlayPause() {
@@ -7725,6 +8129,7 @@ class IPTVApp {
       this.mode === 'ISSUE' ||
       this.mode === 'DISCLAIMER' ||
       this.mode === 'VOICE' ||
+      this.mode === 'PROGRAM_EPISODES' ||
       Boolean(this._sleepWarningActive)
     );
   }
@@ -8051,7 +8456,7 @@ class IPTVApp {
     const modals = document.querySelectorAll('.modal-backdrop');
     for (let i = 0; i < modals.length; i++) {
       modals[i].classList.add('hidden');
-      if (modals[i].id === 'voice-overlay' || modals[i].id === 'sleep-warning-modal') {
+      if (modals[i].id === 'voice-overlay' || modals[i].id === 'sleep-warning-modal' || modals[i].id === 'program-episodes-modal') {
         modals[i].setAttribute('aria-hidden', 'true');
       }
     }
@@ -8097,6 +8502,7 @@ class IPTVApp {
         node.id === 'channel-editor-list' ||
         node.id === 'search-results-list' ||
         node.id === 'guide-programmes-list' ||
+        node.id === 'program-episodes-list' ||
         (
           node.classList &&
           (
@@ -8193,6 +8599,7 @@ class IPTVApp {
     if (!activeModal) return;
 
     const candidates = [
+      activeModal.querySelector('#program-episodes-list'),
       activeModal.querySelector('#guide-programmes-list'),
       activeModal.querySelector('#channel-editor-list'),
       activeModal.querySelector('#search-results-list'),
