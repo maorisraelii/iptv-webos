@@ -147,18 +147,19 @@ html, body {
   background-color: rgba(148, 163, 184, 0.07);
   color: var(--text-secondary);
   border: 1px solid var(--border-subtle);
-  padding: 8px 15px;
+  padding: 8px 13px;
   border-radius: 11px;
-  font-size: 19px;
+  font-size: 18px;
   font-weight: 700;
   cursor: pointer;
-  margin-left: 9px;
+  margin-left: 8px;
   white-space: nowrap;
+  flex-shrink: 0;
   transition: background-color 0.1s ease, border-color 0.1s ease, color 0.1s ease, box-shadow 0.1s ease;
 }
 
 .top-nav-btn .btn-icon {
-  font-size: 20px;
+  font-size: 19px;
   margin-left: 7px;
 }
 
@@ -192,11 +193,36 @@ html, body {
   color: #fde68a;
 }
 
+#btn-open-vod:not(.focused):not(:focus):not(:hover) {
+  border-color: rgba(56, 189, 248, 0.42);
+  background-color: rgba(14, 116, 144, 0.24);
+  color: #bae6fd;
+}
+
+#btn-voice-command:not(.focused):not(:focus):not(:hover) {
+  border-color: rgba(129, 140, 248, 0.44);
+  background-color: rgba(79, 70, 229, 0.22);
+  color: #e0e7ff;
+}
+
+#btn-open-vod .svg-icon,
+#btn-voice-command .svg-icon {
+  color: currentColor;
+}
+
 .top-nav-btn:hover,
-.top-nav-btn.focused {
+.top-nav-btn:focus,
+.top-nav-btn.focused,
+#btn-open-vod:hover,
+#btn-open-vod:focus,
+#btn-open-vod.focused,
+#btn-voice-command:hover,
+#btn-voice-command:focus,
+#btn-voice-command.focused {
   background-color: var(--primary-accent);
   color: #ffffff;
   border-color: #ffffff;
+  outline: none;
   box-shadow: 0 0 0 2px var(--accent-ring);
 }
 
@@ -217,6 +243,59 @@ html, body {
   margin-right: 4px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.4px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 1620px) {
+  .top-header {
+    padding: 0 18px;
+  }
+  .top-nav-btn {
+    padding: 7px 10px;
+    font-size: 16px;
+    margin-left: 6px;
+  }
+  .header-clock {
+    font-size: 24px;
+    padding: 5px 12px;
+  }
+}
+
+html[dir="ltr"] .brand-badge {
+  margin-left: 0;
+  margin-right: 14px;
+}
+
+html[dir="ltr"] .live-pulse {
+  margin-left: 0;
+  margin-right: 9px;
+}
+
+html[dir="ltr"] .header-view-label {
+  margin-left: 0;
+  margin-right: 12px;
+}
+
+html[dir="ltr"] .header-version-pill {
+  margin-right: 0;
+  margin-left: 10px;
+}
+
+html[dir="ltr"] .top-nav-btn {
+  margin-left: 0;
+  margin-right: 8px;
+}
+
+html[dir="ltr"] .top-nav-btn .btn-icon,
+html[dir="ltr"] .svg-icon,
+html[dir="ltr"] .btn-icon-star {
+  margin-left: 0;
+  margin-right: 7px;
+}
+
+html[dir="ltr"] .header-clock {
+  margin-right: 0;
+  margin-left: 4px;
 }
 
 /* ==========================================================================
@@ -547,6 +626,34 @@ html, body {
 .channel-item.active.focused .channel-ok-pill {
   background-color: #fef08a;
   color: #0f172a;
+}
+
+.channel-vod-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background-color: rgba(6, 182, 212, 0.16);
+  border: 1px solid rgba(34, 211, 238, 0.48);
+  color: #67e8f9;
+  margin-left: 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.channel-item.focused .channel-vod-badge {
+  background-color: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.72);
+  color: #ffffff;
+}
+
+html[dir="ltr"] .channel-vod-badge {
+  margin-left: 0;
+  margin-right: 8px;
 }
 
 /* ==========================================================================
@@ -1193,20 +1300,22 @@ html, body {
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 18px 44px 26px;
-  background-color: rgba(6, 9, 18, 0.90);
-  border-top: 1px solid var(--border-subtle);
+  padding: 26px 44px 26px;
+  background-color: rgba(4, 7, 15, 0.76);
+  background-image: linear-gradient(180deg, rgba(4, 7, 15, 0) 0%, rgba(4, 7, 15, 0.70) 26%, rgba(4, 7, 15, 0.94) 100%);
+  border-top: none;
   will-change: auto;
   contain: layout style;
   z-index: 110;
 }
 
 .osd-card {
-  background-color: var(--bg-panel);
+  background-color: rgba(12, 18, 32, 0.94);
   border: 1px solid var(--border-strong);
   border-top: 2px solid var(--primary-bright);
   border-radius: 20px;
   padding: 18px 28px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }
 
 .osd-surf-prompt {
@@ -1656,6 +1765,61 @@ html, body {
   margin-top: 3px;
 }
 
+#channel-number-jump #numeric-zap-preview {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+body > #numeric-zap-preview {
+  position: fixed;
+  top: 40px;
+  right: 48px;
+  background-color: rgba(12, 18, 32, 0.96);
+  border: 2px solid var(--primary-bright);
+  padding: 14px 22px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  min-width: 340px;
+  max-width: 640px;
+  z-index: 255;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.48);
+}
+
+html[dir="ltr"] body > #numeric-zap-preview {
+  right: auto;
+  left: 48px;
+}
+
+#numeric-zap-preview .zap-preview-num {
+  font-size: 36px;
+  font-weight: 900;
+  color: var(--primary-bright);
+  margin-left: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+#numeric-zap-preview .zap-preview-name {
+  font-size: 23px;
+  font-weight: 800;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#numeric-zap-preview .zap-preview-sub {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--accent-text);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ==========================================================================
    Bottom Remote Legend Bar (#color-bar)
    ========================================================================== */
@@ -1797,6 +1961,8 @@ html, body {
   min-height: 0;
   position: relative;
   -webkit-overflow-scrolling: touch;
+  scroll-padding-top: 16px;
+  scroll-padding-bottom: 18px;
 }
 
 .modal-body.settings-tab-content {
@@ -1804,6 +1970,8 @@ html, body {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  scroll-padding-top: 16px;
+  scroll-padding-bottom: 18px;
 }
 
 .modal-body::-webkit-scrollbar,
@@ -1868,6 +2036,156 @@ html, body {
   flex-shrink: 0;
 }
 
+#guide-scope-bar {
+  display: flex;
+  align-items: center;
+  padding: 10px 28px;
+  background-color: var(--bg-inset);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.guide-scope-btn,
+#btn-guide-scope-channel:not(.focused):not(:focus):not(:hover),
+#btn-guide-scope-vod:not(.focused):not(:focus):not(:hover) {
+  background-color: var(--bg-card);
+  color: #cbd5e1;
+  border: 1px solid var(--border-subtle);
+  padding: 9px 20px;
+  border-radius: 10px;
+  font-size: 19px;
+  font-weight: 800;
+  margin-left: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background-color 0.08s ease, border-color 0.08s ease, color 0.08s ease;
+}
+
+.guide-scope-btn:last-child,
+#guide-scope-bar > button:last-child {
+  margin-left: 0;
+}
+
+html[dir="ltr"] .guide-scope-btn,
+html[dir="ltr"] [id="btn-guide-scope-channel"],
+html[dir="ltr"] [id="btn-guide-scope-vod"] {
+  margin-left: 0;
+  margin-right: 12px;
+}
+
+html[dir="ltr"] .guide-scope-btn:last-child,
+html[dir="ltr"] #guide-scope-bar > button:last-child {
+  margin-right: 0;
+}
+
+.guide-scope-btn.active,
+#btn-guide-scope-channel.active:not(.focused):not(:focus):not(:hover),
+#btn-guide-scope-vod.active:not(.focused):not(:focus):not(:hover) {
+  background-color: var(--accent-surface-strong);
+  border-color: var(--primary-bright);
+  color: #ffffff;
+}
+
+.guide-scope-btn:hover,
+.guide-scope-btn:focus,
+.guide-scope-btn.focused,
+[id="btn-guide-scope-channel"]:hover,
+[id="btn-guide-scope-channel"]:focus,
+[id="btn-guide-scope-channel"].focused,
+[id="btn-guide-scope-vod"]:hover,
+[id="btn-guide-scope-vod"]:focus,
+[id="btn-guide-scope-vod"].focused {
+  background-color: var(--primary-accent);
+  border-color: #ffffff;
+  color: #ffffff;
+  padding: 9px 20px;
+  border-radius: 10px;
+  font-size: 19px;
+  font-weight: 800;
+  white-space: nowrap;
+  flex-shrink: 0;
+  outline: none;
+}
+
+#vod-search-bar {
+  display: flex;
+  align-items: center;
+  padding: 10px 28px;
+  background-color: rgba(8, 13, 25, 0.92);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+#vod-search-input {
+  flex: 1;
+  min-width: 0;
+  margin-left: 14px;
+  padding: 10px 16px;
+  font-size: 19px;
+  font-weight: 600;
+  background-color: var(--bg-deep);
+  color: #ffffff;
+  border: 1px solid var(--border-strong);
+  border-radius: 11px;
+}
+
+html[dir="ltr"] #vod-search-input {
+  margin-left: 0;
+  margin-right: 14px;
+}
+
+#vod-search-input:focus,
+#vod-search-input.focused {
+  border: 2px solid var(--primary-bright);
+  background-color: var(--bg-panel);
+  outline: none;
+}
+
+#btn-vod-only-past:not(.focused):not(:focus):not(:hover) {
+  background-color: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-strong);
+  padding: 10px 18px;
+  border-radius: 11px;
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background-color 0.08s ease, border-color 0.08s ease, color 0.08s ease;
+}
+
+#btn-vod-only-past {
+  padding: 10px 18px;
+  border-radius: 11px;
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+  border: 1px solid var(--border-strong);
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background-color 0.08s ease, border-color 0.08s ease, color 0.08s ease;
+}
+
+#btn-vod-only-past.active:not(.focused):not(:focus):not(:hover),
+#btn-vod-only-past.active-filter:not(.focused):not(:focus):not(:hover),
+#btn-vod-only-past.is-active:not(.focused):not(:focus):not(:hover),
+#btn-vod-only-past[aria-pressed="true"]:not(.focused):not(:focus):not(:hover) {
+  background-color: rgba(6, 182, 212, 0.22);
+  border-color: #22d3ee;
+  color: #cffafe;
+}
+
+#btn-vod-only-past:hover,
+#btn-vod-only-past:focus,
+#btn-vod-only-past.focused {
+  background-color: var(--primary-accent);
+  border-color: #ffffff;
+  color: #ffffff;
+  outline: none;
+}
+
 .guide-day-tab {
   background-color: var(--bg-card);
   color: #cbd5e1;
@@ -1896,16 +2214,251 @@ html, body {
 
 .guide-body {
   flex: 1;
+  min-height: 0;
   display: flex;
   overflow: hidden;
   padding: 18px 28px;
 }
 
 .guide-list-col {
+  flex: 1 1 62%;
   width: 62%;
+  min-width: 0;
+  min-height: 0;
   position: relative;
   overflow-y: auto;
+  padding-top: 4px;
+  padding-bottom: 18px;
   padding-left: 18px;
+  scroll-padding-top: 16px;
+  scroll-padding-bottom: 18px;
+}
+
+html[dir="ltr"] .guide-list-col {
+  padding-left: 0;
+  padding-right: 18px;
+}
+
+#vod-results-list {
+  scroll-padding-top: 16px;
+  scroll-padding-bottom: 18px;
+}
+
+.vod-result-card {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  border-radius: 14px;
+  background-color: var(--bg-card);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  text-align: right;
+  cursor: pointer;
+  contain: layout style;
+  transition: background-color 0.08s ease, border-color 0.08s ease, transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+html[dir="ltr"] .vod-result-card {
+  text-align: left;
+}
+
+.vod-result-card:hover,
+.vod-result-card:focus,
+.vod-result-card.focused {
+  background-color: var(--primary-accent);
+  border-color: #ffffff;
+  outline: none;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.34);
+}
+
+.vod-result-card .vod-card-meta,
+.vod-result-card .vod-card-header,
+.vod-result-card .vod-meta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.vod-result-card .vod-card-footer,
+.vod-result-card .vod-result-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 7px;
+}
+
+.vod-result-card h3,
+.vod-result-card h4,
+.vod-result-card .vod-title,
+.vod-result-card .vod-card-title,
+.vod-result-card .vod-prog-title,
+.vod-result-card .vod-result-title {
+  font-size: 23px;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.28;
+  margin-bottom: 4px;
+  unicode-bidi: plaintext;
+}
+
+.vod-result-card p,
+.vod-result-card .vod-sub,
+.vod-result-card .vod-subtitle,
+.vod-result-card .vod-desc,
+.vod-result-card .vod-card-desc,
+.vod-result-card .vod-card-sub,
+.vod-result-card .vod-prog-desc,
+.vod-result-card .vod-result-sub,
+.vod-result-card .vod-result-desc {
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  line-height: 1.38;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.vod-result-card:hover p,
+.vod-result-card:focus p,
+.vod-result-card.focused p,
+.vod-result-card:hover .vod-desc,
+.vod-result-card.focused .vod-desc,
+.vod-result-card:hover .vod-card-desc,
+.vod-result-card.focused .vod-card-desc,
+.vod-result-card:hover .vod-sub,
+.vod-result-card.focused .vod-sub {
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.vod-channel-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 15px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 8px;
+  background-color: var(--accent-surface);
+  border: 1px solid var(--accent-border-soft);
+  color: var(--primary-bright);
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+.vod-day-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 8px;
+  background-color: rgba(148, 163, 184, 0.14);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  color: #cbd5e1;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+.vod-type-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 999px;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+.vod-type-pill.is-live {
+  background-color: rgba(225, 29, 72, 0.20);
+  border: 1px solid rgba(244, 63, 94, 0.60);
+  color: #fecdd3;
+}
+
+.vod-type-pill.is-live::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #ff2a55;
+  margin-left: 6px;
+  flex-shrink: 0;
+  animation: vodLivePulse 1.4s ease-in-out infinite;
+}
+
+.vod-type-pill.is-vod {
+  background-color: rgba(6, 182, 212, 0.18);
+  border: 1px solid rgba(34, 211, 238, 0.56);
+  color: #67e8f9;
+}
+
+.vod-play-cta {
+  display: inline-flex;
+  align-items: center;
+  font-size: 15px;
+  font-weight: 800;
+  padding: 4px 13px;
+  border-radius: 9px;
+  background-color: rgba(56, 189, 248, 0.16);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  color: #e0f2fe;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-right: auto;
+}
+
+html[dir="ltr"] .vod-channel-badge,
+html[dir="ltr"] .vod-day-badge,
+html[dir="ltr"] .vod-type-pill {
+  margin-left: 0;
+  margin-right: 8px;
+}
+
+html[dir="ltr"] .vod-type-pill.is-live::before {
+  margin-left: 0;
+  margin-right: 6px;
+}
+
+html[dir="ltr"] .vod-play-cta {
+  margin-right: 0;
+  margin-left: auto;
+}
+
+.vod-result-card:hover .vod-channel-badge,
+.vod-result-card:focus .vod-channel-badge,
+.vod-result-card.focused .vod-channel-badge,
+.vod-result-card:hover .vod-day-badge,
+.vod-result-card:focus .vod-day-badge,
+.vod-result-card.focused .vod-day-badge {
+  background-color: rgba(6, 9, 18, 0.36);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #ffffff;
+}
+
+.vod-result-card:hover .vod-type-pill.is-vod,
+.vod-result-card:focus .vod-type-pill.is-vod,
+.vod-result-card.focused .vod-type-pill.is-vod {
+  background-color: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.72);
+  color: #ffffff;
+}
+
+.vod-result-card:hover .vod-play-cta,
+.vod-result-card:focus .vod-play-cta,
+.vod-result-card.focused .vod-play-cta {
+  background-color: #ffffff;
+  border-color: #ffffff;
+  color: #0f172a;
+}
+
+@keyframes vodLivePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.42; transform: scale(0.84); }
 }
 
 .guide-prog-item {
@@ -2170,6 +2723,8 @@ html, body {
   max-height: 125px;
   overflow-y: auto;
   margin-bottom: 10px;
+  scroll-padding-top: 16px;
+  scroll-padding-bottom: 18px;
 }
 
 .source-item-row {
@@ -2248,12 +2803,114 @@ html, body {
 }
 
 .epg-input-col {
-  width: 54%;
+  flex: 1;
+  min-width: 240px;
+  width: auto;
+  margin-left: 14px;
+}
+
+html[dir="ltr"] .epg-input-col {
+  margin-left: 0;
+  margin-right: 14px;
 }
 
 .epg-actions-col {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
+}
+
+.epg-actions-col .btn-tv-primary,
+.epg-actions-col .btn-tv-secondary {
+  padding: 9px 15px;
+  font-size: 17px;
+  margin-right: 10px;
+  margin-left: 0;
+}
+
+.epg-actions-col > button:first-child {
+  margin-right: 0;
+}
+
+html[dir="ltr"] .epg-actions-col .btn-tv-primary,
+html[dir="ltr"] .epg-actions-col .btn-tv-secondary {
+  margin-right: 0;
+  margin-left: 10px;
+}
+
+html[dir="ltr"] .epg-actions-col > button:first-child {
+  margin-left: 0;
+}
+
+#btn-append-default-source:not(.focused):not(:focus):not(:hover) {
+  background-color: rgba(16, 185, 129, 0.15);
+  border-color: rgba(52, 211, 153, 0.56);
+  color: #6ee7b7;
+}
+
+#btn-append-default-source:hover,
+#btn-append-default-source:focus,
+#btn-append-default-source.focused {
+  background-color: #059669;
+  border-color: #ffffff;
+  color: #ffffff;
+  outline: none;
+}
+
+html.ui-focus-border #btn-append-default-source.focused,
+html.ui-focus-border #btn-append-default-source:focus,
+html.ui-focus-border #btn-append-default-source:hover {
+  background-color: #064e3b;
+  border-color: #ffffff;
+  box-shadow: inset 0 0 0 2px #34d399 !important;
+}
+
+html.ui-focus-solid #btn-append-default-source.focused,
+html.ui-focus-solid #btn-append-default-source:focus,
+html.ui-focus-solid #btn-append-default-source:hover {
+  background-color: #059669;
+  border-color: #ffffff;
+  box-shadow: none !important;
+}
+
+#ui-sleep-options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+#ui-sleep-options .perf-option-btn,
+#ui-sleep-options button {
+  width: 23.8%;
+  margin-left: 1.5%;
+  margin-bottom: 8px;
+}
+
+#ui-sleep-options .perf-option-btn:nth-child(4n),
+#ui-sleep-options button:nth-child(4n) {
+  margin-left: 0;
+}
+
+html[dir="ltr"] #ui-sleep-options .perf-option-btn,
+html[dir="ltr"] #ui-sleep-options button {
+  margin-left: 0;
+  margin-right: 1.5%;
+}
+
+html[dir="ltr"] #ui-sleep-options .perf-option-btn:nth-child(4n),
+html[dir="ltr"] #ui-sleep-options button:nth-child(4n) {
+  margin-right: 0;
+}
+
+#ui-voice-lang-options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+#ui-voice-lang-options .perf-option-btn,
+#ui-voice-lang-options button {
+  width: 49%;
 }
 
 .input-label {
@@ -2351,6 +3008,8 @@ html, body {
   border: 1px solid var(--border-subtle);
   border-radius: 16px;
   padding: 12px;
+  scroll-padding-top: 16px;
+  scroll-padding-bottom: 18px;
 }
 
 .editor-channel-row {
@@ -2942,6 +3601,8 @@ html, body {
   flex: 1;
   position: relative;
   overflow-y: auto;
+  scroll-padding-top: 16px;
+  scroll-padding-bottom: 18px;
 }
 
 .search-results-list .channel-item {
@@ -3224,6 +3885,8 @@ html, body {
   border-radius: 14px;
   padding: 18px 22px;
   margin-bottom: 22px;
+  scroll-padding-top: 16px;
+  scroll-padding-bottom: 18px;
 }
 
 .ota-notes-heading {
@@ -3350,6 +4013,8 @@ html, body {
   overflow-x: hidden;
   padding-left: 6px;
   margin-bottom: 20px;
+  scroll-padding-top: 16px;
+  scroll-padding-bottom: 18px;
 }
 
 .disclaimer-points {
@@ -3429,6 +4094,255 @@ html, body {
   font-weight: 800;
   padding: 14px 34px !important;
   min-width: 340px;
+}
+
+/* ==========================================================================
+   v5.6.0 Sleep Timer Warning, Power-Save Blackout & Voice Command Overlay
+   ========================================================================== */
+
+#sleep-warning-modal {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 450;
+  background-color: rgba(4, 7, 15, 0.90);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#sleep-warning-card {
+  width: 720px;
+  max-width: 90vw;
+  background-color: var(--bg-panel);
+  border: 1px solid rgba(245, 158, 11, 0.48);
+  border-top: 3px solid #f59e0b;
+  border-radius: 24px;
+  padding: 36px 42px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.62);
+}
+
+#sleep-warning-card h2,
+#sleep-warning-card .sleep-warning-title {
+  font-size: 32px;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+#sleep-warning-card p,
+#sleep-warning-card .sleep-warning-sub {
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin-bottom: 10px;
+}
+
+#sleep-countdown-sec {
+  font-size: 86px;
+  font-weight: 900;
+  line-height: 1;
+  color: #fbbf24;
+  font-variant-numeric: tabular-nums;
+  margin: 12px 0 18px;
+  letter-spacing: -0.02em;
+}
+
+@media (max-width: 1280px) {
+  #sleep-countdown-sec {
+    font-size: 68px;
+  }
+}
+
+#sleep-countdown-bar-track {
+  width: 100%;
+  height: 14px;
+  border-radius: 999px;
+  background-color: rgba(148, 163, 184, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+  margin-bottom: 26px;
+  direction: ltr;
+}
+
+#sleep-countdown-bar {
+  height: 100%;
+  width: 100%;
+  border-radius: 999px;
+  background-color: #f59e0b;
+  background-image: linear-gradient(90deg, #f59e0b 0%, #38bdf8 100%);
+  transform-origin: left center;
+  transition: width 0.9s linear, transform 0.9s linear;
+}
+
+#btn-sleep-stay-awake {
+  min-width: 360px;
+  padding: 15px 34px;
+  font-size: 23px;
+  font-weight: 800;
+  border-radius: 14px;
+  cursor: pointer;
+  margin: 0;
+}
+
+#btn-sleep-stay-awake:not(.focused):not(:focus):not(:hover) {
+  background-color: var(--primary-accent);
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+}
+
+#btn-sleep-stay-awake:focus,
+#btn-sleep-stay-awake.focused,
+#btn-sleep-stay-awake:hover {
+  background-color: #f59e0b;
+  border: 2px solid #ffffff;
+  color: #090d16;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(253, 230, 138, 0.65);
+}
+
+#power-save-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #000000;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+}
+
+#power-save-screen > *,
+#power-save-screen .power-save-hint,
+#power-save-screen .power-save-wake-hint,
+#power-save-hint {
+  opacity: 0.28;
+  color: #94a3b8;
+  font-size: 21px;
+  font-weight: 600;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  pointer-events: none;
+  padding: 12px 24px;
+}
+
+#voice-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 420;
+  background-color: rgba(4, 7, 15, 0.86);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.voice-card {
+  width: 680px;
+  max-width: 90vw;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--accent-border);
+  border-top: 2px solid var(--primary-bright);
+  border-radius: 24px;
+  padding: 34px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.58);
+}
+
+#voice-mic-ring {
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  font-size: 42px;
+  color: #ffffff;
+  background-color: var(--accent-surface-strong);
+  border: 3px solid var(--primary-bright);
+  animation: voiceRingPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes voiceRingPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.45);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 14px rgba(56, 189, 248, 0);
+    transform: scale(1.03);
+  }
+}
+
+#voice-status-text {
+  font-size: 28px;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 12px;
+  line-height: 1.3;
+}
+
+#voice-transcript-text {
+  width: 100%;
+  min-height: 68px;
+  padding: 14px 20px;
+  border-radius: 14px;
+  background-color: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  font-size: 23px;
+  font-weight: 700;
+  color: var(--primary-bright);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  margin-bottom: 22px;
+  line-height: 1.4;
+  unicode-bidi: plaintext;
+}
+
+#btn-voice-cancel {
+  min-width: 220px;
+  padding: 11px 28px;
+  font-size: 20px;
+  font-weight: 800;
+  border-radius: 12px;
+  cursor: pointer;
+  margin: 0;
+}
+
+#btn-voice-cancel:not(.focused):not(:focus):not(:hover) {
+  background-color: rgba(148, 163, 184, 0.14);
+  border: 1px solid var(--border-strong);
+  color: #ffffff;
+}
+
+#btn-voice-cancel:focus,
+#btn-voice-cancel.focused,
+#btn-voice-cancel:hover {
+  background-color: var(--danger-color);
+  border: 1px solid #ffffff;
+  color: #ffffff;
+  outline: none;
 }
 
 /* ==========================================================================
@@ -3608,6 +4522,11 @@ html.ui-density-compact .channel-playing-badge {
 
 html.ui-density-compact .channel-fav-star {
   font-size: 20px;
+}
+
+html.ui-density-compact .channel-vod-badge {
+  font-size: 11px;
+  padding: 0 6px;
 }
 
 /* Explicit px UI / Font Scale Overrides (sm < md < lg) */
@@ -3928,7 +4847,10 @@ html.ui-radius-sharp .empty-state-card,
 html.ui-radius-sharp .toast,
 html.ui-radius-sharp .video-pause-indicator,
 html.ui-radius-sharp .preview-autoplay-off-badge,
-html.ui-radius-sharp .ota-popup-body {
+html.ui-radius-sharp .ota-popup-body,
+html.ui-radius-sharp #sleep-warning-card,
+html.ui-radius-sharp .voice-card,
+html.ui-radius-sharp #numeric-zap-preview {
   border-radius: 6px;
 }
 
@@ -4006,7 +4928,21 @@ html.ui-radius-sharp .stream-stats-badge,
 html.ui-radius-sharp .channel-mini-progress-track,
 html.ui-radius-sharp .channel-mini-progress-fill,
 html.ui-radius-sharp .epg-progress-track,
-html.ui-radius-sharp .epg-progress-fill {
+html.ui-radius-sharp .epg-progress-fill,
+html.ui-radius-sharp .vod-result-card,
+html.ui-radius-sharp .vod-channel-badge,
+html.ui-radius-sharp .vod-day-badge,
+html.ui-radius-sharp .vod-type-pill,
+html.ui-radius-sharp .vod-play-cta,
+html.ui-radius-sharp .guide-scope-btn,
+html.ui-radius-sharp #vod-search-input,
+html.ui-radius-sharp #btn-vod-only-past,
+html.ui-radius-sharp #sleep-countdown-bar-track,
+html.ui-radius-sharp #sleep-countdown-bar,
+html.ui-radius-sharp #btn-sleep-stay-awake,
+html.ui-radius-sharp #voice-transcript-text,
+html.ui-radius-sharp #btn-voice-cancel,
+html.ui-radius-sharp .channel-vod-badge {
   border-radius: 4px;
 }
 
@@ -4032,7 +4968,10 @@ html.ui-radius-pill .ui-pref-card,
 html.ui-radius-pill .pc-sync-box,
 html.ui-radius-pill .qr-cloud-sync-box,
 html.ui-radius-pill .empty-state-card,
-html.ui-radius-pill .ota-popup-body {
+html.ui-radius-pill .ota-popup-body,
+html.ui-radius-pill #sleep-warning-card,
+html.ui-radius-pill .voice-card,
+html.ui-radius-pill #numeric-zap-preview {
   border-radius: 28px;
 }
 
@@ -4061,7 +5000,9 @@ html.ui-radius-pill .program-strip-item,
 html.ui-radius-pill .toast,
 html.ui-radius-pill .video-pause-indicator,
 html.ui-radius-pill .preview-autoplay-off-badge,
-html.ui-radius-pill .jump-num-box {
+html.ui-radius-pill .jump-num-box,
+html.ui-radius-pill .vod-result-card,
+html.ui-radius-pill #voice-transcript-text {
   border-radius: 20px;
 }
 
@@ -4112,7 +5053,17 @@ html.ui-radius-pill .ota-status-pill,
 html.ui-radius-pill .disclaimer-badge,
 html.ui-radius-pill .ota-version-compare,
 html.ui-radius-pill .ui-toggle-pill,
-html.ui-radius-pill .stream-stats-badge {
+html.ui-radius-pill .stream-stats-badge,
+html.ui-radius-pill .guide-scope-btn,
+html.ui-radius-pill #vod-search-input,
+html.ui-radius-pill #btn-vod-only-past,
+html.ui-radius-pill .vod-channel-badge,
+html.ui-radius-pill .vod-day-badge,
+html.ui-radius-pill .vod-type-pill,
+html.ui-radius-pill .vod-play-cta,
+html.ui-radius-pill #btn-sleep-stay-awake,
+html.ui-radius-pill #btn-voice-cancel,
+html.ui-radius-pill .channel-vod-badge {
   border-radius: 999px;
 }
 
@@ -4159,7 +5110,8 @@ html.ui-bg-oled .editor-channel-row {
 }
 
 html.ui-bg-oled .fullscreen-osd {
-  background-color: rgba(0, 0, 0, 0.92);
+  background-color: rgba(0, 0, 0, 0.78);
+  background-image: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.76) 26%, rgba(0, 0, 0, 0.96) 100%);
 }
 
 html.ui-bg-oled .channel-number-jump {
@@ -4190,7 +5142,8 @@ html.ui-bg-slate .list-instruction-bar {
 }
 
 html.ui-bg-slate .fullscreen-osd {
-  background-color: rgba(17, 19, 24, 0.92);
+  background-color: rgba(17, 19, 24, 0.78);
+  background-image: linear-gradient(180deg, rgba(17, 19, 24, 0) 0%, rgba(17, 19, 24, 0.74) 26%, rgba(17, 19, 24, 0.94) 100%);
 }
 
 html.ui-bg-slate .channel-number-jump {
@@ -4221,7 +5174,8 @@ html.ui-bg-deepblue .list-instruction-bar {
 }
 
 html.ui-bg-deepblue .fullscreen-osd {
-  background-color: rgba(5, 12, 31, 0.92);
+  background-color: rgba(5, 12, 31, 0.78);
+  background-image: linear-gradient(180deg, rgba(5, 12, 31, 0) 0%, rgba(5, 12, 31, 0.74) 26%, rgba(5, 12, 31, 0.94) 100%);
 }
 
 html.ui-bg-deepblue .channel-number-jump {
@@ -4249,15 +5203,18 @@ html.ui-osd-op-light.ui-osd-minimal .osd-card {
 }
 
 html.ui-osd-op-solid:not(.ui-osd-minimal) .fullscreen-osd {
-  background-color: rgba(6, 9, 18, 0.96);
+  background-color: rgba(6, 9, 18, 0.88);
+  background-image: linear-gradient(180deg, rgba(6, 9, 18, 0) 0%, rgba(6, 9, 18, 0.86) 24%, rgba(6, 9, 18, 0.98) 100%);
 }
 
 html.ui-osd-op-balanced:not(.ui-osd-minimal) .fullscreen-osd {
-  background-color: rgba(6, 9, 18, 0.86);
+  background-color: rgba(4, 7, 15, 0.76);
+  background-image: linear-gradient(180deg, rgba(4, 7, 15, 0) 0%, rgba(4, 7, 15, 0.70) 26%, rgba(4, 7, 15, 0.92) 100%);
 }
 
 html.ui-osd-op-light:not(.ui-osd-minimal) .fullscreen-osd {
-  background-color: rgba(6, 9, 18, 0.56);
+  background-color: rgba(4, 7, 15, 0.46);
+  background-image: linear-gradient(180deg, rgba(4, 7, 15, 0) 0%, rgba(4, 7, 15, 0.44) 30%, rgba(4, 7, 15, 0.74) 100%);
 }
 
 /* Granular Visibility Toggles */
@@ -4331,7 +5288,11 @@ html.ui-fx-light .ui-pref-card,
 html.ui-fx-light .perf-option-btn,
 html.ui-fx-light .settings-tab-btn,
 html.ui-fx-light .btn-tv-primary,
-html.ui-fx-light .btn-tv-secondary {
+html.ui-fx-light .btn-tv-secondary,
+html.ui-fx-light .vod-result-card,
+html.ui-fx-light #sleep-warning-card,
+html.ui-fx-light .voice-card,
+html.ui-fx-light #numeric-zap-preview {
   box-shadow: none !important;
 }
 
@@ -4366,7 +5327,19 @@ html.ui-focus-glow:not(.ui-fx-flat) .editor-btn:hover,
 html.ui-focus-glow:not(.ui-fx-flat) .perf-option-btn.focused,
 html.ui-focus-glow:not(.ui-fx-flat) .perf-option-btn:hover,
 html.ui-focus-glow:not(.ui-fx-flat) .kb-key.focused,
-html.ui-focus-glow:not(.ui-fx-flat) .kb-key:hover {
+html.ui-focus-glow:not(.ui-fx-flat) .kb-key:hover,
+html.ui-focus-glow:not(.ui-fx-flat) .guide-scope-btn.focused,
+html.ui-focus-glow:not(.ui-fx-flat) .guide-scope-btn:focus,
+html.ui-focus-glow:not(.ui-fx-flat) .guide-scope-btn:hover,
+html.ui-focus-glow:not(.ui-fx-flat) #btn-vod-only-past.focused,
+html.ui-focus-glow:not(.ui-fx-flat) #btn-vod-only-past:focus,
+html.ui-focus-glow:not(.ui-fx-flat) #btn-vod-only-past:hover,
+html.ui-focus-glow:not(.ui-fx-flat) .vod-result-card.focused,
+html.ui-focus-glow:not(.ui-fx-flat) .vod-result-card:focus,
+html.ui-focus-glow:not(.ui-fx-flat) .vod-result-card:hover,
+html.ui-focus-glow:not(.ui-fx-flat) #btn-voice-cancel.focused,
+html.ui-focus-glow:not(.ui-fx-flat) #btn-voice-cancel:focus,
+html.ui-focus-glow:not(.ui-fx-flat) #btn-voice-cancel:hover {
   background-color: var(--accent-surface-strong);
   border-color: var(--primary-bright);
   color: #ffffff;
@@ -4374,7 +5347,10 @@ html.ui-focus-glow:not(.ui-fx-flat) .kb-key:hover {
 }
 
 html.ui-focus-glow:not(.ui-fx-flat) .btn-tv-primary.focused,
-html.ui-focus-glow:not(.ui-fx-flat) .btn-tv-primary:hover {
+html.ui-focus-glow:not(.ui-fx-flat) .btn-tv-primary:hover,
+html.ui-focus-glow:not(.ui-fx-flat) #btn-sleep-stay-awake.focused,
+html.ui-focus-glow:not(.ui-fx-flat) #btn-sleep-stay-awake:focus,
+html.ui-focus-glow:not(.ui-fx-flat) #btn-sleep-stay-awake:hover {
   background-color: var(--primary-accent);
   border-color: #ffffff;
   color: #ffffff;
@@ -4420,7 +5396,22 @@ html.ui-focus-border:not(.ui-fx-flat) .editor-btn:hover,
 html.ui-focus-border:not(.ui-fx-flat) .perf-option-btn.focused,
 html.ui-focus-border:not(.ui-fx-flat) .perf-option-btn:hover,
 html.ui-focus-border:not(.ui-fx-flat) .kb-key.focused,
-html.ui-focus-border:not(.ui-fx-flat) .kb-key:hover {
+html.ui-focus-border:not(.ui-fx-flat) .kb-key:hover,
+html.ui-focus-border:not(.ui-fx-flat) .guide-scope-btn.focused,
+html.ui-focus-border:not(.ui-fx-flat) .guide-scope-btn:focus,
+html.ui-focus-border:not(.ui-fx-flat) .guide-scope-btn:hover,
+html.ui-focus-border:not(.ui-fx-flat) #btn-vod-only-past.focused,
+html.ui-focus-border:not(.ui-fx-flat) #btn-vod-only-past:focus,
+html.ui-focus-border:not(.ui-fx-flat) #btn-vod-only-past:hover,
+html.ui-focus-border:not(.ui-fx-flat) .vod-result-card.focused,
+html.ui-focus-border:not(.ui-fx-flat) .vod-result-card:focus,
+html.ui-focus-border:not(.ui-fx-flat) .vod-result-card:hover,
+html.ui-focus-border:not(.ui-fx-flat) #btn-sleep-stay-awake.focused,
+html.ui-focus-border:not(.ui-fx-flat) #btn-sleep-stay-awake:focus,
+html.ui-focus-border:not(.ui-fx-flat) #btn-sleep-stay-awake:hover,
+html.ui-focus-border:not(.ui-fx-flat) #btn-voice-cancel.focused,
+html.ui-focus-border:not(.ui-fx-flat) #btn-voice-cancel:focus,
+html.ui-focus-border:not(.ui-fx-flat) #btn-voice-cancel:hover {
   background-color: var(--bg-card-hover);
   border-color: #ffffff;
   color: #ffffff;
@@ -4467,7 +5458,22 @@ html.ui-focus-solid .editor-btn:hover,
 html.ui-focus-solid .perf-option-btn.focused,
 html.ui-focus-solid .perf-option-btn:hover,
 html.ui-focus-solid .kb-key.focused,
-html.ui-focus-solid .kb-key:hover {
+html.ui-focus-solid .kb-key:hover,
+html.ui-focus-solid .guide-scope-btn.focused,
+html.ui-focus-solid .guide-scope-btn:focus,
+html.ui-focus-solid .guide-scope-btn:hover,
+html.ui-focus-solid #btn-vod-only-past.focused,
+html.ui-focus-solid #btn-vod-only-past:focus,
+html.ui-focus-solid #btn-vod-only-past:hover,
+html.ui-focus-solid .vod-result-card.focused,
+html.ui-focus-solid .vod-result-card:focus,
+html.ui-focus-solid .vod-result-card:hover,
+html.ui-focus-solid #btn-sleep-stay-awake.focused,
+html.ui-focus-solid #btn-sleep-stay-awake:focus,
+html.ui-focus-solid #btn-sleep-stay-awake:hover,
+html.ui-focus-solid #btn-voice-cancel.focused,
+html.ui-focus-solid #btn-voice-cancel:focus,
+html.ui-focus-solid #btn-voice-cancel:hover {
   background-color: var(--primary-accent);
   border-color: #ffffff;
   color: #ffffff;
@@ -4565,9 +5571,15 @@ html.tv-platform.ui-hide-list-hints #channel-list .channel-ok-pill {
 .tv-platform .cat-pill,
 .tv-platform .osd-exit-btn,
 .tv-platform #preview-epg-title,
+.tv-platform .guide-scope-btn,
+.tv-platform #btn-vod-only-past,
+.tv-platform .vod-result-card,
+.tv-platform #btn-sleep-stay-awake,
+.tv-platform #btn-voice-cancel,
 .tv-platform .focusable {
   transition: none !important;
   box-shadow: none !important;
+  transform: none !important;
 }
 
 /* Zero box-shadow blur on .tv-platform focused items (0px blur spread rings only) */
@@ -4583,7 +5595,12 @@ html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .btn-tv-primary.focused,
 html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .btn-tv-secondary.focused,
 html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .editor-btn.focused,
 html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .perf-option-btn.focused,
-html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .kb-key.focused {
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .kb-key.focused,
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .guide-scope-btn.focused,
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) #btn-vod-only-past.focused,
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) .vod-result-card.focused,
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) #btn-sleep-stay-awake.focused,
+html.tv-platform.ui-focus-glow:not(.ui-fx-flat) #btn-voice-cancel.focused {
   box-shadow: 0 0 0 2px var(--accent-ring) !important;
 }
 
@@ -4625,8 +5642,34 @@ html.tv-platform .fullscreen-osd,
 .tv-platform .splash-bar-fill,
 .tv-platform .surf-dot,
 .tv-platform .color-badge,
-.tv-platform .stream-stats-badge {
+.tv-platform .stream-stats-badge,
+.tv-platform .vod-type-pill.is-live::before,
+.tv-platform #voice-mic-ring {
   animation: none !important;
+}
+
+.tv-platform #sleep-warning-card,
+.tv-platform .voice-card,
+.tv-platform #numeric-zap-preview {
+  box-shadow: none !important;
+}
+
+.tv-platform #voice-mic-ring {
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+html.tv-platform:not(.ui-anim-off) #sleep-countdown-bar {
+  transition: width 0.9s linear, transform 0.9s linear !important;
+}
+
+.tv-platform #power-save-screen {
+  background: #000000 !important;
+}
+
+.tv-platform #btn-sleep-stay-awake:focus,
+.tv-platform #btn-sleep-stay-awake.focused {
+  box-shadow: 0 0 0 2px rgba(253, 230, 138, 0.72) !important;
 }
 
 /* Global Flat FX Override (Desktop + TV) */
@@ -4645,6 +5688,19 @@ html.ui-fx-flat .epg-progress-fill {
 html.ui-fx-flat .channel-mini-progress-fill.ending-soon,
 html.ui-fx-flat .epg-progress-fill.ending-soon {
   background-color: #f59e0b !important;
+}
+
+html.ui-fx-flat #sleep-countdown-bar {
+  background-color: #f59e0b !important;
+  background-image: none !important;
+}
+
+html.ui-fx-flat #btn-voice-cancel.focused,
+html.ui-fx-flat #btn-voice-cancel:focus,
+html.ui-fx-flat #btn-voice-cancel:hover {
+  background-color: var(--danger-color) !important;
+  border-color: #ffffff !important;
+  color: #ffffff !important;
 }
 
 html.ui-fx-flat .channel-list-panel,
@@ -4671,7 +5727,12 @@ html.ui-fx-flat.ui-focus-border .btn-tv-primary.focused,
 html.ui-fx-flat.ui-focus-border .btn-tv-secondary.focused,
 html.ui-fx-flat.ui-focus-border .editor-btn.focused,
 html.ui-fx-flat.ui-focus-border .perf-option-btn.focused,
-html.ui-fx-flat.ui-focus-border .kb-key.focused {
+html.ui-fx-flat.ui-focus-border .kb-key.focused,
+html.ui-fx-flat.ui-focus-border .guide-scope-btn.focused,
+html.ui-fx-flat.ui-focus-border #btn-vod-only-past.focused,
+html.ui-fx-flat.ui-focus-border .vod-result-card.focused,
+html.ui-fx-flat.ui-focus-border #btn-sleep-stay-awake.focused,
+html.ui-fx-flat.ui-focus-border #btn-voice-cancel.focused {
   background-color: var(--bg-card-hover);
   border-color: #ffffff;
   outline: 3px solid var(--primary-bright);
@@ -4706,7 +5767,9 @@ html.tv-platform.ui-anim-reduced .boot-splash {
 html.ui-anim-reduced .live-pulse,
 html.ui-anim-reduced .splash-logo,
 html.ui-anim-reduced .boot-logo,
-html.ui-anim-reduced .splash-bar-fill {
+html.ui-anim-reduced .splash-bar-fill,
+html.ui-anim-reduced .vod-type-pill.is-live::before,
+html.ui-anim-reduced #voice-mic-ring {
   animation: none !important;
 }
 
